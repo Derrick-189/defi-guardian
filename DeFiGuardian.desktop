@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=DeFi Guardian
+Comment=Formal Verification Suite for DeFi Contracts
+Exec=python3 /home/slade/defi_guardian/desktop_app.py
+Icon=/home/slade/defi_guardian/defi_guardian_icon.png
+Terminal=false
+Type=Application
+Categories=Development;Security;
