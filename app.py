@@ -237,6 +237,60 @@ def generate_state_diagram(pml_file, rank_dir='TB', layout_engine='dot', show_tr
     except Exception as e:
         return False, None, {'error': str(e)}
 
+
+def load_active_verification_results():
+    """Load the latest verification results from the active file"""
+    results = {
+        'ltl_properties': [],
+        'model_name': 'No Model Loaded',
+        'verification_success': False,
+        'states_explored': 0,
+        'transitions': 0,
+        'depth_reached': 0
+    }
+    
+    # Check for active file
+    if os.path.exists("active_file.txt"):
+        with open("active_file.txt", "r") as f:
+            results['model_name'] = f.read().strip()
+    
+    # Load verification state
+    if os.path.exists("verification_state.json"):
+        try:
+            with open("verification_state.json", "r") as f:
+                state = json.load(f)
+                results['verification_success'] = state.get('success', False)
+                results['states_explored'] = state.get('states_stored', 0)
+                results['transitions'] = state.get('transitions', 0)
+                results['depth_reached'] = state.get('depth', 0)
+        except:
+            pass
+    
+    # Extract LTL properties from the translated model
+    pml_file = None
+    if os.path.exists("translated_output.pml"):
+        pml_file = "translated_output.pml"
+    elif os.path.exists(results['model_name']) and results['model_name'] != "No Model Loaded":
+        pml_file = results['model_name']
+    
+    if pml_file and os.path.exists(pml_file):
+        try:
+            with open(pml_file, 'r') as f:
+                content = f.read()
+                
+            # Extract LTL properties
+            ltl_pattern = r'ltl\s+(\w+)\s*\{([^}]+)\}'
+            for match in re.finditer(ltl_pattern, content):
+                results['ltl_properties'].append({
+                    'name': match.group(1),
+                    'formula': match.group(2).strip()
+                })
+        except:
+            pass
+    
+    return results        
+
+
 def get_active_filename():
     if os.path.exists("active_file.txt"):
         with open("active_file.txt", "r") as f:
@@ -580,6 +634,8 @@ if 'model_content' not in st.session_state:
     st.session_state.model_content = None
 if 'auto_refresh' not in st.session_state:
     st.session_state.auto_refresh = False
+if 'auto_refresh_dashboard' not in st.session_state:
+    st.session_state.auto_refresh_dashboard = False
 if 'diagram_path' not in st.session_state:
     st.session_state.diagram_path = None
 if 'state_machine' not in st.session_state:
@@ -668,7 +724,12 @@ with st.sidebar:
     # Auto Refresh
     st.markdown("---")
     st.session_state.auto_refresh = st.checkbox("Auto-refresh (5s)", st.session_state.auto_refresh)
+    st.session_state.auto_refresh_dashboard = st.checkbox("Auto-refresh dashboard (3s)", st.session_state.auto_refresh_dashboard)
     
+    # Manual Refresh Button
+    if st.button("🔄 Refresh Results"):
+        st.rerun()
+
     # Tool Status
     st.markdown("---")
     st.markdown("#### 🔧 Tool Status")
@@ -683,6 +744,11 @@ with st.sidebar:
     if st.session_state.auto_refresh:
         time.sleep(5)
         st.rerun()
+
+# Fast auto-refresh dashboard option
+if st.session_state.auto_refresh_dashboard:
+    time.sleep(3)
+    st.rerun()
 
 # ==================== MAIN CONTENT ====================
 
@@ -740,12 +806,31 @@ st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 # ==================== STATE DIAGRAM SECTION ====================
 
-# Determine PML file
+# Determine PML file - check multiple locations
 pml_file = None
+
+# Check in current directory
 if os.path.exists("translated_output.pml"):
     pml_file = "translated_output.pml"
 elif os.path.exists(active_name) and active_name != "No Model Loaded":
     pml_file = active_name
+
+# Check in defi_guardian directory if not found
+if not pml_file:
+    # Get the script directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    possible_paths = [
+        os.path.join(script_dir, "translated_output.pml"),
+        os.path.join(script_dir, active_name),
+        os.path.join(os.path.expanduser("~"), "defi_guardian", "translated_output.pml"),
+        os.path.join(os.path.expanduser("~"), "defi_guardian", active_name),
+        os.path.join(os.path.expanduser("~"), "slade", "defi_guardian", "translated_output.pml"),
+    ]
+    
+    for path in possible_paths:
+        if path and os.path.exists(path):
+            pml_file = path
+            break
 
 # State Diagram Container
 st.markdown('<div class="state-diagram-container">', unsafe_allow_html=True)
@@ -867,6 +952,92 @@ else:
     st.info("📄 No PML file available. Please run verification in the desktop app or upload a model.")
 
 st.markdown('</div>', unsafe_allow_html=True)
+
+# ==================== LTL PROPERTIES ====================
+st.markdown('<div class="panel">', unsafe_allow_html=True)
+st.markdown('<div class="panel-title">📋 LTL PROPERTIES (Linear Temporal Logic)</div>', unsafe_allow_html=True)
+
+# Load active verification results
+verification_results = load_active_verification_results()
+
+if verification_results['ltl_properties']:
+    st.markdown(f"### Active Model: `{verification_results['model_name']}`")
+    
+    if verification_results['verification_success']:
+        st.success(f"✅ Verification Successful - {verification_results['states_explored']} states explored, {verification_results['transitions']} transitions")
+    else:
+        st.warning("⚠️ Run verification to see results")
+    
+    st.markdown("#### Verified LTL Properties:")
+    for prop in verification_results['ltl_properties']:
+        with st.expander(f"📜 {prop['name']}"):
+            st.code(prop['formula'], language="pml")
+            
+            # Add property type detection
+            if "[]" in prop['formula'] and "<>" not in prop['formula']:
+                st.markdown("**Type**: Safety Property - *Something bad never happens*")
+            elif "<>" in prop['formula'] and "[]" not in prop['formula']:
+                st.markdown("**Type**: Liveness Property - *Something good eventually happens*")
+            elif "[]" in prop['formula'] and "<>" in prop['formula']:
+                st.markdown("**Type**: Fairness Property - *Something happens infinitely often*")
+else:
+    st.info("No LTL properties found. Run verification on a model with LTL properties to see results here.")
+    
+    # Show example properties as before
+    st.markdown("#### Example LTL Properties:")
+    example_props = {
+        "Safety": "[] (collateral * price >= debt)",
+        "Liveness": "<> (state == complete)",
+        "Fairness": "[] <> (lock == false)"
+    }
+    for name, formula in example_props.items():
+        with st.expander(f"📜 {name} (Example)"):
+            st.code(formula, language="pml")
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Check for latest verification
+if os.path.exists("verification_state.json"):
+    with open("verification_state.json", "r") as f:
+        last_verify = json.load(f)
+        verify_time = datetime.fromtimestamp(last_verify.get('timestamp', 0))
+        time_diff = (datetime.now() - verify_time).seconds
+
+    if time_diff < 300:  # Within last 5 minutes
+        if last_verify.get('success'):
+            st.success(f"✅ Last verification successful - {verify_time.strftime('%H:%M:%S')}")
+        else:
+            st.error(f"❌ Last verification failed - {verify_time.strftime('%H:%M:%S')}")
+    else:
+        st.info("ℹ️ No recent verification - run verification in desktop app")
+
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+# ==================== THEOREM PROVER STATUS ====================
+st.markdown('<div class="panel">', unsafe_allow_html=True)
+st.markdown('<div class="panel-title">🔬 THEOREM PROVER STATUS</div>', unsafe_allow_html=True)
+
+if os.path.exists("verification_state.json"):
+    with open("verification_state.json") as f:
+        vstate = json.load(f)
+    
+    cols = st.columns(4)
+    tools = [("Coq", "coq"), ("Lean", "lean"),
+             ("Prusti", "prusti"), ("Kani", "kani")]
+    
+    for col, (name, key) in zip(cols, tools):
+        with col:
+            if key in vstate:
+                status = "✅ PASS" if vstate[key]['success'] else "❌ FAIL"
+                ts = vstate[key].get('timestamp', 'N/A')
+                st.metric(label=name, value=status, delta=ts)
+            else:
+                st.metric(label=name, value="⚪ Not Run")
+else:
+    st.info("No verification results yet. Run verifications from the desktop app.")
+
+st.markdown('</div>', unsafe_allow_html=True)
+
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 # ==================== QUICK RISK ANALYSIS ====================

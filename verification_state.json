@@ -1,0 +1,14 @@
+{
+  "timestamp": 1775063378.1639392,
+  "datetime": "2026-04-01 20:09:38",
+  "success": true,
+  "output": "pan: ltl formula safety_no_overflow\n\n(Spin Version 6.5.2 -- 6 December 2019)\n\t+ Partial Order Reduction\n\nFull statespace search for:\n\tnever claim         \t+ (safety_no_overflow)\n\tassertion violations\t+ (if within scope of claim)\n\tacceptance   cycles \t+ (fairness disabled)\n\tinvalid end states\t- (disabled by never claim)\n\nState-vector 28 byte, depth reached 9, errors: 0\n        5 states, stored\n        1 states, matched\n        6 transitions (= stored+matched)\n        0 atomic steps\nhash conflicts:         0 (resolved)\n\nStats on memory usage (in Megabytes):\n    0.000\tequivalent memory usage for states (stored*(State-vector + overhead))\n    0.288\tactual memory usage for states\n  128.000\tmemory used for hash table (-w24)\n    0.534\tmemory used for DFS stack (-m10000)\n  128.730\ttotal actual memory usage\n\n\nunreached in proctype Program\n\t(0 of 20 states)\nunreached in claim safety_no_overflow\n\t_spin_nvr.tmp:8, state 10, \"-end-\"\n\t(1 of 10 states)\nunreached in claim liveness_progress\n\t_spin_nvr.tmp:15, state 6, \"-end-\"\n\t(1 of 6 states)\nunreached in claim invariant_stable\n\t_spin_nvr.tmp:24, state 10, \"-end-\"\n\t(1 of 10 states)\n\npan: elapsed time 0 seconds\n",
+  "errors": "",
+  "model_name": "test_kani_working.rs",
+  "verified": true,
+  "ltl_results": [],
+  "depth": 9,
+  "states_stored": 5,
+  "transitions": 6,
+  "errors_count": 0
+}

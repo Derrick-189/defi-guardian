@@ -11,9 +11,9 @@ class RustVerifier:
         self.creusot_available = self._check_creusot()
     
     def _check_prusti(self):
-        """Check if Prusti is installed"""
         try:
-            subprocess.run(["prusti-rustc", "--version"], capture_output=True, check=True)
+            subprocess.run(["prusti-rustc", "--version"],
+                           capture_output=True, check=True)
             return True
         except:
             return False
@@ -27,9 +27,9 @@ class RustVerifier:
             return False
     
     def _check_creusot(self):
-        """Check if Creusot is installed"""
         try:
-            subprocess.run(["creusot", "--version"], capture_output=True, check=True)
+            subprocess.run(["cargo", "creusot", "--help"],
+                           capture_output=True, check=True)
             return True
         except:
             return False
@@ -219,23 +219,35 @@ mod tests {{
             return {'success': False, 'error': str(e)}
     
     def verify_with_kani(self, rust_code):
-        """Verify with Kani"""
+        """Verify with Kani using a proper Cargo project"""
         if not self.kani_available:
             return {'success': False, 'error': 'Kani not installed'}
-        
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.rs', delete=False) as f:
-                f.write(rust_code)
-                temp_file = f.name
+            import shutil
+            # Create a temporary Cargo project
+            project_dir = tempfile.mkdtemp()
+            src_dir = os.path.join(project_dir, 'src')
+            os.makedirs(src_dir)
             
+            # Write Rust code as a library
+            with open(os.path.join(src_dir, 'lib.rs'), 'w') as f:
+                f.write(rust_code)
+            
+            # Write minimal Cargo.toml
+            with open(os.path.join(project_dir, 'Cargo.toml'), 'w') as f:
+                f.write('[package]\nname = "kani_verify"\nversion = "0.1.0"\nedition = "2021"\n')
+            
+            # Run Kani from within the project directory
             result = subprocess.run(
-                ["kani", temp_file],
+                ["cargo", "kani"],
                 capture_output=True,
                 text=True,
-                timeout=120
+                timeout=180,
+                cwd=project_dir
             )
             
-            os.unlink(temp_file)
+            # Clean up temp project
+            shutil.rmtree(project_dir)
             
             return {
                 'success': result.returncode == 0,

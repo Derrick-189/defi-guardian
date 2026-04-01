@@ -18,6 +18,9 @@ from datetime import datetime
 from pathlib import Path
 import tkinter as tk
 
+# Project directory for file I/O
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Import verification state
 try:
     from verification_state import VerificationState
@@ -578,10 +581,16 @@ class FormalVerifierApp(ctk.CTk):
                 else:
                     self.console.insert("end", "[1/5] 📄 Using native Promela model...\n\n")
                 
-                # Write translated model
-                with open("translated_output.pml", 'w') as dst:
+                # Write translated model to project directory
+                translated_path = os.path.join(PROJECT_DIR, "translated_output.pml")
+                with open(translated_path, 'w') as dst:
                     dst.write(content)
-                
+
+                # Save active file in project directory
+                active_path = os.path.join(PROJECT_DIR, "active_file.txt")
+                with open(active_path, "w") as f:
+                    f.write(os.path.basename(self.current_file))
+
                 # Check for LTL properties
                 if 'ltl' in content:
                     ltl_count = content.count('ltl')
@@ -601,6 +610,11 @@ class FormalVerifierApp(ctk.CTk):
                 if compile_result.stderr and self.verbose_output.get():
                     self.console.insert("end", compile_result.stderr)
                 
+                # Save verification state in project directory
+                state_path = os.path.join(PROJECT_DIR, "verification_state.json")
+                # (Note: VerificationState.save_result already writes to default path,
+                # but we keep state_path available for future use if needed.)
+
                 self.console.insert("end", "[4/5] 🔍 Running verification with LTL model checking...\n\n")
                 self.console.insert("end", "─" * 60 + "\n")
                 
@@ -625,7 +639,14 @@ class FormalVerifierApp(ctk.CTk):
                 # Parse results
                 success = verify_result.returncode == 0
                 output = verify_result.stdout
-                
+
+                # Save verification state (spin)
+                self.save_verification_state('spin', {
+                    'success': success,
+                    'errors': verify_result.stderr,
+                    'output': output
+                })
+
                 # Extract LTL verification results
                 ltl_results = []
                 for line in output.split('\n'):
@@ -709,51 +730,57 @@ class FormalVerifierApp(ctk.CTk):
                         pass
         
         threading.Thread(target=verify, daemon=True).start()
-    
-    def run_coq_verification(self):
-        """Run Coq verification"""
-        if not self.current_file:
-            messagebox.showwarning("No File", "Please load a file first.")
-            return
-        
-        self.console.insert("end", "\n" + "="*80 + "\n")
-        self.console.insert("end", "📜 RUNNING COQ VERIFICATION\n")
-        self.console.insert("end", "="*80 + "\n\n")
-        
+
+    def save_verification_state(self, tool, result):
+        state_file = os.path.join(os.path.dirname(__file__), 'verification_state.json')
         try:
+            with open(state_file, 'r') as f:
+                state = json.load(f)
+        except:
+            state = {}
+
+        state[tool] = {
+            'timestamp': datetime.now().isoformat(),
+            'success': result.get('success', False),
+            'errors': result.get('errors', ''),
+            'output': result.get('output', '')[:500]
+        }
+
+        with open(state_file, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    def verify_with_coq(self):
+        if not self.current_file:
+            self.console.insert("end", "❌ No file selected\n")
+            return
+        # Disable button while running
+        self.coq_btn.configure(state="disabled", text="⏳ Running Coq...")
+        threading.Thread(target=self._run_coq_verification, daemon=True).start()
+
+    def _run_coq_verification(self):
+        try:
+            contract_name = os.path.basename(self.current_file)
             from coq_verifier import CoqVerifier
             verifier = CoqVerifier()
-            
-            if not verifier.coq_available:
-                self.console.insert("end", "❌ Coq is not installed. Please install Coq proof assistant.\n")
-                self.console.insert("end", "   Visit: https://coq.inria.fr/\n")
-                return
-            
-            # Generate Coq script
-            self.console.insert("end", "[1/2] 📝 Generating Coq proof script...\n")
-            with open(self.current_file, 'r') as f:
-                content = f.read()
-            
-            coq_script = verifier.generate_coq_script(
-                os.path.basename(self.current_file).split('.')[0],
-                []
-            )
-            
-            self.console.insert("end", "[2/2] 🔍 Running Coq verification...\n\n")
+            coq_script = verifier.generate_coq_script(contract_name, {})
             result = verifier.verify_with_coq(coq_script)
-            
-            if result['success']:
-                self.console.insert("end", "✅ Coq verification successful!\n")
-                self.console.insert("end", result['output'] + "\n")
-            else:
-                self.console.insert("end", "❌ Coq verification failed:\n")
-                self.console.insert("end", result.get('error', result.get('errors', 'Unknown error')) + "\n")
-                
-        except ImportError:
-            self.console.insert("end", "❌ Coq verifier module not found.\n")
+            # Schedule UI update on main thread
+            self.after(0, self._display_coq_result, result)
         except Exception as e:
-            self.console.insert("end", f"❌ Error: {e}\n")
-        
+            self.after(0, self.console.insert, "end", f"❌ Error: {e}\n")
+        finally:
+            self.after(0, self.coq_btn.configure,
+                       {"state": "normal", "text": "📐 VERIFY WITH COQ"})
+
+    def _display_coq_result(self, result):
+        if result['success']:
+            self.console.insert("end", "✅ Coq verification successful!\n")
+        else:
+            self.console.insert("end", f"❌ Coq failed:\n{result.get('errors','')}\n")
+
+        self.save_verification_state('coq', result)
+        self.console.see("end")
+
         if self.auto_scroll_enabled:
             self.console.see("end")
     
