@@ -13,7 +13,22 @@ class CounterexampleAnalyzer:
     def __init__(self, project_dir=None):
         self.project_dir = project_dir or os.path.dirname(os.path.abspath(__file__))
         self.trail_file = os.path.join(self.project_dir, "translated_output.pml.trail")
-    
+
+    # ------------------------------------------------------------------
+    # FIX: Call this before every new verification run so that a trail
+    # left over from a previous run is never mistaken for a current one.
+    # SPIN only writes a new trail when it finds an error; if the model
+    # passes cleanly the old file stays on disk, causing the "file is
+    # newer than trail" warning and a false counterexample report.
+    # ------------------------------------------------------------------
+    def clear_stale_trail(self):
+        """Delete the trail file if it exists so the next run starts clean."""
+        if os.path.exists(self.trail_file):
+            try:
+                os.unlink(self.trail_file)
+            except OSError as e:
+                print(f"Warning: could not remove stale trail file: {e}")
+
     def has_counterexample(self):
         """Check if a counterexample trail exists"""
         return os.path.exists(self.trail_file) and os.path.getsize(self.trail_file) > 0
@@ -28,9 +43,21 @@ class CounterexampleAnalyzer:
         
         if not self.has_counterexample():
             return "No counterexample trail found"
+
+        # FIX: Warn explicitly if the trail pre-dates the model so the
+        # caller can see the trail is stale rather than silently replaying
+        # an old execution.
+        pml_mtime = os.path.getmtime(pml_file)
+        trail_mtime = os.path.getmtime(self.trail_file)
+        if pml_mtime > trail_mtime:
+            return (
+                "⚠️  Stale trail detected: the Promela model is newer than the "
+                "trail file. The trail was produced by a previous model and does "
+                "not apply to the current one. Run clear_stale_trail() before "
+                "re-verifying to avoid this."
+            )
         
         try:
-            # Run SPIN in guided simulation mode
             result = subprocess.run(
                 ["spin", "-t", "-p", pml_file],
                 capture_output=True,
@@ -51,7 +78,6 @@ class CounterexampleAnalyzer:
         with open(self.trail_file, 'r') as f:
             content = f.read()
             
-            # Extract state transitions
             lines = content.split('\n')
             for i, line in enumerate(lines):
                 if 'state' in line.lower():
@@ -77,7 +103,6 @@ class CounterexampleAnalyzer:
         report.append("❌ COUNTEREXAMPLE FOUND!")
         report.append("")
         
-        # Get SPIN analysis
         spin_output = self.analyze_with_spin(pml_file)
         if spin_output:
             report.append("📋 SPIN GUIDED SIMULATION:")
@@ -85,16 +110,14 @@ class CounterexampleAnalyzer:
             report.append(spin_output)
             report.append("")
         
-        # Parse raw trail
         trace = self.parse_trail_file()
         if trace:
             report.append("📊 EXECUTION TRACE:")
             report.append("-"*50)
-            for step in trace[:50]:  # Limit to first 50 steps
+            for step in trace[:50]:
                 report.append(f"  Step {step['step']}: {step['raw']}")
             report.append("")
         
-        # Add recommendations
         report.append("🔧 RECOMMENDATIONS:")
         report.append("-"*50)
         report.append("1. Review the LTL properties for correctness")

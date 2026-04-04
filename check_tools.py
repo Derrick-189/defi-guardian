@@ -11,14 +11,14 @@ import os
 # Define tools to check
 TOOLS = {
     # Core verification tools
-    "SPIN": "spin --version",
+    "SPIN": "spin -V",
     "Coq": "coqc --version",
     "Lean": "lean --version",
     "GCC": "gcc --version",
     
     # Rust verification tools
     "Prusti": "prusti-rustc --version",
-    "Kani": "kani --version",
+    "Kani": "cargo kani --version",
     "Creusot": "creusot --version",
     
     # SMT solvers

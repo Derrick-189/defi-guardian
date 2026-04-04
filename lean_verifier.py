@@ -1,6 +1,7 @@
 import subprocess
 import os
 import tempfile
+import shutil
 
 class LeanVerifier:
     """Lean theorem prover integration"""
@@ -51,33 +52,95 @@ class LeanVerifier:
         return "\n".join(lines)
     
     def verify_with_lean(self, lean_script):
-        if not self.lean_available:
-            return {'success': False, 'error': 'Lean not installed', 'output': ''}
-        temp_file = None
-        try:
-            # lean --stdin is not supported in Lean 4; write to a real .lean file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.lean', delete=False) as f:
-                f.write(lean_script)
-                temp_file = f.name
+        """
+        Verify a Lean 4 script by scaffolding a minimal Lake project.
 
+        FIX: Lean 4 cannot verify a bare .lean file that contains theorems
+        without a surrounding Lake project — it will time out waiting for
+        environment setup or simply fail to elaborate. We create a throwaway
+        Lake project (no Mathlib dependency needed for pure Nat/Bool proofs)
+        so that `lake build` gives Lean the correct build environment.
+        """
+        if not self.lean_available:
+            return {
+                'success': False,
+                'error': 'Lean not installed or not on PATH',
+                'output': ''
+            }
+
+        project_dir = None
+        try:
+            project_dir = tempfile.mkdtemp(prefix="lean_verify_")
+
+            # --- lakefile.lean ------------------------------------------
+            # A minimal Lake project: one library target, no external deps.
+            lakefile = (
+                'import Lake\nopen Lake DSL\n\n'
+                'package «defi_guardian» where\n\n'
+                'lean_lib «DefiGuardian» where\n'
+            )
+            with open(os.path.join(project_dir, 'lakefile.lean'), 'w') as f:
+                f.write(lakefile)
+
+            # lean-toolchain — pin to whatever `lean --version` reports so
+            # Lake doesn't try to download a different toolchain.
+            try:
+                ver_result = subprocess.run(
+                    ["lean", "--version"], capture_output=True, text=True, timeout=5
+                )
+                # Output is like: "Lean (version 4.x.y, ...)"
+                import re
+                m = re.search(r'version\s+([\d.]+)', ver_result.stdout)
+                toolchain = f"leanprover/lean4:v{m.group(1)}" if m else "leanprover/lean4:stable"
+            except Exception:
+                toolchain = "leanprover/lean4:stable"
+
+            with open(os.path.join(project_dir, 'lean-toolchain'), 'w') as f:
+                f.write(toolchain + '\n')
+
+            # --- Source file --------------------------------------------
+            # Lake expects source files under a directory named after the
+            # library (DefiGuardian/ here).
+            src_dir = os.path.join(project_dir, 'DefiGuardian')
+            os.makedirs(src_dir)
+            with open(os.path.join(src_dir, 'Verify.lean'), 'w') as f:
+                f.write(lean_script)
+
+            # Root module file required by Lake
+            with open(os.path.join(project_dir, 'DefiGuardian.lean'), 'w') as f:
+                f.write('import DefiGuardian.Verify\n')
+
+            # --- Run Lake build -----------------------------------------
+            # Use `lake build` rather than bare `lean file.lean`.
+            # Timeout raised to 60 s; pure Nat proofs compile quickly.
             result = subprocess.run(
-                ["lean", temp_file],
+                ["lake", "build"],
                 capture_output=True,
                 text=True,
-                timeout=60
+                timeout=60,
+                cwd=project_dir
             )
+
+            success = result.returncode == 0
             return {
-                'success': result.returncode == 0,
+                'success': success,
                 'output': result.stdout,
-                'errors': result.stderr if result.stderr else result.stdout
+                'errors': result.stderr if not success else '',
+                'error': (result.stderr[:300] if not success else '')
             }
+
         except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Lean timed out after 60 seconds — is lake/mathlib needed?', 'output': ''}
+            return {
+                'success': False,
+                'error': 'Lean timed out (60s). Ensure `lake` is on PATH.',
+                'output': '',
+                'errors': 'Timeout'
+            }
         except Exception as e:
-            return {'success': False, 'error': str(e), 'output': ''}
+            return {'success': False, 'error': str(e), 'output': '', 'errors': str(e)}
         finally:
-            if temp_file and os.path.exists(temp_file):
+            if project_dir and os.path.exists(project_dir):
                 try:
-                    os.unlink(temp_file)
+                    shutil.rmtree(project_dir)
                 except Exception:
                     pass
