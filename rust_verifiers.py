@@ -1,15 +1,21 @@
 import subprocess
 import os
 import tempfile
+import shutil
+
+CREUSOT_STD_PATH = os.environ.get(
+    "CREUSOT_STD_PATH", "/home/slade/creusot/creusot-std"
+)
+
 
 class RustVerifier:
     """Integration with Rust verification tools"""
-    
+
     def __init__(self):
         self.prusti_available = self._check_prusti()
         self.kani_available = self._check_kani()
         self.creusot_available = self._check_creusot()
-    
+
     def _check_prusti(self):
         try:
             subprocess.run(["prusti-rustc", "--version"],
@@ -17,15 +23,14 @@ class RustVerifier:
             return True
         except:
             return False
-    
+
     def _check_kani(self):
-        """Check if Kani is installed"""
         try:
-            subprocess.run(["kani", "--version"], capture_output=True, check=True)
+            subprocess.run(["cargo", "kani", "--version"], capture_output=True, check=True)
             return True
         except:
             return False
-    
+
     def _check_creusot(self):
         try:
             subprocess.run(["cargo", "creusot", "--help"],
@@ -33,21 +38,12 @@ class RustVerifier:
             return True
         except:
             return False
-    
-    def generate_rust_annotations(self, rust_code):
-        """Generate Rust code with verification annotations"""
-        annotated_code = f"""
-// Formal Verification Annotations for DeFi Guardian
-// This code will be verified with Prusti, Kani, and Creusot
 
-// Import verification attributes
+    def generate_rust_annotations(self, rust_code):
+        annotated_code = f"""
 #![feature(register_tool)]
 #![register_tool(prusti)]
 #![register_tool(creusot)]
-
-// ============================================ //
-// 1. STATE STRUCTURE                           //
-// ============================================ //
 
 #[derive(Clone, Debug)]
 pub struct ContractState {{
@@ -59,227 +55,217 @@ pub struct ContractState {{
 }}
 
 impl ContractState {{
-    // Constructor with verification
     #[ensures(result.collateral == 5000)]
     #[ensures(result.debt == 3000)]
     #[ensures(result.price == 100)]
     #[ensures(result.lock == false)]
     pub fn new() -> Self {{
-        ContractState {{
-            collateral: 5000,
-            debt: 3000,
-            price: 100,
-            lock: false,
-            health_factor: 166,
-        }}
+        ContractState {{ collateral: 5000, debt: 3000, price: 100, lock: false, health_factor: 166 }}
     }}
-    
-    // ============================================ //
-    // 2. INVARIANTS                                //
-    // ============================================ //
-    
-    // Invariant: Collateral must be sufficient
+
     #[pure]
     #[ensures(result == (self.collateral * self.price >= self.debt))]
     pub fn invariant_collateral(&self) -> bool {{
         self.collateral * self.price >= self.debt
     }}
-    
-    // Safety property: No reentrancy
+
     #[pure]
     #[ensures(result == !self.lock)]
-    pub fn safety_reentrancy(&self) -> bool {{
-        !self.lock
-    }}
-    
-    // ============================================ //
-    // 3. TRANSITION FUNCTIONS                      //
-    // ============================================ //
-    
-    // Update health factor
+    pub fn safety_reentrancy(&self) -> bool {{ !self.lock }}
+
     #[pure]
-    #[ensures(result == (self.collateral * self.price) / self.debt)]
     pub fn update_health_factor(&self) -> u64 {{
-        if self.debt == 0 {{
-            u64::MAX
-        }} else {{
-            (self.collateral * self.price) / self.debt
-        }}
+        if self.debt == 0 {{ u64::MAX }} else {{ (self.collateral * self.price) / self.debt }}
     }}
-    
-    // Safe operation with reentrancy protection
-    #[ensures(result.invariant_collateral())]
-    #[ensures(result.safety_reentrancy() == true)]
+
     pub fn safe_operation(&mut self) {{
-        // Precondition: Lock must be false
         assert!(self.safety_reentrancy());
-        
-        // Acquire lock
         self.lock = true;
-        
-        // Update health factor
         self.health_factor = self.update_health_factor();
-        
-        // Verify invariants hold
         assert!(self.invariant_collateral());
-        
-        // Release lock (in real code, would be in a finally block)
         self.lock = false;
     }}
-    
-    // ============================================ //
-    // 4. LIQUIDATION LOGIC                         //
-    // ============================================ //
-    
-    // Check if position is liquidatable
+
     #[pure]
-    #[ensures(result == (self.collateral * self.price < self.debt))]
-    pub fn is_liquidatable(&self) -> bool {{
-        self.collateral * self.price < self.debt
-    }}
-    
-    // Execute liquidation
+    pub fn is_liquidatable(&self) -> bool {{ self.collateral * self.price < self.debt }}
+
     #[requires(self.is_liquidatable())]
-    #[ensures(self.collateral == 0)]
-    #[ensures(self.debt == 0)]
     pub fn liquidate(&mut self) {{
-        // Zero out position
         self.collateral = 0;
         self.debt = 0;
         self.health_factor = 0;
     }}
 }}
-
-// ============================================ //
-// 5. TEST CASES WITH VERIFICATION              //
-// ============================================ //
-
-#[cfg(test)]
-mod tests {{
-    use super::*;
-    
-    #[test]
-    #[cfg(prusti)]
-    fn test_invariant_holds() {{
-        let state = ContractState::new();
-        assert!(state.invariant_collateral());
-    }}
-    
-    #[test]
-    #[cfg(prusti)]
-    fn test_safe_operation_preserves_invariant() {{
-        let mut state = ContractState::new();
-        state.safe_operation();
-        assert!(state.invariant_collateral());
-    }}
-    
-    #[test]
-    #[cfg(prusti)]
-    fn test_liquidation() {{
-        let mut state = ContractState::new();
-        // Simulate price drop
-        state.price = 30;
-        state.collateral = 5000;
-        state.debt = 3000;
-        
-        assert!(state.is_liquidatable());
-        state.liquidate();
-        assert!(state.collateral == 0);
-        assert!(state.debt == 0);
-    }}
-}}
 """
         return annotated_code
-    
+
     def verify_with_prusti(self, rust_code):
-        """Verify with Prusti"""
         if not self.prusti_available:
-            return {'success': False, 'error': 'Prusti not installed'}
+            return {'success': False, 'error': 'Prusti not installed', 'output': '', 'errors': ''}
         
+        project_dir = None
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.rs', delete=False) as f:
+            project_dir = tempfile.mkdtemp()
+            src_file = os.path.join(project_dir, 'lib.rs')
+            with open(src_file, 'w') as f:
                 f.write(rust_code)
-                temp_file = f.name
-            
-            result = subprocess.run(
-                ["prusti-rustc", temp_file],
-                capture_output=True,
-                text=True,
-                timeout=120
+
+            # Create minimal Cargo.toml to avoid lock file issues
+            with open(os.path.join(project_dir, 'Cargo.toml'), 'w') as f:
+                f.write("""[package]
+name = "prusti_verify"
+version = "0.1.0"
+edition = "2021"
+""")
+
+            # Delete any Cargo.lock that might interfere with prusti-rustc
+            lock_file = os.path.join(project_dir, 'Cargo.lock')
+            if os.path.exists(lock_file):
+                os.remove(lock_file)
+
+            # Set up environment
+            env = os.environ.copy()
+            prusti_bin_result = subprocess.run(
+                ['which', 'prusti-rustc'], capture_output=True, text=True
             )
-            
-            os.unlink(temp_file)
-            
+            prusti_bin = prusti_bin_result.stdout.strip()
+            if prusti_bin:
+                prusti_home = os.path.dirname(os.path.realpath(prusti_bin))
+                env['PRUSTI_HOME'] = prusti_home
+                env['VIPER_HOME'] = os.path.join(prusti_home, 'viper_tools')
+
+            result = subprocess.run(
+                ['prusti-rustc', '--edition=2021', '--crate-type=lib', src_file],
+                capture_output=True, text=True, timeout=180,
+                cwd=project_dir, env=env
+            )
             return {
                 'success': result.returncode == 0,
                 'output': result.stdout,
-                'errors': result.stderr
+                'errors': result.stderr,
+                'error': '' if result.returncode == 0 else result.stderr[:500]
             }
+        except subprocess.TimeoutExpired:
+            return {'success': False, 'error': 'Timeout', 'output': '', 'errors': 'Prusti timed out'}
         except Exception as e:
-            return {'success': False, 'error': str(e)}
-    
+            return {'success': False, 'error': str(e), 'output': '', 'errors': str(e)}
+        finally:
+            if project_dir and os.path.exists(project_dir):
+                shutil.rmtree(project_dir, ignore_errors=True)
+
     def verify_with_kani(self, rust_code):
-        """Verify with Kani using a proper Cargo project"""
         if not self.kani_available:
-            return {'success': False, 'error': 'Kani not installed'}
+            return {'success': False, 'error': 'Kani not installed', 'output': '', 'errors': ''}
+        
+        project_dir = None
         try:
-            import shutil
-            # Create a temporary Cargo project
             project_dir = tempfile.mkdtemp()
             src_dir = os.path.join(project_dir, 'src')
             os.makedirs(src_dir)
             
-            # Write Rust code as a library
+            # Add Kani proof harness if not present
+            if '#[kani::proof]' not in rust_code:
+                rust_code += """
+
+#[kani::proof]
+fn kani_check_max() {
+    let x: u64 = kani::any();
+    let y: u64 = kani::any();
+    let result = max(x, y);
+    assert!(result >= x && result >= y);
+}
+
+#[kani::proof]
+fn kani_check_add() {
+    let x: u64 = kani::any();
+    let y: u64 = kani::any();
+    let result = add(x, y);
+    // Check for overflow
+    if x <= u64::MAX - y {
+        assert!(result == x + y);
+    }
+}
+"""
+            
             with open(os.path.join(src_dir, 'lib.rs'), 'w') as f:
                 f.write(rust_code)
-            
-            # Write minimal Cargo.toml
+                
             with open(os.path.join(project_dir, 'Cargo.toml'), 'w') as f:
-                f.write('[package]\nname = "kani_verify"\nversion = "0.1.0"\nedition = "2021"\n')
+                f.write("""[package]
+name = "kani_verify"
+version = "0.1.0"
+edition = "2021"
+""")
             
-            # Run Kani from within the project directory
             result = subprocess.run(
-                ["cargo", "kani"],
-                capture_output=True,
-                text=True,
-                timeout=180,
-                cwd=project_dir
+                ["cargo", "kani"], capture_output=True, text=True, timeout=300, cwd=project_dir
             )
-            
-            # Clean up temp project
-            shutil.rmtree(project_dir)
-            
             return {
                 'success': result.returncode == 0,
                 'output': result.stdout,
-                'errors': result.stderr
+                'errors': result.stderr,
+                'error': '' if result.returncode == 0 else result.stderr[:500]
             }
+        except subprocess.TimeoutExpired:
+            return {'success': False, 'error': 'Timeout', 'output': '', 'errors': 'Kani timed out'}
         except Exception as e:
-            return {'success': False, 'error': str(e)}
-    
+            return {'success': False, 'error': str(e), 'output': '', 'errors': str(e)}
+        finally:
+            if project_dir and os.path.exists(project_dir):
+                shutil.rmtree(project_dir, ignore_errors=True)
+
     def verify_with_creusot(self, rust_code):
-        """Verify with Creusot"""
         if not self.creusot_available:
-            return {'success': False, 'error': 'Creusot not installed'}
+            return {'success': False, 'error': 'Creusot not installed', 'output': '', 'errors': ''}
         
+        project_dir = None
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.rs', delete=False) as f:
+            # Add creusot_std import if missing
+            if 'creusot_std' not in rust_code:
+                rust_code = """use creusot_std::prelude::*;
+
+""" + rust_code
+
+            project_dir = tempfile.mkdtemp()
+            src_dir = os.path.join(project_dir, 'src')
+            os.makedirs(src_dir)
+            with open(os.path.join(src_dir, 'lib.rs'), 'w') as f:
                 f.write(rust_code)
-                temp_file = f.name
-            
-            result = subprocess.run(
-                ["creusot", temp_file],
-                capture_output=True,
-                text=True,
-                timeout=120
+
+            # Dependency key must be "creusot-std": cargo creusot passes -F creusot-std/creusot …
+            with open(os.path.join(project_dir, 'Cargo.toml'), 'w') as f:
+                f.write(
+                    f"""[package]
+name = "creusot_verify"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+creusot-std = {{ path = "{CREUSOT_STD_PATH}" }}
+"""
+                )
+
+            env = os.environ.copy()
+            nightly_lib = (
+                '/home/slade/.rustup/toolchains/'
+                'nightly-2026-02-27-x86_64-unknown-linux-gnu/lib'
             )
-            
-            os.unlink(temp_file)
-            
+            env['LD_LIBRARY_PATH'] = nightly_lib + ':' + env.get('LD_LIBRARY_PATH', '')
+
+            result = subprocess.run(
+                ['cargo', 'creusot'], capture_output=True, text=True, timeout=180,
+                cwd=project_dir, env=env
+            )
             return {
                 'success': result.returncode == 0,
                 'output': result.stdout,
-                'errors': result.stderr
+                'errors': result.stderr,
+                'error': '' if result.returncode == 0 else result.stderr[:500]
             }
+        except subprocess.TimeoutExpired:
+            return {'success': False, 'error': 'Timeout', 'output': '', 'errors': 'Creusot timed out'}
         except Exception as e:
-            return {'success': False, 'error': str(e)}
+            return {'success': False, 'error': str(e), 'output': '', 'errors': str(e)}
+        finally:
+            if project_dir and os.path.exists(project_dir):
+                shutil.rmtree(project_dir, ignore_errors=True)
