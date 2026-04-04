@@ -27,37 +27,35 @@ CREUSOT_STD_PATH = os.environ.get(
 )
 
 
-def _generate_cargo_lockfile_v3(project_dir):
-    """Build a Cargo.lock in format v3 for Prusti.
+def _strip_rust_main_for_lib(rust_code: str) -> str:
+    """Remove a top-level ``fn main() { ... }`` so the crate can be built as a library."""
+    key = "fn main"
+    idx = rust_code.find(key)
+    if idx == -1:
+        return rust_code
+    paren = rust_code.find("(", idx)
+    if paren == -1:
+        return rust_code
+    brace = rust_code.find("{", paren)
+    if brace == -1:
+        return rust_code
+    depth = 0
+    i = brace
+    while i < len(rust_code):
+        c = rust_code[i]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                head = rust_code[:idx].rstrip()
+                tail = rust_code[end:].lstrip()
+                out = (head + ("\n\n" if head and tail else "\n") + tail).strip()
+                return out + ("\n" if out else "")
+        i += 1
+    return rust_code
 
-    Cargo 1.78+ writes lockfile v4; Prusti's bundled Cargo cannot parse v4
-    without unstable flags. An older rustup toolchain still emits v3 locks.
-    """
-    toolchains = (
-        "nightly-2023-08-15-x86_64-unknown-linux-gnu",
-        "nightly-2023-09-15-x86_64-unknown-linux-gnu",
-    )
-    for tc in toolchains:
-        try:
-            r = subprocess.run(
-                ["rustup", "run", tc, "cargo", "generate-lockfile"],
-                cwd=project_dir,
-                capture_output=True,
-                text=True,
-                timeout=180,
-            )
-            if r.returncode != 0:
-                continue
-            lock_path = os.path.join(project_dir, "Cargo.lock")
-            if not os.path.isfile(lock_path):
-                continue
-            with open(lock_path, encoding="utf-8") as f:
-                head = f.read(500)
-            if "version = 3" in head:
-                return True
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-            continue
-    return False
 
 # Import verification state
 try:
@@ -1151,7 +1149,14 @@ theorem lock_acquired (h : locked = false) :
         threading.Thread(target=run_lean, daemon=True).start()
 
     def verify_with_prusti(self):
-        """Run Prusti using cargo prusti in a temp Cargo project"""
+        """Run Prusti via ``prusti-rustc`` on a temp crate (avoids ``cargo prusti``'s old Cargo).
+
+        ``cargo prusti`` pulls crates.io through Prusti's bundled Cargo, which breaks on
+        modern crates (for example edition 2024 in a dependency manifest) and lockfile v4.
+        Direct ``prusti-rustc``
+        does not use that resolver. Code that needs ``prusti-contracts`` must be verified
+        with a hand-written Cargo project instead.
+        """
         if not self.current_file:
             self.console.insert("end", "❌ No file selected\n")
             return
@@ -1173,29 +1178,39 @@ theorem lock_acquired (h : locked = false) :
                     rust_code = f.read()
 
                 project_dir = tempfile.mkdtemp()
-                src_dir = os.path.join(project_dir, 'src')
-                os.makedirs(src_dir)
-
-                with open(os.path.join(src_dir, 'lib.rs'), 'w') as f:
+                lib_rs = os.path.join(project_dir, 'lib.rs')
+                with open(lib_rs, 'w') as f:
                     f.write(rust_code)
 
-                # Use 0.2.0 — the highest version actually published on crates.io
                 with open(os.path.join(project_dir, 'Cargo.toml'), 'w') as f:
                     f.write(
                         '[package]\nname = "prusti_verify"\nversion = "0.1.0"\n'
-                        'edition = "2021"\n\n[dependencies]\n'
-                        'prusti-contracts = "0.2.0"\n'
+                        'edition = "2021"\n'
                     )
 
-                lock_ok = _generate_cargo_lockfile_v3(project_dir)
-                prusti_cmd = ['cargo', 'prusti']
-                if lock_ok:
-                    prusti_cmd.append('--locked')
+                env = os.environ.copy()
+                which_pr = subprocess.run(
+                    ['which', 'prusti-rustc'],
+                    capture_output=True, text=True,
+                )
+                prusti_bin = which_pr.stdout.strip()
+                if prusti_bin:
+                    prusti_home = os.path.dirname(os.path.realpath(prusti_bin))
+                    env['PRUSTI_HOME'] = prusti_home
+                    env['VIPER_HOME'] = os.path.join(prusti_home, 'viper_tools')
 
                 result = subprocess.run(
-                    prusti_cmd,
-                    capture_output=True, text=True, timeout=180,
-                    cwd=project_dir
+                    [
+                        'prusti-rustc',
+                        '--edition=2021',
+                        '--crate-type=lib',
+                        lib_rs,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                    cwd=project_dir,
+                    env=env,
                 )
                 success = result.returncode == 0
                 self.save_verification_state('prusti', {
@@ -1254,6 +1269,8 @@ theorem lock_acquired (h : locked = false) :
                 if 'creusot_contracts' not in rust_code and 'creusot_std' not in rust_code:
                     rust_code = 'use creusot_std::prelude::*;\n\n' + rust_code
 
+                rust_code = _strip_rust_main_for_lib(rust_code)
+
                 project_dir = tempfile.mkdtemp()
                 src_dir = os.path.join(project_dir, 'src')
                 os.makedirs(src_dir)
@@ -1282,7 +1299,7 @@ theorem lock_acquired (h : locked = false) :
 
                 result = subprocess.run(
                     ['cargo', 'creusot'],
-                    capture_output=True, text=True, timeout=180,
+                    capture_output=True, text=True, timeout=600,
                     cwd=project_dir, env=env
                 )
                 success = result.returncode == 0
