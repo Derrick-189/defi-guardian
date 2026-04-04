@@ -2,7 +2,7 @@
 	default: Uerror("bad return move");
 	case  0: goto R999; /* nothing to undo */
 
-		 /* CLAIM invariant_stable */
+		 /* CLAIM invariant_balance */
 ;
 		
 	case 3: // STATE 1
@@ -49,22 +49,44 @@
 ;
 		;
 		
-	case 11: // STATE 10
+	case 11: // STATE 6
+		;
+		lock = trpt->bup.oval;
+		;
+		goto R999;
+
+	case 12: // STATE 16
 		;
 		now.state = trpt->bup.ovals[2];
-		now.lock = trpt->bup.ovals[1];
-		now.lock = trpt->bup.ovals[0];
+		lock = trpt->bup.ovals[1];
+		now.balance = trpt->bup.ovals[0];
 		;
 		ungrab_ints(trpt->bup.ovals, 3);
+		goto R999;
+
+	case 13: // STATE 16
+		;
+		now.state = trpt->bup.ovals[1];
+		lock = trpt->bup.ovals[0];
+		;
+		ungrab_ints(trpt->bup.ovals, 2);
+		goto R999;
+
+	case 14: // STATE 16
+		;
+		now.state = trpt->bup.ovals[1];
+		lock = trpt->bup.ovals[0];
+		;
+		ungrab_ints(trpt->bup.ovals, 2);
 		goto R999;
 ;
 		;
 		;
 		
-	case 13: // STATE 14
+	case 16: // STATE 20
 		goto R999;
 
-	case 14: // STATE 20
+	case 17: // STATE 26
 		;
 		p_restor(II);
 		;

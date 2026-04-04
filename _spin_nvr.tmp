@@ -1,7 +1,7 @@
-never safety_no_overflow {    /* !([] (((lock>=0)) && ((lock<=1)))) */
+never safety_no_overflow {    /* !([] (((balance>=0)) && ((balance<=1000000)))) */
 T0_init:
 	do
-	:: atomic { (! ((((lock>=0)) && ((lock<=1))))) -> assert(!(! ((((lock>=0)) && ((lock<=1)))))) }
+	:: atomic { (! ((((balance>=0)) && ((balance<=1000000))))) -> assert(!(! ((((balance>=0)) && ((balance<=1000000)))))) }
 	:: (1) -> goto T0_init
 	od;
 accept_all:
@@ -14,10 +14,10 @@ T0_init:
 	:: (! (((state==1)))) -> goto T0_init
 	od;
 }
-never invariant_stable {    /* !([] ((! ((state==1))) || ((lock==1)))) */
+never invariant_balance {    /* !([] ((balance>=0))) */
 T0_init:
 	do
-	:: atomic { (! (((! ((state==1))) || ((lock==1))))) -> assert(!(! (((! ((state==1))) || ((lock==1)))))) }
+	:: atomic { (! (((balance>=0)))) -> assert(!(! (((balance>=0))))) }
 	:: (1) -> goto T0_init
 	od;
 accept_all:

@@ -13,12 +13,19 @@ import os
 import tempfile
 import re
 import time
+import asyncio
+import threading
 from datetime import datetime
 import numpy as np
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import json
 from PIL import Image
 import io
 import graphviz
+
+# Always run from project directory
+
+# Ensure working directory is the project folder
 
 # Import verification state
 try:
@@ -42,6 +49,44 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+def load_live_verification():
+    """Load verification status with timestamp"""
+    if os.path.exists("verification_state.json"):
+        with open("verification_state.json", "r") as f:
+            data = json.load(f)
+            # Add human-readable time
+            if 'timestamp' in data:
+                data['readable_time'] = datetime.fromtimestamp(data['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
+            return data
+    return None
+
+
+def load_verification_state():
+    """Load complete verification state for all tools"""
+    state_file = "verification_state.json"
+    if os.path.exists(state_file):
+        try:
+            with open(state_file, 'r') as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+
+def get_tool_status(tool_name):
+    """Get status for a specific tool"""
+    state = load_verification_state()
+    if tool_name in state:
+        tool_state = state[tool_name]
+        success = tool_state.get('success', False)
+        timestamp = tool_state.get('timestamp', '')
+        return {
+            'status': '✅ PASS' if success else '❌ FAIL',
+            'timestamp': timestamp,
+            'success': success
+        }
+    return {'status': '⚪ Not Run', 'timestamp': '', 'success': False}
 
 # ==================== HELPER FUNCTIONS ====================
 
@@ -255,17 +300,19 @@ def load_active_verification_results():
             results['model_name'] = f.read().strip()
     
     # Load verification state
-    if os.path.exists("verification_state.json"):
-        try:
-            with open("verification_state.json", "r") as f:
-                state = json.load(f)
-                results['verification_success'] = state.get('success', False)
-                results['states_explored'] = state.get('states_stored', 0)
-                results['transitions'] = state.get('transitions', 0)
-                results['depth_reached'] = state.get('depth', 0)
-        except:
-            pass
-    
+    state = load_verification_state()
+    if 'spin' in state:
+        spin_state = state['spin']
+        results['verification_success'] = spin_state.get('success', False)
+        results['states_explored'] = spin_state.get('states_stored', 0)
+        results['transitions'] = spin_state.get('transitions', 0)
+        results['depth_reached'] = spin_state.get('depth', 0)
+    else:
+        results['verification_success'] = state.get('success', False)
+        results['states_explored'] = state.get('states_stored', 0)
+        results['transitions'] = state.get('transitions', 0)
+        results['depth_reached'] = state.get('depth', 0)
+
     # Extract LTL properties from the translated model
     pml_file = None
     if os.path.exists("translated_output.pml"):
@@ -724,7 +771,11 @@ with st.sidebar:
     # Auto Refresh
     st.markdown("---")
     st.session_state.auto_refresh = st.checkbox("Auto-refresh (5s)", st.session_state.auto_refresh)
-    st.session_state.auto_refresh_dashboard = st.checkbox("Auto-refresh dashboard (3s)", st.session_state.auto_refresh_dashboard)
+    st.session_state.auto_refresh_dashboard = st.checkbox(
+        "Live Mode (auto-refresh 2s)",
+        st.session_state.auto_refresh_dashboard,
+        key="live_mode"
+    )
     
     # Manual Refresh Button
     if st.button("🔄 Refresh Results"):
@@ -733,21 +784,33 @@ with st.sidebar:
     # Tool Status
     st.markdown("---")
     st.markdown("#### 🔧 Tool Status")
+    spin_status = get_tool_status('spin')
+    coq_status = get_tool_status('coq')
+    lean_status = get_tool_status('lean')
+    prusti_status = get_tool_status('prusti')
+    kani_status = get_tool_status('kani')
+
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(f"{'✅' if check_tool('SPIN', 'spin') else '❌'} SPIN")
-        st.markdown(f"{'✅' if check_tool('Coq', 'coqc') else '❌'} Coq")
+        st.markdown(f"{'✅' if check_tool('SPIN', 'spin') else '❌'} SPIN - {spin_status['status']}")
+        st.markdown(f"{'✅' if check_tool('Coq', 'coqc') else '❌'} Coq - {coq_status['status']}")
     with col2:
-        st.markdown(f"{'✅' if check_tool('Lean', 'lean') else '❌'} Lean")
+        st.markdown(f"{'✅' if check_tool('Lean', 'lean') else '❌'} Lean - {lean_status['status']}")
         st.markdown(f"{'✅' if check_tool('Graphviz', 'dot') else '❌'} Graphviz")
-    
+        st.markdown(f"{'✅' if check_tool('Prusti', 'prusti') else '❌'} Prusti - {prusti_status['status']}")
+        st.markdown(f"{'✅' if check_tool('Kani', 'kani') else '❌'} Kani - {kani_status['status']}")
+
     if st.session_state.auto_refresh:
         time.sleep(5)
         st.rerun()
 
 # Fast auto-refresh dashboard option
 if st.session_state.auto_refresh_dashboard:
-    time.sleep(3)
+    st.markdown(
+        '<div style="position: fixed; top: 10px; right: 10px; background: #00ffcc; color: black; padding: 5px 10px; border-radius: 20px;">🔴 LIVE</div>',
+        unsafe_allow_html=True
+    )
+    time.sleep(2)
     st.rerun()
 
 # ==================== MAIN CONTENT ====================

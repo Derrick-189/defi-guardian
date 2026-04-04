@@ -196,7 +196,7 @@ class FormalVerifierApp(ctk.CTk):
         self.coq_btn = ctk.CTkButton(
             sidebar_inner,
             text="📜 COQ VERIFICATION",
-            command=self.run_coq_verification,
+            command=self.verify_with_coq,
             height=45,
             font=ctk.CTkFont(size=13),
             fg_color="#9b59b6",
@@ -214,6 +214,50 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#d35400"
         )
         self.lean_btn.pack(fill="x", pady=5)
+        
+        # Separator before Rust tools
+        ctk.CTkFrame(sidebar_inner, height=2, fg_color="#3a3a3a").pack(pady=15, fill="x")
+        
+        # Rust Tools Label
+        ctk.CTkLabel(
+            sidebar_inner,
+            text="🦀 RUST VERIFICATION TOOLS",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#888888"
+        ).pack(anchor="w", pady=(10, 5))
+        
+        self.prusti_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="🔧 PRUSTI VERIFICATION",
+            command=self.verify_with_prusti,
+            height=40,
+            font=ctk.CTkFont(size=12),
+            fg_color="#e74c3c",
+            hover_color="#c0392b"
+        )
+        self.prusti_btn.pack(fill="x", pady=3)
+        
+        self.creusot_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="📐 CREUSOT VERIFICATION",
+            command=self.verify_with_creusot,
+            height=40,
+            font=ctk.CTkFont(size=12),
+            fg_color="#16a085",
+            hover_color="#1abc9c"
+        )
+        self.creusot_btn.pack(fill="x", pady=3)
+        
+        self.elan_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="⚙️ ELAN (LEAN VERSION MANAGER)",
+            command=self.check_elan,
+            height=40,
+            font=ctk.CTkFont(size=12),
+            fg_color="#34495e",
+            hover_color="#2c3e50"
+        )
+        self.elan_btn.pack(fill="x", pady=3)
         
         # Separator
         ctk.CTkFrame(sidebar_inner, height=2, fg_color="#3a3a3a").pack(pady=15, fill="x")
@@ -247,7 +291,30 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#5a1a1a"
         )
         self.stop_dash_btn.pack(fill="x", pady=5)
-        
+
+        # Translated Output viewer button
+        self.view_translated_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="📄 VIEW TRANSLATED OUTPUT",
+            command=self.open_translated_output,
+            height=40,
+            font=ctk.CTkFont(size=12),
+            fg_color="#1a3a4a",
+            hover_color="#0f2a38"
+        )
+        self.view_translated_btn.pack(fill="x", pady=5)
+
+        self.counterexample_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="🔍 ANALYZE COUNTEREXAMPLE",
+            command=self.analyze_counterexample,
+            height=40,
+            font=ctk.CTkFont(size=12),
+            fg_color="#ff4444",
+            hover_color="#cc0000"
+        )
+        self.counterexample_btn.pack(fill="x", pady=5)
+
         # Separator
         ctk.CTkFrame(sidebar_inner, height=2, fg_color="#3a3a3a").pack(pady=15, fill="x")
         
@@ -359,6 +426,9 @@ class FormalVerifierApp(ctk.CTk):
         
         # Scan for recent files
         self.scan_recent_files()
+        
+        # Start verification state monitor
+        self.start_verification_monitor()
     
     def toggle_auto_scroll(self):
         self.auto_scroll_enabled = self.auto_scroll.get()
@@ -525,7 +595,7 @@ class FormalVerifierApp(ctk.CTk):
             self.console.see("end")
             
             # Save for dashboard
-            with open("active_file.txt", "w") as f:
+            with open(os.path.join(PROJECT_DIR, "active_file.txt"), "w") as f:
                 f.write(os.path.basename(file_path))
             
             # Show preview
@@ -564,41 +634,56 @@ class FormalVerifierApp(ctk.CTk):
                 with open(self.current_file, 'r') as src:
                     content = src.read()
                 
+                translated_content = None
+                translated_path = None
+                
                 # Translate if needed
                 if self.file_type == 'sol':
                     self.console.insert("end", "[1/5] 🔄 Translating Solidity to Promela...\n")
-                    self.console.insert("end", "   • Extracting state variables\n")
-                    self.console.insert("end", "   • Converting require/assert statements\n")
-                    self.console.insert("end", "   • Generating LTL properties\n")
-                    content = DeFiTranslator.translate_solidity(content)
+                    translated_content = DeFiTranslator.translate_solidity(content)
                     self.console.insert("end", "   ✅ Translation complete\n\n")
+                    
                 elif self.file_type == 'rs':
                     self.console.insert("end", "[1/5] 🔄 Translating Rust to Promela...\n")
-                    self.console.insert("end", "   • Parsing Rust structs\n")
-                    self.console.insert("end", "   • Extracting program fields\n")
-                    content = DeFiTranslator.translate_rust(content)
+                    translated_content = DeFiTranslator.translate_rust(content)
                     self.console.insert("end", "   ✅ Translation complete\n\n")
                 else:
                     self.console.insert("end", "[1/5] 📄 Using native Promela model...\n\n")
+                    translated_content = content
                 
-                # Write translated model to project directory
-                translated_path = os.path.join(PROJECT_DIR, "translated_output.pml")
-                with open(translated_path, 'w') as dst:
-                    dst.write(content)
-
-                # Save active file in project directory
+                # Save translated output to project directory
+                if translated_content:
+                    translated_path = os.path.join(PROJECT_DIR, "translated_output.pml")
+                    with open(translated_path, 'w') as dst:
+                        dst.write(translated_content)
+                    self.console.insert("end", f"   📄 Translated output saved to: {translated_path}\n\n")
+                    
+                    # Also save a copy with original name for reference
+                    base_name = os.path.splitext(os.path.basename(self.current_file))[0]
+                    backup_path = os.path.join(PROJECT_DIR, f"{base_name}_translated.pml")
+                    with open(backup_path, 'w') as dst:
+                        dst.write(translated_content)
+                    self.console.insert("end", f"   📄 Backup saved to: {backup_path}\n\n")
+                
+                # Save active file info
                 active_path = os.path.join(PROJECT_DIR, "active_file.txt")
                 with open(active_path, "w") as f:
                     f.write(os.path.basename(self.current_file))
-
-                # Check for LTL properties
-                if 'ltl' in content:
-                    ltl_count = content.count('ltl')
-                    self.console.insert("end", f"   ✓ Detected {ltl_count} LTL property(ies) in model\n\n")
                 
+                # Use the translated file for verification
+                verify_file = translated_path if translated_path else self.current_file
+                
+                # Check for LTL properties
+                with open(verify_file, 'r') as f:
+                    verify_content = f.read()
+                    ltl_count = verify_content.count('ltl')
+                    if ltl_count > 0:
+                        self.console.insert("end", f"   ✓ Detected {ltl_count} LTL property(ies) in model\n\n")
+                
+                # Continue with SPIN verification...
                 self.console.insert("end", "[2/5] 🔧 Generating SPIN verifier...\n")
-                result = subprocess.run(f"spin -a translated_output.pml", 
-                                       shell=True, capture_output=True, text=True)
+                result = subprocess.run(f"spin -a {verify_file}", 
+                                       shell=True, capture_output=True, text=True, cwd=PROJECT_DIR)
                 if result.stdout and self.verbose_output.get():
                     self.console.insert("end", result.stdout)
                 if result.stderr:
@@ -606,7 +691,7 @@ class FormalVerifierApp(ctk.CTk):
                 
                 self.console.insert("end", "\n[3/5] ⚙️ Compiling verifier...\n")
                 compile_result = subprocess.run("gcc -O3 -o pan pan.c", 
-                                               shell=True, capture_output=True, text=True)
+                                               shell=True, capture_output=True, text=True, cwd=PROJECT_DIR)
                 if compile_result.stderr and self.verbose_output.get():
                     self.console.insert("end", compile_result.stderr)
                 
@@ -618,8 +703,38 @@ class FormalVerifierApp(ctk.CTk):
                 self.console.insert("end", "[4/5] 🔍 Running verification with LTL model checking...\n\n")
                 self.console.insert("end", "─" * 60 + "\n")
                 
-                verify_result = subprocess.run(["./pan", "-a"], 
-                                              capture_output=True, text=True, timeout=120)
+                # First, verify each LTL claim individually
+                ltl_names = []
+                with open(verify_file, 'r') as f:
+                    content = f.read()
+                    ltl_names = re.findall(r'ltl\s+(\w+)', content)
+
+                all_success = True
+                combined_output = ""
+                combined_stderr = ""
+
+                if ltl_names:
+                    for ltl_name in ltl_names:
+                        self.console.insert("end", f"   Verifying LTL: {ltl_name}...\n")
+                        result = subprocess.run(["./pan", "-a", "-N", ltl_name], 
+                                               capture_output=True, text=True, timeout=120, cwd=PROJECT_DIR)
+                        combined_output += f"\n--- LTL {ltl_name} ---\n{result.stdout}"
+                        combined_stderr += result.stderr
+                        if result.returncode != 0:
+                            all_success = False
+                else:
+                    # No specific LTL claims, run default
+                    result = subprocess.run(["./pan", "-a"], 
+                                           capture_output=True, text=True, timeout=120, cwd=PROJECT_DIR)
+                    combined_output = result.stdout
+                    combined_stderr = result.stderr
+                    all_success = result.returncode == 0
+
+                verify_result = type('obj', (object,), {
+                    'returncode': 0 if all_success else 1,
+                    'stdout': combined_output,
+                    'stderr': combined_stderr
+                })()
                 
                 # Display output
                 output_lines = verify_result.stdout.split('\n')
@@ -636,20 +751,38 @@ class FormalVerifierApp(ctk.CTk):
                 
                 self.console.insert("end", "\n" + "─" * 60 + "\n")
                 
-                # Parse results
+                # After getting verify_result, parse and save
                 success = verify_result.returncode == 0
-                output = verify_result.stdout
 
-                # Save verification state (spin)
+                # Parse statistics
+                states_stored = 0
+                transitions = 0
+                depth = 0
+
+                if verify_result.stdout:
+                    states_match = re.search(r"(\d+) states, stored", verify_result.stdout)
+                    if states_match:
+                        states_stored = int(states_match.group(1))
+                    trans_match = re.search(r"(\d+) transitions", verify_result.stdout)
+                    if trans_match:
+                        transitions = int(trans_match.group(1))
+                    depth_match = re.search(r"depth reached (\d+)", verify_result.stdout)
+                    if depth_match:
+                        depth = int(depth_match.group(1))
+
+                # Save SPIN state
                 self.save_verification_state('spin', {
                     'success': success,
+                    'output': verify_result.stdout,
                     'errors': verify_result.stderr,
-                    'output': output
+                    'states_stored': states_stored,
+                    'transitions': transitions,
+                    'depth': depth
                 })
 
                 # Extract LTL verification results
                 ltl_results = []
-                for line in output.split('\n'):
+                for line in verify_result.stdout.split('\n'):
                     if 'ltl' in line.lower() and ('holds' in line or 'violated' in line):
                         ltl_results.append(line.strip())
                 
@@ -664,16 +797,16 @@ class FormalVerifierApp(ctk.CTk):
                     self.status_label.configure(text="✅ Verification successful!")
                     
                     # Show statistics
-                    if "states, stored" in output:
-                        match = re.search(r"(\d+) states, stored", output)
+                    if "states, stored" in verify_result.stdout:
+                        match = re.search(r"(\d+) states, stored", verify_result.stdout)
                         if match:
                             self.console.insert("end", f"📊 States explored: {match.group(1)}\n")
-                    if "depth reached" in output:
-                        match = re.search(r"depth reached (\d+)", output)
+                    if "depth reached" in verify_result.stdout:
+                        match = re.search(r"depth reached (\d+)", verify_result.stdout)
                         if match:
                             self.console.insert("end", f"📊 Depth reached: {match.group(1)}\n")
-                    if "transitions" in output:
-                        match = re.search(r"(\d+) transitions", output)
+                    if "transitions" in verify_result.stdout:
+                        match = re.search(r"(\d+) transitions", verify_result.stdout)
                         if match:
                             self.console.insert("end", f"📊 Transitions: {match.group(1)}\n")
                     
@@ -692,9 +825,10 @@ class FormalVerifierApp(ctk.CTk):
                     self.status_label.configure(text="❌ Verification failed - counterexample found")
                     
                     # Show trail file info
-                    if os.path.exists("pan.trail"):
-                        self.console.insert("end", "📄 Counterexample trail saved to: pan.trail\n")
-                        with open("pan.trail", 'r') as f:
+                    trail_path = os.path.join(PROJECT_DIR, "pan.trail")
+                    if os.path.exists(trail_path):
+                        self.console.insert("end", f"📄 Counterexample trail saved to: {trail_path}\n")
+                        with open(trail_path, 'r') as f:
                             trail_content = f.read()[:2000]
                             self.console.insert("end", "\nCounterexample preview:\n")
                             self.console.insert("end", trail_content + "\n")
@@ -702,7 +836,7 @@ class FormalVerifierApp(ctk.CTk):
                 # Save results for dashboard
                 VerificationState.save_result(
                     success, 
-                    output, 
+                    verify_result.stdout,  # FIXED: use verify_result.stdout instead of undefined 'output'
                     verify_result.stderr,
                     os.path.basename(self.current_file),
                     ltl_results
@@ -722,7 +856,7 @@ class FormalVerifierApp(ctk.CTk):
             self.verify_btn.configure(state="normal", text="🚀 RUN SPIN VERIFICATION")
             
             # Cleanup
-            for f in ["pan.c", "pan.h", "pan", "pan.trail", "translated_output.pml"]:
+            for f in [os.path.join(PROJECT_DIR, x) for x in ["pan.c", "pan.h", "pan", "pan.trail"]]:
                 if os.path.exists(f):
                     try:
                         os.remove(f)
@@ -732,105 +866,577 @@ class FormalVerifierApp(ctk.CTk):
         threading.Thread(target=verify, daemon=True).start()
 
     def save_verification_state(self, tool, result):
-        state_file = os.path.join(os.path.dirname(__file__), 'verification_state.json')
-        try:
-            with open(state_file, 'r') as f:
-                state = json.load(f)
-        except:
-            state = {}
-
+        """Save verification state for a specific tool"""
+        import json
+        from datetime import datetime
+        
+        state_file = os.path.join(PROJECT_DIR, 'verification_state.json')
+        
+        # Load existing state
+        state = {}
+        if os.path.exists(state_file):
+            try:
+                with open(state_file, 'r') as f:
+                    state = json.load(f)
+            except:
+                pass
+        
+        # Update state for this tool
         state[tool] = {
             'timestamp': datetime.now().isoformat(),
             'success': result.get('success', False),
-            'errors': result.get('errors', ''),
-            'output': result.get('output', '')[:500]
+            'output': result.get('output', '')[:500],
+            'errors': result.get('errors', '')[:200]
         }
-
+        
+        # Also update overall verification info if this is SPIN
+        if tool == 'spin':
+            state['success'] = result.get('success', False)
+            state['datetime'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            state['states_stored'] = result.get('states_stored', 0)
+            state['transitions'] = result.get('transitions', 0)
+            state['depth'] = result.get('depth', 0)
+        
+        # Save to file
         with open(state_file, 'w') as f:
             json.dump(state, f, indent=2)
+        
+        # Also update the display status
+        self.update_tool_status_display()
+
+    def update_tool_status_display(self):
+        """Update the tool status display in sidebar"""
+        state_file = os.path.join(PROJECT_DIR, 'verification_state.json')
+        if not os.path.exists(state_file):
+            self.tool_status.configure(text="SPIN | Coq | Lean | GCC")
+            return
+        
+        try:
+            with open(state_file, 'r') as f:
+                state = json.load(f)
+            
+            status_parts = []
+            for tool in ['spin', 'coq', 'lean']:
+                if tool in state:
+                    success = state[tool].get('success', False)
+                    icon = "✅" if success else "❌"
+                    status_parts.append(f"{icon} {tool.upper()}")
+                else:
+                    status_parts.append(f"○ {tool.upper()}")
+            
+            # Add GCC status
+            status_parts.append("✅ GCC")
+            
+            self.tool_status.configure(text=" | ".join(status_parts))
+        except:
+            self.tool_status.configure(text="SPIN | Coq | Lean | GCC")
+
+    def start_verification_monitor(self):
+        """Monitor verification status in real-time"""
+        self.monitoring = True
+        
+        def monitor():
+            last_mtime = 0
+            state_file = os.path.join(PROJECT_DIR, "verification_state.json")
+            
+            while self.monitoring:
+                if os.path.exists(state_file):
+                    current_mtime = os.path.getmtime(state_file)
+                    if current_mtime > last_mtime:
+                        last_mtime = current_mtime
+                        self.load_verification_status()
+                time.sleep(2)
+        
+        threading.Thread(target=monitor, daemon=True).start()
+
+    def load_verification_status(self):
+        """Load and display verification status"""
+        state_file = os.path.join(PROJECT_DIR, "verification_state.json")
+        if os.path.exists(state_file):
+            with open(state_file, 'r') as f:
+                state = json.load(f)
+            
+            # Update status label
+            if state.get('success'):
+                self.status_label.configure(text=f"✅ Verified at {state.get('datetime', 'unknown')}")
+            else:
+                self.status_label.configure(text=f"❌ Verification failed at {state.get('datetime', 'unknown')}")
 
     def verify_with_coq(self):
+        """Run Coq verification"""
         if not self.current_file:
             self.console.insert("end", "❌ No file selected\n")
             return
-        # Disable button while running
+        
         self.coq_btn.configure(state="disabled", text="⏳ Running Coq...")
-        threading.Thread(target=self._run_coq_verification, daemon=True).start()
+        
+        def run_coq():
+            try:
+                from coq_verifier import CoqVerifier
+                verifier = CoqVerifier()
+                
+                if not verifier.coq_available:
+                    self.after(0, lambda: self.console.insert("end", "❌ Coq is not installed\n"))
+                    self.after(0, lambda: self.coq_btn.configure(state="normal", text="📜 COQ VERIFICATION"))
+                    return
+                
+                contract_name = os.path.basename(self.current_file).split('.')[0]
+                coq_script = verifier.generate_coq_script(contract_name, {})
+                result = verifier.verify_with_coq(coq_script)
+                
+                # Save Coq state
+                self.save_verification_state('coq', result)
+                
+                def display():
+                    self.console.insert("end", "\n" + "="*60 + "\n")
+                    self.console.insert("end", "📜 COQ VERIFICATION RESULTS\n")
+                    self.console.insert("end", "="*60 + "\n")
+                    
+                    if result.get('success'):
+                        self.console.insert("end", "✅ Coq verification successful!\n")
+                    else:
+                        error_msg = result.get('error', result.get('errors', 'Unknown error'))
+                        self.console.insert("end", f"❌ Coq failed: {error_msg}\n")
+                    
+                    self.console.see("end")
+                    self.coq_btn.configure(state="normal", text="📜 COQ VERIFICATION")
+                
+                self.after(0, display)
+                
+            except Exception as e:
+                self.after(0, lambda: self.console.insert("end", f"❌ Coq error: {e}\n"))
+                self.after(0, lambda: self.coq_btn.configure(state="normal", text="📜 COQ VERIFICATION"))
+        
+        threading.Thread(target=run_coq, daemon=True).start()
 
-    def _run_coq_verification(self):
-        try:
-            contract_name = os.path.basename(self.current_file)
-            from coq_verifier import CoqVerifier
-            verifier = CoqVerifier()
-            coq_script = verifier.generate_coq_script(contract_name, {})
-            result = verifier.verify_with_coq(coq_script)
-            # Schedule UI update on main thread
-            self.after(0, self._display_coq_result, result)
-        except Exception as e:
-            self.after(0, self.console.insert, "end", f"❌ Error: {e}\n")
-        finally:
-            self.after(0, self.coq_btn.configure,
-                       {"state": "normal", "text": "📐 VERIFY WITH COQ"})
-
-    def _display_coq_result(self, result):
-        if result['success']:
-            self.console.insert("end", "✅ Coq verification successful!\n")
-        else:
-            self.console.insert("end", f"❌ Coq failed:\n{result.get('errors','')}\n")
-
-        self.save_verification_state('coq', result)
-        self.console.see("end")
-
-        if self.auto_scroll_enabled:
-            self.console.see("end")
-    
     def run_lean_verification(self):
         """Run Lean verification"""
         if not self.current_file:
-            messagebox.showwarning("No File", "Please load a file first.")
+            self.console.insert("end", "❌ No file selected\n")
             return
         
-        self.console.insert("end", "\n" + "="*80 + "\n")
-        self.console.insert("end", "⚡ RUNNING LEAN VERIFICATION\n")
-        self.console.insert("end", "="*80 + "\n\n")
+        self.lean_btn.configure(state="disabled", text="⏳ Running Lean...")
+        
+        def run_lean():
+            try:
+                from lean_verifier import LeanVerifier
+                verifier = LeanVerifier()
+                
+                if not verifier.lean_available:
+                    self.after(0, lambda: self.console.insert("end", "❌ Lean is not installed\n"))
+                    self.after(0, lambda: self.lean_btn.configure(state="normal", text="⚡ LEAN VERIFICATION"))
+                    return
+                
+                contract_name = os.path.basename(self.current_file).split('.')[0]
+                lean_script = verifier.generate_lean_script(contract_name, [])
+                result = verifier.verify_with_lean(lean_script)
+                
+                # Save Lean state
+                self.save_verification_state('lean', result)
+                
+                def display():
+                    self.console.insert("end", "\n" + "="*60 + "\n")
+                    self.console.insert("end", "⚡ LEAN VERIFICATION RESULTS\n")
+                    self.console.insert("end", "="*60 + "\n")
+                    
+                    if result.get('success'):
+                        self.console.insert("end", "✅ Lean verification successful!\n")
+                    else:
+                        error_msg = result.get('error', result.get('errors', 'Unknown error'))
+                        self.console.insert("end", f"❌ Lean failed: {error_msg}\n")
+                    
+                    self.console.see("end")
+                    self.lean_btn.configure(state="normal", text="⚡ LEAN VERIFICATION")
+                
+                self.after(0, display)
+                
+            except Exception as e:
+                self.after(0, lambda: self.console.insert("end", f"❌ Lean error: {e}\n"))
+                self.after(0, lambda: self.lean_btn.configure(state="normal", text="⚡ LEAN VERIFICATION"))
+        
+        threading.Thread(target=run_lean, daemon=True).start()
+
+    def verify_with_prusti(self):
+        """Run Prusti verification on Rust files"""
+        if not self.current_file:
+            self.console.insert("end", "❌ No file selected\n")
+            return
+        
+        ext = os.path.splitext(self.current_file)[1].lower()
+        if ext != '.rs':
+            self.console.insert("end", "❌ Prusti only works with .rs files\n")
+            return
+        
+        self.prusti_btn.configure(state="disabled", text="⏳ Running Prusti...")
+        
+        def run_prusti():
+            try:
+                self.console.insert("end", "\n" + "="*60 + "\n")
+                self.console.insert("end", "🔧 PRUSTI VERIFICATION\n")
+                self.console.insert("end", "="*60 + "\n")
+                
+                # Check if prusti is installed
+                check = subprocess.run(["prusti-rustc", "--version"], 
+                                       capture_output=True, text=True)
+                if check.returncode != 0:
+                    self.after(0, lambda: self.console.insert("end", 
+                        "❌ Prusti not installed. Run: cargo install prusti\n"))
+                    self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
+                    return
+                
+                # Read and fix the Rust file
+                with open(self.current_file, 'r') as f:
+                    rust_code = f.read()
+                
+                # Fix common syntax errors
+                from translator import DeFiTranslator
+                fixed_code = DeFiTranslator.generate_test_rust_file(rust_code)
+                
+                # Create temp file with fixed code
+                import tempfile
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.rs', delete=False) as tmp:
+                    tmp.write(fixed_code)
+                    temp_file = tmp.name
+                
+                # Run prusti on the fixed file
+                result = subprocess.run(
+                    ["prusti-rustc", temp_file],
+                    capture_output=True, text=True, timeout=120
+                )
+                
+                # Clean up
+                os.unlink(temp_file)
+                
+                success = result.returncode == 0
+                self.save_verification_state('prusti', {
+                    'success': success,
+                    'output': result.stdout,
+                    'errors': result.stderr
+                })
+                
+                def display():
+                    if success:
+                        self.console.insert("end", "✅ Prusti verification successful!\n")
+                        if result.stdout:
+                            self.console.insert("end", f"   {result.stdout[:500]}\n")
+                    else:
+                        self.console.insert("end", f"❌ Prusti failed:\n")
+                        # Show more helpful error message
+                        if "visibility `pub` is not followed by an item" in result.stderr:
+                            self.console.insert("end", "   Syntax error: Use 'pub fn' instead of 'pub def'\n")
+                        else:
+                            self.console.insert("end", f"   {result.stderr[:500]}\n")
+                    self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION")
+                
+                self.after(0, display)
+                
+            except Exception as e:
+                self.after(0, lambda: self.console.insert("end", f"❌ Prusti error: {e}\n"))
+                self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
+        
+        threading.Thread(target=run_prusti, daemon=True).start()
+
+    def verify_with_creusot(self):
+        """Run Creusot verification on Rust files"""
+        if not self.current_file:
+            self.console.insert("end", "❌ No file selected\n")
+            return
+        
+        ext = os.path.splitext(self.current_file)[1].lower()
+        if ext != '.rs':
+            self.console.insert("end", "❌ Creusot only works with .rs files\n")
+            return
+        
+        self.creusot_btn.configure(state="disabled", text="⏳ Running Creusot...")
+        
+        def run_creusot():
+            try:
+                self.console.insert("end", "\n" + "="*60 + "\n")
+                self.console.insert("end", "📐 CREUSOT VERIFICATION\n")
+                self.console.insert("end", "="*60 + "\n")
+                
+                # Check if creusot is installed
+                result = subprocess.run(["creusot", "--version"], 
+                                       capture_output=True, text=True)
+                if result.returncode != 0:
+                    self.after(0, lambda: self.console.insert("end", 
+                        "❌ Creusot not installed. Run: cargo install creusot\n"))
+                    return
+                
+                # Run creusot on the file
+                result = subprocess.run(
+                    ["creusot", self.current_file],
+                    capture_output=True, text=True, timeout=120
+                )
+                
+                success = result.returncode == 0
+                self.save_verification_state('creusot', {
+                    'success': success,
+                    'output': result.stdout,
+                    'errors': result.stderr
+                })
+                
+                def display():
+                    if success:
+                        self.console.insert("end", "✅ Creusot verification successful!\n")
+                    else:
+                        self.console.insert("end", f"❌ Creusot failed:\n{result.stderr[:500]}\n")
+                    self.creusot_btn.configure(state="normal", text="📐 CREUSOT VERIFICATION")
+                
+                self.after(0, display)
+                
+            except Exception as e:
+                self.after(0, lambda: self.console.insert("end", f"❌ Creusot error: {e}\n"))
+                self.after(0, lambda: self.creusot_btn.configure(state="normal", text="📐 CREUSOT VERIFICATION"))
+        
+        threading.Thread(target=run_creusot, daemon=True).start()
+
+    def check_elan(self):
+        """Check Elan (Lean version manager) status"""
+        self.console.insert("end", "\n" + "="*60 + "\n")
+        self.console.insert("end", "⚙️ ELAN STATUS CHECK\n")
+        self.console.insert("end", "="*60 + "\n")
         
         try:
-            from lean_verifier import LeanVerifier
-            verifier = LeanVerifier()
-            
-            if not verifier.lean_available:
-                self.console.insert("end", "❌ Lean is not installed. Please install Lean theorem prover.\n")
-                self.console.insert("end", "   Visit: https://leanprover.github.io/\n")
-                return
-            
-            # Generate Lean script
-            self.console.insert("end", "[1/2] 📝 Generating Lean proof script...\n")
-            with open(self.current_file, 'r') as f:
-                content = f.read()
-            
-            lean_script = verifier.generate_lean_script(
-                os.path.basename(self.current_file).split('.')[0],
-                []
-            )
-            
-            self.console.insert("end", "[2/2] 🔍 Running Lean verification...\n\n")
-            result = verifier.verify_with_lean(lean_script)
-            
-            if result['success']:
-                self.console.insert("end", "✅ Lean verification successful!\n")
-                self.console.insert("end", result['output'] + "\n")
-            else:
-                self.console.insert("end", "❌ Lean verification failed:\n")
-                self.console.insert("end", result.get('error', result.get('errors', 'Unknown error')) + "\n")
+            result = subprocess.run(["elan", "--version"], 
+                                   capture_output=True, text=True)
+            if result.returncode == 0:
+                self.console.insert("end", f"✅ Elan installed: {result.stdout.strip()}\n")
                 
-        except ImportError:
-            self.console.insert("end", "❌ Lean verifier module not found.\n")
+                # Check available toolchains
+                result = subprocess.run(["elan", "toolchain", "list"], 
+                                       capture_output=True, text=True)
+                self.console.insert("end", "\n📦 Available Lean toolchains:\n")
+                self.console.insert("end", result.stdout)
+            else:
+                self.console.insert("end", "❌ Elan not installed. Run: curl https://elan.lean-lang.org/elan-init.sh -sSf | sh\n")
         except Exception as e:
-            self.console.insert("end", f"❌ Error: {e}\n")
+            self.console.insert("end", f"❌ Error checking Elan: {e}\n")
         
-        if self.auto_scroll_enabled:
-            self.console.see("end")
-    
+        self.console.see("end")
+
+    def verify_with_rust_tools(self):
+        if not self.current_source:
+            self.console.insert("end", "❌ No file selected\n")
+            return
+        ext = os.path.splitext(self.current_source)[1].lower()
+        if ext != '.rs':
+            self.console.insert("end", "❌ Only works with .rs files\n")
+            return
+        self.rust_verify_btn.configure(state="disabled", text="⏳ Running...")
+        threading.Thread(target=self._rust_thread, daemon=True).start()
+
+    def _rust_thread(self):
+        try:
+            with open(self.current_source, 'r') as f:
+                rust_code = f.read()
+            annotated = self.rust_verifier.generate_rust_annotations(rust_code)
+            results = {
+                'prusti': self.rust_verifier.verify_with_prusti(annotated),
+                'kani':   self.rust_verifier.verify_with_kani(annotated),
+                'creusot':self.rust_verifier.verify_with_creusot(annotated),
+            }
+            self.after(0, self._display_rust_results, results)
+        except Exception as e:
+            self.after(0, self.console.insert, "end", f"❌ Rust error: {e}\n")
+        finally:
+            self.after(0, lambda: self.rust_verify_btn.configure(
+                state="normal", text="🦀 VERIFY WITH PRUSTI/KANI"))
+
+    def _display_rust_results(self, results):
+        self.console.insert("end", "\n" + "="*70 + "\n")
+        self.console.insert("end", "TRIANGULATION RESULTS\n")
+        self.console.insert("end", "="*70 + "\n")
+        for tool, result in results.items():
+            status = "✅ PASS" if result['success'] else "❌ FAIL"
+            self.console.insert("end", f"{tool.upper()}: {status}\n")
+            if result.get('errors'):
+                self.console.insert("end", f"  {result['errors'][:200]}\n")
+        self.console.see("end")
+
+    def open_translated_output(self):
+        """Open translated_output.pml for the active file in a popup viewer window"""
+        
+        # Find the translated output file
+        translated_path = os.path.join(PROJECT_DIR, "translated_output.pml")
+        
+        # Also check for other possible locations
+        possible_paths = [
+            translated_path,
+            os.path.join(PROJECT_DIR, "translated_output.txt"),
+            os.path.join(os.path.dirname(PROJECT_DIR), "translated_output.pml"),
+            os.path.join(os.path.expanduser("~"), "defi_guardian", "translated_output.pml"),
+        ]
+        
+        # Add backup from current file
+        if self.current_file:
+            base_name = os.path.splitext(os.path.basename(self.current_file))[0]
+            backup_path = os.path.join(PROJECT_DIR, f"{base_name}_translated.pml")
+            possible_paths.insert(1, backup_path)
+        
+        # Find the first existing file
+        display_file = None
+        for path in possible_paths:
+            if os.path.exists(path) and os.path.getsize(path) > 0:
+                display_file = path
+                break
+        
+        if not display_file:
+            messagebox.showwarning(
+                "No Translated Output",
+                "No translated output found.\n\n"
+                "Please run SPIN Verification on a .sol or .rs file first.\n\n"
+                f"Expected: {translated_path}"
+            )
+            return
+        
+        try:
+            with open(display_file, 'r') as f:
+                content = f.read()
+        except Exception as e:
+            messagebox.showerror("Read Error", f"Could not read file:\n{e}")
+            return
+        
+        # Create popup window
+        popup = ctk.CTkToplevel(self)
+        popup.title(f"Translated Output — {os.path.basename(self.current_file) if self.current_file else 'unknown'} → Promela")
+        popup.geometry("1000x750")
+        popup.grab_set()
+        
+        # Configure popup grid
+        popup.grid_columnconfigure(0, weight=1)
+        popup.grid_rowconfigure(1, weight=1)
+        
+        # Header frame
+        header = ctk.CTkFrame(popup, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", padx=15, pady=(12, 5))
+        header.grid_columnconfigure(0, weight=1)
+        
+        ctk.CTkLabel(
+            header,
+            text=f"📄 Translated Promela Model",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color="#00ffcc"
+        ).grid(row=0, column=0, sticky="w")
+        
+        # Info label
+        info_text = f"Source: {os.path.basename(self.current_file) if self.current_file else 'N/A'} | Lines: {content.count(chr(10)) + 1} | Size: {len(content):,} chars"
+        ctk.CTkLabel(
+            popup,
+            text=info_text,
+            font=ctk.CTkFont(size=11),
+            text_color="#666666"
+        ).grid(row=1, column=0, sticky="w", padx=15, pady=(0, 5))
+        
+        # Button frame
+        btn_frame = ctk.CTkFrame(popup, fg_color="transparent")
+        btn_frame.grid(row=2, column=0, sticky="ew", padx=15, pady=(0, 10))
+        btn_frame.grid_columnconfigure(2, weight=1)
+        
+        def copy_to_clipboard():
+            popup.clipboard_clear()
+            popup.clipboard_append(content)
+            popup.update()
+            copy_btn.configure(text="✅ Copied!")
+            popup.after(1500, lambda: copy_btn.configure(text="📋 Copy"))
+        
+        def save_to_file():
+            save_path = filedialog.asksaveasfilename(
+                parent=popup,
+                defaultextension=".pml",
+                initialfile=f"{os.path.splitext(os.path.basename(self.current_file))[0] if self.current_file else 'output'}_translated.pml",
+                filetypes=[("Promela files", "*.pml"), ("All files", "*.*")]
+            )
+            if save_path:
+                try:
+                    with open(save_path, 'w') as f:
+                        f.write(content)
+                    self.console.insert("end", f"\n💾 Translated output saved to: {save_path}\n")
+                    self.console.see("end")
+                except Exception as e:
+                    messagebox.showerror("Save Error", str(e), parent=popup)
+        
+        copy_btn = ctk.CTkButton(btn_frame, text="📋 Copy", width=80, command=copy_to_clipboard)
+        copy_btn.grid(row=0, column=0, padx=(0, 5))
+        
+        ctk.CTkButton(btn_frame, text="💾 Save As", width=80, command=save_to_file).grid(row=0, column=1, padx=(0, 5))
+        
+        # Text area with scrollbar
+        text_frame = ctk.CTkFrame(popup, fg_color="transparent")
+        text_frame.grid(row=3, column=0, sticky="nsew", padx=15, pady=(0, 15))
+        text_frame.grid_columnconfigure(0, weight=1)
+        text_frame.grid_rowconfigure(0, weight=1)
+        
+        textbox = ctk.CTkTextbox(
+            text_frame,
+            font=("Courier New", 11),
+            wrap="none",
+            fg_color="#0a0a0a",
+            text_color="#00ff00"
+        )
+        textbox.grid(row=0, column=0, sticky="nsew")
+        
+        # Insert content
+        textbox.insert("1.0", content)
+        textbox.configure(state="disabled")  # Make read-only
+        
+        # Status label at bottom
+        status_label = ctk.CTkLabel(
+            popup,
+            text=f"📁 File: {display_file}",
+            font=ctk.CTkFont(size=10),
+            text_color="#444444"
+        )
+        status_label.grid(row=4, column=0, sticky="w", padx=15, pady=(0, 10))
+
+    def analyze_counterexample(self):
+        """Analyze and display counterexample"""
+        self.console.insert("end", "\n" + "="*60 + "\n")
+        self.console.insert("end", "🔍 COUNTEREXAMPLE ANALYSIS\n")
+        self.console.insert("end", "="*60 + "\n")
+        
+        # Import the analyzer
+        try:
+            from counterexample_analyzer import CounterexampleAnalyzer
+        except ImportError:
+            self.console.insert("end", "❌ Counterexample analyzer module not found\n")
+            return
+        
+        analyzer = CounterexampleAnalyzer(PROJECT_DIR)
+        
+        # Check for trail file
+        trail_file = os.path.join(PROJECT_DIR, "translated_output.pml.trail")
+        pml_file = os.path.join(PROJECT_DIR, "translated_output.pml")
+        
+        if not os.path.exists(trail_file):
+            # Check for other trail files
+            for f in os.listdir(PROJECT_DIR):
+                if f.endswith('.trail'):
+                    trail_file = os.path.join(PROJECT_DIR, f)
+                    break
+        
+        if not os.path.exists(trail_file):
+            self.console.insert("end", "ℹ️ No counterexample trail found.\n")
+            self.console.insert("end", "   Run verification on a model with property violations first.\n")
+            return
+        
+        # Generate and display report
+        report = analyzer.generate_report(pml_file if os.path.exists(pml_file) else None)
+        self.console.insert("end", report + "\n")
+        
+        # Save report to file
+        report_path = analyzer.save_report()
+        self.console.insert("end", f"\n📄 Full report saved to: {report_path}\n")
+        
+        # Also try to run SPIN guided simulation
+        spin_output = analyzer.analyze_with_spin(pml_file if os.path.exists(pml_file) else None)
+        if spin_output and "error" not in spin_output.lower():
+            self.console.insert("end", "\n🔬 SPIN Guided Simulation:\n")
+            self.console.insert("end", "-"*40 + "\n")
+            self.console.insert("end", spin_output[:2000] + "\n")  # Limit output
+        
+        self.console.see("end")
+
     def open_dashboard(self):
         """Open Streamlit dashboard"""
         self.console.insert("end", "\n🌐 Opening dashboard in browser...\n")

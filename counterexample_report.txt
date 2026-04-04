@@ -1,0 +1,33 @@
+======================================================================
+COUNTEREXAMPLE ANALYSIS REPORT
+======================================================================
+
+❌ COUNTEREXAMPLE FOUND!
+
+📋 SPIN GUIDED SIMULATION:
+--------------------------------------------------
+ltl safety_no_overflow: [] (((lock>=0)) && ((lock<=1)))
+ltl liveness_progress: <> ((state==1))
+ltl invariant_stable: [] ((! ((state==1))) || ((lock==1)))
+spin: warning, "/home/slade/defi_guardian/translated_output.pml" is newer than /home/slade/defi_guardian/translated_output.pml.trail
+starting claim 2
+  1: error: invalid statement
+          Validating Rust State Machine...
+  2:	proc  0 (Program:1) /home/slade/defi_guardian/translated_output.pml:15 (state 3)	[ATOMIC]
+  3: error: invalid statement
+spin: trail ends after 3 steps
+#processes: 1
+		lock = 0
+		state = 0
+		balance = 0
+  3:	proc  0 (Program:1) /home/slade/defi_guardian/translated_output.pml:17 (state 2)
+  3:	proc  - (liveness_progress:1) _spin_nvr.tmp:12 (state 3)
+1 processes created
+
+
+🔧 RECOMMENDATIONS:
+--------------------------------------------------
+1. Review the LTL properties for correctness
+2. Check if the model accurately represents the system
+3. Verify that invariants are properly defined
+4. Consider adding more constraints to the model

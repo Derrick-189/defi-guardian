@@ -19,8 +19,8 @@
 		if (trpt->o_pm&1) continue;
 		_m = 3; goto P999;
 
-		 /* CLAIM invariant_stable */
-	case 3: // STATE 1 - _spin_nvr.tmp:19 - [(!((!((state==1))||(lock==1))))] (6:0:0 - 1)
+		 /* CLAIM invariant_balance */
+	case 3: // STATE 1 - _spin_nvr.tmp:19 - [(!((balance>=0)))] (6:0:0 - 1)
 		
 #if defined(VERI) && !defined(NP)
 #if NCLAIMS>1
@@ -43,11 +43,11 @@
 #endif
 #endif
 		reached[3][1] = 1;
-		if (!( !(( !((((int)now.state)==1))||(now.lock==1)))))
+		if (!( !((now.balance>=0))))
 			continue;
-		/* merge: assert(!(!((!((state==1))||(lock==1)))))(0, 2, 6) */
+		/* merge: assert(!(!((balance>=0))))(0, 2, 6) */
 		reached[3][2] = 1;
-		spin_assert( !( !(( !((((int)now.state)==1))||(now.lock==1)))), " !( !(( !((state==1))||(lock==1))))", II, tt, t);
+		spin_assert( !( !((now.balance>=0))), " !( !((balance>=0)))", II, tt, t);
 		/* merge: .(goto)(0, 7, 6) */
 		reached[3][7] = 1;
 		;
@@ -132,7 +132,7 @@
 		_m = 3; goto P999; /* 0 */
 
 		 /* CLAIM safety_no_overflow */
-	case 7: // STATE 1 - _spin_nvr.tmp:3 - [(!(((lock>=0)&&(lock<=1))))] (6:0:0 - 1)
+	case 7: // STATE 1 - _spin_nvr.tmp:3 - [(!(((balance>=0)&&(balance<=1000000))))] (6:0:0 - 1)
 		
 #if defined(VERI) && !defined(NP)
 #if NCLAIMS>1
@@ -155,11 +155,11 @@
 #endif
 #endif
 		reached[1][1] = 1;
-		if (!( !(((now.lock>=0)&&(now.lock<=1)))))
+		if (!( !(((now.balance>=0)&&(now.balance<=1000000)))))
 			continue;
-		/* merge: assert(!(!(((lock>=0)&&(lock<=1)))))(0, 2, 6) */
+		/* merge: assert(!(!(((balance>=0)&&(balance<=1000000)))))(0, 2, 6) */
 		reached[1][2] = 1;
-		spin_assert( !( !(((now.lock>=0)&&(now.lock<=1)))), " !( !(((lock>=0)&&(lock<=1))))", II, tt, t);
+		spin_assert( !( !(((now.balance>=0)&&(now.balance<=1000000)))), " !( !(((balance>=0)&&(balance<=1000000))))", II, tt, t);
 		/* merge: .(goto)(0, 7, 6) */
 		reached[1][7] = 1;
 		;
@@ -191,11 +191,11 @@
 		_m = 3; goto P999; /* 0 */
 
 		 /* PROC Program */
-	case 9: // STATE 1 - translated_output.pml:15 - [printf('Validating Rust State Machine...\\n')] (0:17:1 - 1)
+	case 9: // STATE 1 - /home/slade/defi_guardian/translated_output.pml:18 - [printf('Validating Rust State Machine...\\n')] (0:23:1 - 1)
 		IfNotBlocked
 		reached[0][1] = 1;
 		Printf("Validating Rust State Machine...\n");
-		/* merge: state = 1(17, 2, 17) */
+		/* merge: state = 1(23, 2, 23) */
 		reached[0][2] = 1;
 		(trpt+1)->bup.oval = ((int)now.state);
 		now.state = 1;
@@ -203,72 +203,145 @@
 		logval("state", ((int)now.state));
 #endif
 		;
-		/* merge: .(goto)(0, 18, 17) */
-		reached[0][18] = 1;
+		/* merge: .(goto)(0, 24, 23) */
+		reached[0][24] = 1;
 		;
 		_m = 3; goto P999; /* 2 */
-	case 10: // STATE 4 - translated_output.pml:20 - [((state==1))] (0:0:0 - 1)
+	case 10: // STATE 4 - /home/slade/defi_guardian/translated_output.pml:23 - [((state==1))] (0:0:0 - 1)
 		IfNotBlocked
 		reached[0][4] = 1;
 		if (!((((int)now.state)==1)))
 			continue;
 		_m = 3; goto P999; /* 0 */
-	case 11: // STATE 5 - translated_output.pml:21 - [printf('Executing program logic...\\n')] (0:20:3 - 1)
+	case 11: // STATE 5 - /home/slade/defi_guardian/translated_output.pml:24 - [printf('Executing program logic...\\n')] (0:12:1 - 1)
 		IfNotBlocked
 		reached[0][5] = 1;
 		Printf("Executing program logic...\n");
-		/* merge: lock = 1(20, 6, 20) */
+		/* merge: lock = 1(12, 6, 12) */
 		reached[0][6] = 1;
-		(trpt+1)->bup.ovals = grab_ints(3);
-		(trpt+1)->bup.ovals[0] = now.lock;
-		now.lock = 1;
+		(trpt+1)->bup.oval = lock;
+		lock = 1;
 #ifdef VAR_RANGES
-		logval("lock", now.lock);
+		logval("lock", lock);
 #endif
 		;
-		/* merge: assert((lock==1))(20, 7, 20) */
+		_m = 3; goto P999; /* 1 */
+	case 12: // STATE 7 - /home/slade/defi_guardian/translated_output.pml:29 - [((balance>=10))] (26:0:3 - 1)
+		IfNotBlocked
 		reached[0][7] = 1;
-		spin_assert((now.lock==1), "(lock==1)", II, tt, t);
-		/* merge: lock = 0(20, 8, 20) */
+		if (!((now.balance>=10)))
+			continue;
+		/* merge: balance = (balance-10)(26, 8, 26) */
 		reached[0][8] = 1;
-		(trpt+1)->bup.ovals[1] = now.lock;
-		now.lock = 0;
+		(trpt+1)->bup.ovals = grab_ints(3);
+		(trpt+1)->bup.ovals[0] = now.balance;
+		now.balance = (now.balance-10);
 #ifdef VAR_RANGES
-		logval("lock", now.lock);
+		logval("balance", now.balance);
 #endif
 		;
-		/* merge: printf('Program execution complete.\\n')(20, 9, 20) */
+		/* merge: printf('Withdrawal successful. New balance: %d\\n',balance)(26, 9, 26) */
 		reached[0][9] = 1;
+		Printf("Withdrawal successful. New balance: %d\n", now.balance);
+		/* merge: .(goto)(26, 13, 26) */
+		reached[0][13] = 1;
+		;
+		/* merge: lock = 0(26, 14, 26) */
+		reached[0][14] = 1;
+		(trpt+1)->bup.ovals[1] = lock;
+		lock = 0;
+#ifdef VAR_RANGES
+		logval("lock", lock);
+#endif
+		;
+		/* merge: printf('Program execution complete.\\n')(26, 15, 26) */
+		reached[0][15] = 1;
 		Printf("Program execution complete.\n");
-		/* merge: state = 2(20, 10, 20) */
-		reached[0][10] = 1;
+		/* merge: state = 2(26, 16, 26) */
+		reached[0][16] = 1;
 		(trpt+1)->bup.ovals[2] = ((int)now.state);
 		now.state = 2;
 #ifdef VAR_RANGES
 		logval("state", ((int)now.state));
 #endif
 		;
-		/* merge: goto :b0(20, 11, 20) */
-		reached[0][11] = 1;
+		/* merge: goto :b0(26, 17, 26) */
+		reached[0][17] = 1;
 		;
-		_m = 3; goto P999; /* 6 */
-	case 12: // STATE 13 - translated_output.pml:32 - [((state==2))] (0:0:0 - 1)
+		_m = 3; goto P999; /* 7 */
+	case 13: // STATE 11 - /home/slade/defi_guardian/translated_output.pml:33 - [printf('Insufficient balance\\n')] (0:26:2 - 1)
 		IfNotBlocked
+		reached[0][11] = 1;
+		Printf("Insufficient balance\n");
+		/* merge: .(goto)(26, 13, 26) */
 		reached[0][13] = 1;
+		;
+		/* merge: lock = 0(26, 14, 26) */
+		reached[0][14] = 1;
+		(trpt+1)->bup.ovals = grab_ints(2);
+		(trpt+1)->bup.ovals[0] = lock;
+		lock = 0;
+#ifdef VAR_RANGES
+		logval("lock", lock);
+#endif
+		;
+		/* merge: printf('Program execution complete.\\n')(26, 15, 26) */
+		reached[0][15] = 1;
+		Printf("Program execution complete.\n");
+		/* merge: state = 2(26, 16, 26) */
+		reached[0][16] = 1;
+		(trpt+1)->bup.ovals[1] = ((int)now.state);
+		now.state = 2;
+#ifdef VAR_RANGES
+		logval("state", ((int)now.state));
+#endif
+		;
+		/* merge: goto :b0(26, 17, 26) */
+		reached[0][17] = 1;
+		;
+		_m = 3; goto P999; /* 5 */
+	case 14: // STATE 14 - /home/slade/defi_guardian/translated_output.pml:36 - [lock = 0] (0:26:2 - 3)
+		IfNotBlocked
+		reached[0][14] = 1;
+		(trpt+1)->bup.ovals = grab_ints(2);
+		(trpt+1)->bup.ovals[0] = lock;
+		lock = 0;
+#ifdef VAR_RANGES
+		logval("lock", lock);
+#endif
+		;
+		/* merge: printf('Program execution complete.\\n')(26, 15, 26) */
+		reached[0][15] = 1;
+		Printf("Program execution complete.\n");
+		/* merge: state = 2(26, 16, 26) */
+		reached[0][16] = 1;
+		(trpt+1)->bup.ovals[1] = ((int)now.state);
+		now.state = 2;
+#ifdef VAR_RANGES
+		logval("state", ((int)now.state));
+#endif
+		;
+		/* merge: goto :b0(26, 17, 26) */
+		reached[0][17] = 1;
+		;
+		_m = 3; goto P999; /* 3 */
+	case 15: // STATE 19 - /home/slade/defi_guardian/translated_output.pml:41 - [((state==2))] (0:0:0 - 1)
+		IfNotBlocked
+		reached[0][19] = 1;
 		if (!((((int)now.state)==2)))
 			continue;
 		_m = 3; goto P999; /* 0 */
-	case 13: // STATE 14 - translated_output.pml:33 - [printf('Program terminated.\\n')] (0:20:0 - 1)
-		IfNotBlocked
-		reached[0][14] = 1;
-		Printf("Program terminated.\n");
-		/* merge: goto :b0(20, 15, 20) */
-		reached[0][15] = 1;
-		;
-		_m = 3; goto P999; /* 1 */
-	case 14: // STATE 20 - translated_output.pml:37 - [-end-] (0:0:0 - 3)
+	case 16: // STATE 20 - /home/slade/defi_guardian/translated_output.pml:42 - [printf('Program terminated.\\n')] (0:26:0 - 1)
 		IfNotBlocked
 		reached[0][20] = 1;
+		Printf("Program terminated.\n");
+		/* merge: goto :b0(26, 21, 26) */
+		reached[0][21] = 1;
+		;
+		_m = 3; goto P999; /* 1 */
+	case 17: // STATE 26 - /home/slade/defi_guardian/translated_output.pml:46 - [-end-] (0:0:0 - 3)
+		IfNotBlocked
+		reached[0][26] = 1;
 		if (!delproc(1, II)) continue;
 		_m = 3; goto P999; /* 0 */
 	case  _T5:	/* np_ */

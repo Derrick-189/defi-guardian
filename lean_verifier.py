@@ -53,23 +53,31 @@ class LeanVerifier:
     def verify_with_lean(self, lean_script):
         if not self.lean_available:
             return {'success': False, 'error': 'Lean not installed', 'output': ''}
+        temp_file = None
         try:
+            # lean --stdin is not supported in Lean 4; write to a real .lean file
             with tempfile.NamedTemporaryFile(mode='w', suffix='.lean', delete=False) as f:
                 f.write(lean_script)
                 temp_file = f.name
 
             result = subprocess.run(
-                ["lean", "--stdin"],
-                input=lean_script,
+                ["lean", temp_file],
                 capture_output=True,
                 text=True,
                 timeout=60
             )
-            os.unlink(temp_file)
             return {
                 'success': result.returncode == 0,
                 'output': result.stdout,
                 'errors': result.stderr if result.stderr else result.stdout
             }
+        except subprocess.TimeoutExpired:
+            return {'success': False, 'error': 'Lean timed out after 60 seconds — is lake/mathlib needed?', 'output': ''}
         except Exception as e:
             return {'success': False, 'error': str(e), 'output': ''}
+        finally:
+            if temp_file and os.path.exists(temp_file):
+                try:
+                    os.unlink(temp_file)
+                except Exception:
+                    pass

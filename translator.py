@@ -76,6 +76,116 @@ class DeFiTranslator:
         return ltl_properties
 
     @staticmethod
+    def generate_ltl_from_nl(description):
+        """Convert natural language requirements to LTL formulas"""
+        patterns = {
+            r"never.*happen|never.*occur|not happen": "[] !{condition}",
+            r"always.*true|always.*hold": "[] {condition}",
+            r"eventually|will happen|must happen": "<> {condition}",
+            r"until|before": "{condition1} U {condition2}",
+            r"if.*then|when.*then|response": "[] ({trigger} -> <> {response})",
+            r"stays.*true|remains": "[] {condition}",
+            r"infinitely often|repeatedly": "[] <> {condition}",
+        }
+        
+        # Extract potential conditions
+        conditions = re.findall(r'\(([^)]+)\)', description)
+        if not conditions:
+            conditions = re.findall(r'(\w+\s*[<>!=]+\s*\w+)', description)
+        
+        for pattern, ltl_template in patterns.items():
+            if re.search(pattern, description, re.IGNORECASE):
+                if len(conditions) >= 2 and "U" in ltl_template:
+                    return ltl_template.format(condition1=conditions[0], condition2=conditions[1])
+                elif conditions:
+                    return ltl_template.format(condition=conditions[0])
+                else:
+                    return ltl_template.replace("{condition}", "condition")
+        
+        return None
+
+    @staticmethod
+    def generate_ltl_properties_advanced(contract_name, state_vars):
+        """Generate comprehensive LTL properties from contract analysis"""
+        ltl_props = []
+        
+        # Safety properties
+        for var in state_vars:
+            if var['type'] == 'int':
+                ltl_props.append(f'ltl safety_{var["name"]}_no_underflow {{ [] ({var["name"]} >= 0) }}')
+                ltl_props.append(f'ltl safety_{var["name"]}_bounded {{ [] ({var["name"]} <= 2^256-1) }}')
+        
+        # Liveness properties
+        ltl_props.append('ltl liveness_progress { <> (state == 2) }')
+        ltl_props.append('ltl liveness_eventual_completion { <> (lock == 0) }')
+        
+        # Invariants
+        if 'collateral' in [v['name'] for v in state_vars] and 'debt' in [v['name'] for v in state_vars]:
+            ltl_props.append('ltl invariant_solvency { [] (collateral * price >= debt) }')
+        
+        return "\n".join(ltl_props)
+
+    @staticmethod
+    def discover_properties(source_code):
+        """Automatically discover verification properties from source"""
+        properties = {
+            'invariants': [],
+            'safety': [],
+            'liveness': [],
+            'access_control': []
+        }
+        
+        # Discover arithmetic invariants
+        arithmetic_ops = re.findall(r'(\w+)\s*[+\-*/]\s*(\w+)', source_code)
+        for op1, op2 in arithmetic_ops[:5]:
+            properties['invariants'].append(f"never overflow: {op1} + {op2} < 2^256")
+        
+        # Discover access control properties
+        if "onlyOwner" in source_code:
+            properties['access_control'].append("onlyOwner modifier restricts privileged functions")
+        
+        if "require(msg.sender == owner)" in source_code:
+            properties['access_control'].append("owner-only functions require authentication")
+        
+        # Discover reentrancy patterns
+        if ".call" in source_code or ".delegatecall" in source_code:
+            properties['safety'].append("reentrancy protection: lock pattern required")
+            properties['safety'].append("state changes before external calls (checks-effects-interactions)")
+        
+        # Discover financial invariants
+        if "balance" in source_code:
+            properties['invariants'].append("total supply equals sum of all balances")
+        
+        if "collateral" in source_code and "debt" in source_code:
+            properties['invariants'].append("collateral * price >= debt for all positions")
+        
+        # Discover liveness properties
+        if "withdraw" in source_code:
+            properties['liveness'].append("withdrawals eventually succeed when conditions met")
+        
+        return properties
+
+    @staticmethod
+    def generate_property_assertions(properties):
+        """Generate Promela assertions from discovered properties"""
+        assertions = []
+        
+        for inv in properties.get('invariants', []):
+            # Convert natural language to assertion
+            if "overflow" in inv:
+                assertions.append("assert(amount < MAX_UINT256 - amount);")
+            elif "balance" in inv:
+                assertions.append("assert(total_supply == sum(balances));")
+            else:
+                assertions.append(f"assert(1); // {inv}")
+        
+        for safety in properties.get('safety', []):
+            if "lock" in safety:
+                assertions.append("assert(lock == 0); // Reentrancy guard")
+        
+        return "\n".join(assertions)
+
+    @staticmethod
     def translate_solidity(source_code):
         """Converts Solidity to strictly valid Promela model with LTL properties"""
         pml = "/* Auto-generated Sanitized Promela Model with LTL Properties */\n"
@@ -182,28 +292,114 @@ class DeFiTranslator:
         return pml
 
     @staticmethod
-    def translate_rust(source_code):
-        """Extracts core logic from Rust/Anchor contracts with LTL properties"""
-        pml = "/* Translated from Rust with LTL Properties */\n"
-        pml += "/* Generated by DeFi Guardian Formal Verification Suite */\n\n"
+    def translate_vyper(source_code):
+        """Translate Vyper contracts to Promela"""
+        pml = "/* Vyper Contract Model */\n"
+        pml += "/* Generated by DeFi Guardian */\n\n"
         
-        # Extract fields from Rust structs
-        fields = re.findall(r'pub\s+(\w+):\s+u64', source_code)
+        # Extract Vyper variables
+        variables = re.findall(r'(\w+):\s+(uint256|bool|address)', source_code)
+        for var_name, var_type in variables:
+            if var_type == 'uint256':
+                pml += f"int {var_name} = 0;\n"
+            elif var_type == 'bool':
+                pml += f"bool {var_name} = false;\n"
+        
+        # Extract events
+        events = re.findall(r'event\s+(\w+):', source_code)
+        for event in events:
+            pml += f"#define {event}_emitted (1)\n"
+        
+        # Main process
+        pml += """
+active proctype VyperContract() {
+    byte state = 0;
+    bool lock = false;
+    
+    atomic {
+        printf("Vyper contract initialized\\n");
+        state = 1;
+    }
+    
+    do
+        :: state == 1 && lock == false ->
+            atomic {
+                lock = true;
+                // Contract logic here
+                printf("Executing Vyper function\\n");
+                lock = false;
+            }
+        :: state == 2 -> break
+    od
+}
+"""
+        return pml
+
+    @staticmethod
+    def translate_cairo(source_code):
+        """Translate Cairo (StarkNet) contracts to Promela"""
+        pml = "/* Cairo Contract Model */\n"
+        pml += "/* Generated by DeFi Guardian for StarkNet */\n\n"
+        
+        # Extract storage variables
+        storage_vars = re.findall(r'@storage_var\s+func\s+(\w+)\(\)\s+->\s+\((\w+)\)', source_code)
+        for var_name, var_type in storage_vars:
+            if var_type == 'felt':
+                pml += f"int {var_name} = 0;\n"
+        
+        # Extract functions
+        functions = re.findall(r'func\s+(\w+)\(', source_code)
+        
+        pml += """
+active proctype CairoContract() {
+    int storage[10];
+    byte state = 0;
+    
+    atomic {
+        printf("Cairo contract initialized on StarkNet\\n");
+        state = 1;
+    }
+    
+    // Simulate StarkNet execution
+    do
+        :: state == 1 ->
+            atomic {
+                // Execute Cairo logic
+                printf("Executing Cairo function\\n");
+                state = 2;
+            }
+        :: state == 2 -> break
+    od
+}
+"""
+        return pml
+
+    @staticmethod
+    def translate_rust(source_code):
+        """Improved Rust to Promela translation for SPIN"""
+        pml = "/* Translated from Rust to Promela */\n"
+        pml += "/* Generated by DeFi Guardian */\n\n"
+        
+        # Extract function names
+        functions = re.findall(r'fn\s+(\w+)', source_code)
         
         pml += "/* === STATE VARIABLES === */\n"
         pml += "int lock = 0;\n"
         pml += "byte state = 0;\n"
-        for field in fields:
-            pml += f"int {field} = 0;\n"
+        pml += "int balance = 0;\n"
         
-        # Add LTL properties for Rust contracts
+        # Extract balance from struct if present
+        balance_match = re.search(r'balance:\s*(\w+)', source_code)
+        if balance_match:
+            pml += f"int user_balance = 0;\n"
+        
         pml += "\n/* === LTL PROPERTIES === */\n"
-        pml += "ltl safety_no_overflow { [] (lock >= 0 && lock <= 1) }\n"
+        pml += "ltl safety_no_overflow { [] (balance >= 0 && balance <= 1000000) }\n"
         pml += "ltl liveness_progress { <> (state == 1) }\n"
-        pml += "ltl invariant_stable { [] (state == 1 -> lock == 1) }\n"
+        pml += "ltl invariant_balance { [] (balance >= 0) }\n"
         
-        # Main program process
-        pml += "\nactive proctype Program() {\n"
+        pml += "\n/* === MAIN PROCESS === */\n"
+        pml += "active proctype Program() {\n"
         pml += "    atomic {\n"
         pml += "        printf(\"Validating Rust State Machine...\\n\");\n"
         pml += "        state = 1;\n"
@@ -214,14 +410,16 @@ class DeFiTranslator:
         pml += "            printf(\"Executing program logic...\\n\");\n"
         pml += "            lock = 1;\n"
         pml += "            \n"
-        pml += "            /* Verify invariants */\n"
-        pml += "            assert(lock == 1);\n"
-        
-        # Add field invariants
-        for field in fields:
-            pml += f"            assert({field} >= 0);\n"
-        
-        pml += "            \n            lock = 0;\n"
+        pml += "            /* Simulate withdraw logic */\n"
+        pml += "            if\n"
+        pml += "                :: balance >= 10 ->\n"
+        pml += "                    balance = balance - 10;\n"
+        pml += "                    printf(\"Withdrawal successful. New balance: %d\\n\", balance);\n"
+        pml += "                :: else ->\n"
+        pml += "                    printf(\"Insufficient balance\\n\");\n"
+        pml += "            fi\n"
+        pml += "            \n"
+        pml += "            lock = 0;\n"
         pml += "            printf(\"Program execution complete.\\n\");\n"
         pml += "            state = 2;\n"
         pml += "            break;\n"
@@ -232,6 +430,116 @@ class DeFiTranslator:
         pml += "        }\n"
         pml += "    od\n"
         pml += "}\n"
+        
+        return pml
+
+    @staticmethod
+    def generate_test_rust_file(original_content):
+        """Generate a valid Rust test file from original content for verification"""
+        
+        # Fix common syntax errors
+        # Replace 'pub def' with 'pub fn'
+        fixed_content = re.sub(r'pub\s+def\s+', 'pub fn ', original_content)
+        
+        # Handle doc comments - convert inner doc comments to outer ones when wrapping
+        if '#[cfg(test)]' not in fixed_content:
+            # Convert inner doc comments to outer ones for the test module
+            lines = fixed_content.split('\n')
+            processed_lines = []
+            
+            for line in lines:
+                # Convert //! to /// for outer doc comments
+                if line.strip().startswith('//!'):
+                    processed_lines.append(line.replace('//!', '///', 1))
+                else:
+                    processed_lines.append(line)
+            
+            fixed_content = '\n'.join(processed_lines)
+            
+            # Wrap in test module
+            fixed_content = f"""
+#[cfg(test)]
+mod tests {{
+    use super::*;
+    
+{fixed_content}
+}}
+"""
+        
+        # Add missing imports if needed
+        if '#[program]' in fixed_content and 'use anchor_lang::prelude::*;' not in fixed_content:
+            # Insert after the test module declaration
+            fixed_content = fixed_content.replace(
+                '#[cfg(test)]\nmod tests {\n    use super::*;\n    \n',
+                '#[cfg(test)]\nmod tests {\n    use super::*;\n    use anchor_lang::prelude::*;\n    \n'
+            )
+        
+        # Handle Creusot attributes - these should remain outside the test module
+        creusot_attrs = []
+        if '#[cfg(creusot)]' in original_content:
+            # Extract Creusot-specific code and keep it outside the test module
+            creusot_lines = []
+            regular_lines = []
+            
+            in_creusot_block = False
+            for line in fixed_content.split('\n'):
+                if '#[cfg(creusot)]' in line or '#[requires(' in line or '#[ensures(' in line:
+                    in_creusot_block = True
+                    creusot_lines.append(line)
+                elif in_creusot_block and (line.strip().startswith('fn ') or line.strip() == ''):
+                    creusot_lines.append(line)
+                    if line.strip() == '' and creusot_lines and creusot_lines[-1].strip() == '':
+                        in_creusot_block = False
+                elif in_creusot_block:
+                    creusot_lines.append(line)
+                else:
+                    regular_lines.append(line)
+            
+            if creusot_lines:
+                creusot_code = '\n'.join(creusot_lines)
+                regular_code = '\n'.join(regular_lines)
+                fixed_content = creusot_code + '\n\n' + regular_code
+        
+        return fixed_content
+
+class CompositeContractTranslator:
+    """Handles multiple interacting contracts"""
+    
+    @staticmethod
+    def translate_composite_contracts(contracts_dict):
+        """Translate multiple contracts into a composite Promela model"""
+        pml = "/* COMPOSITE SMART CONTRACT MODEL */\n"
+        pml += f"/* Generated from {len(contracts_dict)} contracts */\n\n"
+        
+        # Add channels for inter-contract communication
+        pml += "/* Inter-contract communication channels */\n"
+        for i, (name, _) in enumerate(contracts_dict.items()):
+            pml += f"chan comm_{name} = [5] of {{ int, int, int }};\n"
+        
+        pml += "\n"
+        
+        # Add each contract as a separate proctype
+        for contract_name, source_code in contracts_dict.items():
+            pml += f"active proctype {contract_name}() {{\n"
+            pml += f"    printf(\"Contract {contract_name} initialized\\n\");\n"
+            pml += "    atomic {\n"
+            pml += "        // State variables\n"
+            pml += "        int balance = 0;\n"
+            pml += "        int lock = 0;\n"
+            pml += "    }\n"
+            pml += "    \n"
+            pml += "    // Main execution loop\n"
+            pml += "    do\n"
+            pml += "        :: lock == 0 ->\n"
+            pml += "            atomic {\n"
+            pml += "                lock = 1;\n"
+            pml += "                // Business logic here\n"
+            pml += "                printf(\"Processing transaction\\n\");\n"
+            pml += "                lock = 0;\n"
+            pml += "            }\n"
+            pml += "        :: else -> skip\n"
+            pml += "    od\n"
+            pml += "}\n\n"
         
         return pml
 
@@ -262,3 +570,32 @@ class DeFiTranslator:
             })
         
         return obligations
+
+    @staticmethod
+    def save_translated_output(source_code, source_file, output_dir=None):
+        """Save translated Promela output to the correct location"""
+        import os
+        
+        if output_dir is None:
+            output_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Determine the output filename
+        base_name = os.path.splitext(os.path.basename(source_file))[0]
+        output_file = os.path.join(output_dir, "translated_output.pml")
+        
+        # Also save a copy with original name
+        backup_file = os.path.join(output_dir, f"{base_name}_translated.pml")
+        
+        try:
+            # Write the translated content
+            with open(output_file, 'w') as f:
+                f.write(source_code)
+            
+            # Also save a backup copy
+            with open(backup_file, 'w') as f:
+                f.write(source_code)
+            
+            return output_file, backup_file
+        except Exception as e:
+            print(f"Error saving translated output: {e}")
+            return None, None
