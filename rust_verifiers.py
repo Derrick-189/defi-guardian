@@ -8,6 +8,56 @@ CREUSOT_STD_PATH = os.environ.get(
 )
 
 
+def strip_rust_main_for_lib(rust_code: str) -> str:
+    """Remove a top-level ``fn main() { ... }`` so the crate can be built as a library."""
+    key = "fn main"
+    idx = rust_code.find(key)
+    if idx == -1:
+        return rust_code
+    paren = rust_code.find("(", idx)
+    if paren == -1:
+        return rust_code
+    brace = rust_code.find("{", paren)
+    if brace == -1:
+        return rust_code
+    depth = 0
+    i = brace
+    while i < len(rust_code):
+        c = rust_code[i]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                head = rust_code[:idx].rstrip()
+                tail = rust_code[end:].lstrip()
+                out = (head + ("\n\n" if head and tail else "\n") + tail).strip()
+                return out + ("\n" if out else "")
+        i += 1
+    return rust_code
+
+
+def prepend_creusot_prelude(rust_code: str) -> str:
+    """Insert ``use creusot_std::prelude::*`` after any leading ``//!`` crate docs.
+
+    Prepending before inner docs would break E0753 (inner doc comments must appear
+    before other items in the crate root).
+    """
+    if "creusot_contracts" in rust_code or "creusot_std" in rust_code:
+        return rust_code
+    lines = rust_code.splitlines(keepends=True)
+    i = 0
+    while i < len(lines) and lines[i].strip() == "":
+        i += 1
+    while i < len(lines) and lines[i].lstrip().startswith("//!"):
+        i += 1
+    head = "".join(lines[:i])
+    rest = "".join(lines[i:])
+    join = "\n" if head and not head.endswith("\n") else ""
+    return head + join + "use creusot_std::prelude::*;\n\n" + rest
+
+
 class RustVerifier:
     """Integration with Rust verification tools"""
 
@@ -220,11 +270,8 @@ edition = "2021"
         
         project_dir = None
         try:
-            # Add creusot_std import if missing
-            if 'creusot_std' not in rust_code:
-                rust_code = """use creusot_std::prelude::*;
-
-""" + rust_code
+            rust_code = prepend_creusot_prelude(rust_code)
+            rust_code = strip_rust_main_for_lib(rust_code)
 
             project_dir = tempfile.mkdtemp()
             src_dir = os.path.join(project_dir, 'src')

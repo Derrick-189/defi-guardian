@@ -21,41 +21,11 @@ import tkinter as tk
 # Project directory for file I/O
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Creusot stdlib path (override if your checkout lives elsewhere)
-CREUSOT_STD_PATH = os.environ.get(
-    "CREUSOT_STD_PATH", "/home/slade/creusot/creusot-std"
+from rust_verifiers import (
+    CREUSOT_STD_PATH,
+    prepend_creusot_prelude,
+    strip_rust_main_for_lib,
 )
-
-
-def _strip_rust_main_for_lib(rust_code: str) -> str:
-    """Remove a top-level ``fn main() { ... }`` so the crate can be built as a library."""
-    key = "fn main"
-    idx = rust_code.find(key)
-    if idx == -1:
-        return rust_code
-    paren = rust_code.find("(", idx)
-    if paren == -1:
-        return rust_code
-    brace = rust_code.find("{", paren)
-    if brace == -1:
-        return rust_code
-    depth = 0
-    i = brace
-    while i < len(rust_code):
-        c = rust_code[i]
-        if c == "{":
-            depth += 1
-        elif c == "}":
-            depth -= 1
-            if depth == 0:
-                end = i + 1
-                head = rust_code[:idx].rstrip()
-                tail = rust_code[end:].lstrip()
-                out = (head + ("\n\n" if head and tail else "\n") + tail).strip()
-                return out + ("\n" if out else "")
-        i += 1
-    return rust_code
-
 
 # Import verification state
 try:
@@ -1266,10 +1236,8 @@ theorem lock_acquired (h : locked = false) :
                     rust_code = f.read()
 
                 # cargo creusot passes -F creusot-std/creusot … — dependency key must be creusot-std
-                if 'creusot_contracts' not in rust_code and 'creusot_std' not in rust_code:
-                    rust_code = 'use creusot_std::prelude::*;\n\n' + rust_code
-
-                rust_code = _strip_rust_main_for_lib(rust_code)
+                rust_code = prepend_creusot_prelude(rust_code)
+                rust_code = strip_rust_main_for_lib(rust_code)
 
                 project_dir = tempfile.mkdtemp()
                 src_dir = os.path.join(project_dir, 'src')
