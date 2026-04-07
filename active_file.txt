@@ -1,1 +1,1 @@
-creusot_test.rs
+creusot_example.rs
