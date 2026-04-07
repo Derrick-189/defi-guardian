@@ -1166,7 +1166,6 @@ theorem lock_acquired (h : locked = false) :
                 prusti_bin = which_pr.stdout.strip()
                 if prusti_bin:
                     prusti_home = os.path.dirname(os.path.realpath(prusti_bin))
-                    env['PRUSTI_HOME'] = prusti_home
                     env['VIPER_HOME'] = os.path.join(prusti_home, 'viper_tools')
 
                 result = subprocess.run(

@@ -181,7 +181,6 @@ edition = "2021"
             prusti_bin = prusti_bin_result.stdout.strip()
             if prusti_bin:
                 prusti_home = os.path.dirname(os.path.realpath(prusti_bin))
-                env['PRUSTI_HOME'] = prusti_home
                 env['VIPER_HOME'] = os.path.join(prusti_home, 'viper_tools')
 
             result = subprocess.run(
