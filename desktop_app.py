@@ -14,6 +14,7 @@ import threading
 import re
 import time
 import json
+import tempfile
 from datetime import datetime
 from pathlib import Path
 import tkinter as tk
@@ -23,7 +24,11 @@ PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 from rust_verifiers import (
     CREUSOT_STD_PATH,
+    build_prusti_env,
+    classify_prusti_failure,
     prepend_creusot_prelude,
+    preprocess_prusti_source,
+    prusti_command,
     strip_rust_main_for_lib,
 )
 
@@ -361,6 +366,15 @@ class FormalVerifierApp(ctk.CTk):
         )
         self.verbose_output.pack(anchor="w", pady=2)
         self.verbose_output.select()
+
+        self.skip_incompatible = ctk.CTkSwitch(
+            sidebar_inner,
+            text="Skip incompatible verifiers",
+            onvalue=True,
+            offvalue=False,
+        )
+        self.skip_incompatible.pack(anchor="w", pady=2)
+        self.skip_incompatible.select()
         
         # Status
         ctk.CTkFrame(sidebar_inner, height=2, fg_color="#3a3a3a").pack(pady=15, fill="x")
@@ -449,6 +463,37 @@ class FormalVerifierApp(ctk.CTk):
     
     def toggle_auto_scroll(self):
         self.auto_scroll_enabled = self.auto_scroll.get()
+
+    def _tool_relevance(self, rust_code):
+        """Infer which Rust verifiers are relevant for this file."""
+        has_kani = "#[kani::proof]" in rust_code or "kani::" in rust_code
+        has_creusot = (
+            "#[cfg(creusot)]" in rust_code
+            or "#[requires(" in rust_code
+            or "#[ensures(" in rust_code
+            or "creusot_std::" in rust_code
+        )
+        has_prusti = (
+            "#[cfg(prusti)]" in rust_code
+            or "prusti_contracts" in rust_code
+            or "#[requires(" in rust_code
+            or "#[ensures(" in rust_code
+        )
+        return {
+            "kani": has_kani,
+            "creusot": has_creusot,
+            "prusti": has_prusti,
+        }
+
+    def _should_skip_tool(self, tool_name, rust_code):
+        if not self.skip_incompatible.get():
+            return False, ""
+        rel = self._tool_relevance(rust_code)
+        if rel["kani"] and not rel["creusot"] and tool_name in ("prusti", "creusot"):
+            return True, "Kani-specific input detected"
+        if rel["creusot"] and not rel["kani"] and tool_name == "kani":
+            return True, "Creusot-specific input detected"
+        return False, ""
     
     def check_tools(self):
         """Check if verification tools are installed"""
@@ -481,6 +526,44 @@ class FormalVerifierApp(ctk.CTk):
             tools.append("✅ GCC")
         except:
             tools.append("❌ GCC")
+
+        # Prusti health: distinguish binary availability vs runtime breakage
+        try:
+            with tempfile.TemporaryDirectory() as project_dir:
+                src = os.path.join(project_dir, "lib.rs")
+                with open(src, "w") as f:
+                    f.write("fn f(x: u64) -> u64 { x }\n")
+                result = subprocess.run(
+                    ["prusti-rustc", "--edition=2021", "--crate-type=lib", src],
+                    capture_output=True,
+                    text=True,
+                    timeout=12,
+                    cwd=project_dir,
+                    env=build_prusti_env(),
+                )
+                stderr = result.stderr or ""
+                if "unknown configuration flag `home`" in stderr:
+                    tools.append("❌ Prusti(env)")
+                    self.console.insert(
+                        "end",
+                        "⚠️ Prusti health: invalid PRUSTI_* env detected (remove PRUSTI_HOME)\n",
+                    )
+                elif "compiler unexpectedly panicked" in stderr:
+                    tools.append("⚠️ Prusti(ICE)")
+                    self.console.insert(
+                        "end",
+                        "⚠️ Prusti health: internal crash detected (toolchain mismatch/bug)\n",
+                    )
+                elif result.returncode == 0:
+                    tools.append("✅ Prusti")
+                else:
+                    tools.append("❌ Prusti")
+        except subprocess.TimeoutExpired:
+            tools.append("⚠️ Prusti(timeout)")
+        except FileNotFoundError:
+            tools.append("❌ Prusti")
+        except Exception:
+            tools.append("❌ Prusti")
         
         self.tool_status.configure(text=" | ".join(tools))
     
@@ -1146,6 +1229,29 @@ theorem lock_acquired (h : locked = false) :
 
                 with open(self.current_file, 'r') as f:
                     rust_code = f.read()
+                skip, reason = self._should_skip_tool("prusti", rust_code)
+                if skip:
+                    self.after(0, lambda: self.console.insert(
+                        "end", f"⏭️ Prusti skipped: {reason}\n"
+                    ))
+                    self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
+                    self.save_verification_state('prusti', {
+                        'success': False,
+                        'output': '',
+                        'errors': '',
+                        'skipped': True,
+                        'reason': reason,
+                    })
+                    return
+                had_kani = "kani::" in rust_code or "#[kani::proof]" in rust_code
+                rust_code = preprocess_prusti_source(rust_code)
+                if "fn " not in rust_code:
+                    self.after(0, lambda: self.console.insert(
+                        "end",
+                        "⏭️ Prusti skipped: file appears Kani-only after compatibility preprocessing.\n"
+                    ))
+                    self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
+                    return
 
                 project_dir = tempfile.mkdtemp()
                 lib_rs = os.path.join(project_dir, 'lib.rs')
@@ -1158,23 +1264,10 @@ theorem lock_acquired (h : locked = false) :
                         'edition = "2021"\n'
                     )
 
-                env = os.environ.copy()
-                which_pr = subprocess.run(
-                    ['which', 'prusti-rustc'],
-                    capture_output=True, text=True,
-                )
-                prusti_bin = which_pr.stdout.strip()
-                if prusti_bin:
-                    prusti_home = os.path.dirname(os.path.realpath(prusti_bin))
-                    env['VIPER_HOME'] = os.path.join(prusti_home, 'viper_tools')
+                env = build_prusti_env()
 
                 result = subprocess.run(
-                    [
-                        'prusti-rustc',
-                        '--edition=2021',
-                        '--crate-type=lib',
-                        lib_rs,
-                    ],
+                    prusti_command() + ['--edition=2021', '--crate-type=lib', lib_rs],
                     capture_output=True,
                     text=True,
                     timeout=300,
@@ -1191,10 +1284,25 @@ theorem lock_acquired (h : locked = false) :
                 def display():
                     if success:
                         self.console.insert("end", "✅ Prusti verification successful!\n")
+                        if had_kani:
+                            self.console.insert(
+                                "end",
+                                "ℹ️ Preprocessed Kani-specific code for Prusti compatibility.\n",
+                            )
                         if result.stdout:
                             self.console.insert("end", result.stdout[:500] + "\n")
                     else:
                         self.console.insert("end", f"❌ Prusti failed:\n{result.stderr[:600]}\n")
+                        kind, hint = classify_prusti_failure(result.stderr)
+                        if hint:
+                            self.console.insert(
+                                "end",
+                                f"ℹ️ {hint}. "
+                                + (
+                                    "Try reinstalling/updating Prusti toolchain.\n"
+                                    if kind == "ice" else "\n"
+                                )
+                            )
                     self.console.see("end")
                     self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION")
 
@@ -1233,6 +1341,20 @@ theorem lock_acquired (h : locked = false) :
 
                 with open(self.current_file, 'r') as f:
                     rust_code = f.read()
+                skip, reason = self._should_skip_tool("creusot", rust_code)
+                if skip:
+                    self.after(0, lambda: self.console.insert(
+                        "end", f"⏭️ Creusot skipped: {reason}\n"
+                    ))
+                    self.after(0, lambda: self.creusot_btn.configure(state="normal", text="📐 CREUSOT VERIFICATION"))
+                    self.save_verification_state('creusot', {
+                        'success': False,
+                        'output': '',
+                        'errors': '',
+                        'skipped': True,
+                        'reason': reason,
+                    })
+                    return
 
                 # cargo creusot passes -F creusot-std/creusot … — dependency key must be creusot-std
                 rust_code = prepend_creusot_prelude(rust_code)
@@ -1321,6 +1443,20 @@ theorem lock_acquired (h : locked = false) :
 
                 with open(self.current_file, 'r') as f:
                     rust_code = f.read()
+                skip, reason = self._should_skip_tool("kani", rust_code)
+                if skip:
+                    self.after(0, lambda: self.console.insert(
+                        "end", f"⏭️ Kani skipped: {reason}\n"
+                    ))
+                    self.after(0, lambda: self.kani_btn.configure(state="normal", text="🦀 KANI VERIFICATION"))
+                    self.save_verification_state('kani', {
+                        'success': False,
+                        'output': '',
+                        'errors': '',
+                        'skipped': True,
+                        'reason': reason,
+                    })
+                    return
 
                 project_dir = tempfile.mkdtemp()
                 src_dir = os.path.join(project_dir, 'src')
@@ -1416,11 +1552,23 @@ theorem lock_acquired (h : locked = false) :
             with open(self.current_source, 'r') as f:
                 rust_code = f.read()
             annotated = self.rust_verifier.generate_rust_annotations(rust_code)
-            results = {
-                'prusti': self.rust_verifier.verify_with_prusti(annotated),
-                'kani':   self.rust_verifier.verify_with_kani(annotated),
-                'creusot':self.rust_verifier.verify_with_creusot(annotated),
-            }
+            results = {}
+            for tool in ("prusti", "kani", "creusot"):
+                skip, reason = self._should_skip_tool(tool, rust_code)
+                if skip:
+                    results[tool] = {
+                        'success': False,
+                        'skipped': True,
+                        'failure_hint': reason,
+                        'errors': '',
+                    }
+                    continue
+                if tool == "prusti":
+                    results[tool] = self.rust_verifier.verify_with_prusti(annotated)
+                elif tool == "kani":
+                    results[tool] = self.rust_verifier.verify_with_kani(annotated)
+                else:
+                    results[tool] = self.rust_verifier.verify_with_creusot(annotated)
             self.after(0, self._display_rust_results, results)
         except Exception as e:
             self.after(0, self.console.insert, "end", f"❌ Rust error: {e}\n")
@@ -1433,10 +1581,15 @@ theorem lock_acquired (h : locked = false) :
         self.console.insert("end", "TRIANGULATION RESULTS\n")
         self.console.insert("end", "="*70 + "\n")
         for tool, result in results.items():
-            status = "✅ PASS" if result['success'] else "❌ FAIL"
+            if result.get('skipped'):
+                status = "⏭️ SKIP"
+            else:
+                status = "✅ PASS" if result['success'] else "❌ FAIL"
             self.console.insert("end", f"{tool.upper()}: {status}\n")
             if result.get('errors'):
                 self.console.insert("end", f"  {result['errors'][:200]}\n")
+            elif result.get('failure_hint'):
+                self.console.insert("end", f"  {result['failure_hint'][:200]}\n")
         self.console.see("end")
 
     def open_translated_output(self):

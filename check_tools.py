@@ -7,6 +7,8 @@ Checks all installed verification tools
 import subprocess
 import sys
 import os
+import tempfile
+import shutil
 
 # Define tools to check
 TOOLS = {
@@ -57,6 +59,60 @@ def check_tool(name, command):
     except Exception as e:
         return False, str(e)[:80]
 
+
+def build_prusti_env(base_env=None):
+    """Build a clean env for Prusti by removing inherited PRUSTI_* flags."""
+    env = dict(base_env or os.environ)
+    for key in list(env.keys()):
+        if key.startswith("PRUSTI_"):
+            env.pop(key, None)
+    try:
+        prusti_bin_result = subprocess.run(
+            ["which", "prusti-rustc"], capture_output=True, text=True, timeout=3
+        )
+        prusti_bin = prusti_bin_result.stdout.strip()
+        if prusti_bin:
+            prusti_home = os.path.dirname(os.path.realpath(prusti_bin))
+            env["VIPER_HOME"] = os.path.join(prusti_home, "viper_tools")
+    except Exception:
+        pass
+    return env
+
+
+def prusti_health_check():
+    """Run a tiny Prusti compile to detect config/toolchain breakages."""
+    ok, msg = check_tool("Prusti", TOOLS["Prusti"])
+    if not ok:
+        return False, f"Prusti unavailable: {msg}"
+
+    project_dir = tempfile.mkdtemp()
+    try:
+        src = os.path.join(project_dir, "lib.rs")
+        with open(src, "w") as f:
+            f.write("fn f(x: u64) -> u64 { x }\n")
+        result = subprocess.run(
+            ["prusti-rustc", "--edition=2021", "--crate-type=lib", src],
+            capture_output=True,
+            text=True,
+            timeout=12,
+            cwd=project_dir,
+            env=build_prusti_env(),
+        )
+        stderr = result.stderr or ""
+        if "unknown configuration flag `home`" in stderr:
+            return False, "PRUSTI_* environment contamination (remove PRUSTI_HOME)"
+        if "compiler unexpectedly panicked" in stderr:
+            return False, "Prusti internal crash (toolchain incompatibility/bug)"
+        if result.returncode != 0:
+            return False, (stderr.splitlines()[-1] if stderr.splitlines() else "Prusti failed")
+        return True, "Prusti smoke test passed"
+    except subprocess.TimeoutExpired:
+        return False, "Prusti smoke test timed out"
+    except Exception as e:
+        return False, f"Prusti smoke test error: {e}"
+    finally:
+        shutil.rmtree(project_dir, ignore_errors=True)
+
 def main():
     print("=" * 60)
     print("🔧 DEFI GUARDIAN - TOOL CHECKER")
@@ -79,6 +135,10 @@ def main():
     print("=" * 60)
     print(f"📊 SUMMARY: {installed}/{total} tools installed")
     print("=" * 60)
+
+    print()
+    ok, details = prusti_health_check()
+    print(f"{'✅' if ok else '❌'} Prusti Health - {details}")
     
     # Show installation commands for missing tools
     missing = [name for name in TOOLS.keys() if not check_tool(name, TOOLS[name])[0]]

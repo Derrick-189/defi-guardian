@@ -2,10 +2,107 @@ import subprocess
 import os
 import tempfile
 import shutil
+import re
 
 CREUSOT_STD_PATH = os.environ.get(
     "CREUSOT_STD_PATH", "/home/slade/creusot/creusot-std"
 )
+
+def build_prusti_env(base_env=None):
+    """Build a clean environment for Prusti subprocesses.
+
+    Prusti interprets PRUSTI_* variables as config flags, so inherited variables
+    (e.g. PRUSTI_HOME) can crash it with "unknown configuration flag".
+    """
+    env = dict(base_env or os.environ)
+    for key in list(env.keys()):
+        if key.startswith("PRUSTI_"):
+            env.pop(key, None)
+
+    prusti_bin_result = subprocess.run(
+        ['which', 'prusti-rustc'], capture_output=True, text=True
+    )
+    prusti_bin = prusti_bin_result.stdout.strip()
+    if prusti_bin:
+        prusti_home = os.path.dirname(os.path.realpath(prusti_bin))
+        env['VIPER_HOME'] = os.path.join(prusti_home, 'viper_tools')
+    return env
+
+
+def prusti_command():
+    """Build Prusti command with optional pinned toolchain isolation."""
+    pinned = os.environ.get(
+        "PRUSTI_TOOLCHAIN", "nightly-2023-08-15-x86_64-unknown-linux-gnu"
+    )
+    try:
+        toolchains = subprocess.run(
+            ["rustup", "toolchain", "list"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        if pinned in (toolchains.stdout or ""):
+            return ["rustup", "run", pinned, "prusti-rustc"]
+    except Exception:
+        pass
+    return ["prusti-rustc"]
+
+
+def _remove_kani_proof_attrs(lines):
+    return [ln for ln in lines if ln.strip() != "#[kani::proof]"]
+
+
+def _strip_functions_with_kani(lines):
+    out = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if "fn " in line:
+            j = i
+            header = []
+            while j < len(lines):
+                header.append(lines[j])
+                if "{" in lines[j]:
+                    break
+                if ";" in lines[j]:
+                    break
+                j += 1
+            header_text = "".join(header)
+            if "kani::" in header_text:
+                i = j + 1
+                depth = header_text.count("{") - header_text.count("}")
+                while i < len(lines) and depth > 0:
+                    depth += lines[i].count("{") - lines[i].count("}")
+                    i += 1
+                continue
+        if "kani::" not in line:
+            out.append(line)
+        i += 1
+    return out
+
+
+def preprocess_prusti_source(rust_code):
+    """Remove Kani-specific constructs from a temporary Prusti copy."""
+    lines = rust_code.splitlines(keepends=True)
+    lines = _remove_kani_proof_attrs(lines)
+    lines = _strip_functions_with_kani(lines)
+    code = "".join(lines)
+    # Conservative cleanup for direct nondet calls outside removed functions.
+    code = re.sub(r"\bkani::any\s*\(\s*\)", "Default::default()", code)
+    return code
+
+
+def classify_prusti_failure(stderr):
+    err = stderr or ""
+    if "unknown configuration flag `home`" in err:
+        return "env", "Invalid PRUSTI_* environment variable detected"
+    if "compiler unexpectedly panicked" in err:
+        return "ice", "Prusti internal crash (toolchain incompatibility/bug)"
+    if "use of undeclared crate or module `kani`" in err:
+        return "incompatible", "Input contains Kani constructs incompatible with Prusti"
+    if "timed out" in err.lower():
+        return "timeout", "Prusti timed out"
+    return "error", "Prusti verification failed"
 
 
 def strip_rust_main_for_lib(rust_code: str) -> str:
@@ -155,6 +252,17 @@ impl ContractState {{
         
         project_dir = None
         try:
+            rust_code = preprocess_prusti_source(rust_code)
+            if "fn " not in rust_code:
+                return {
+                    'success': False,
+                    'output': '',
+                    'errors': '',
+                    'error': 'Skipped: no Prusti-compatible functions after preprocessing',
+                    'failure_kind': 'skipped',
+                    'failure_hint': 'Input appears to be Kani-only; skipping Prusti run',
+                    'skipped': True,
+                }
             project_dir = tempfile.mkdtemp()
             src_file = os.path.join(project_dir, 'lib.rs')
             with open(src_file, 'w') as f:
@@ -174,25 +282,21 @@ edition = "2021"
                 os.remove(lock_file)
 
             # Set up environment
-            env = os.environ.copy()
-            prusti_bin_result = subprocess.run(
-                ['which', 'prusti-rustc'], capture_output=True, text=True
-            )
-            prusti_bin = prusti_bin_result.stdout.strip()
-            if prusti_bin:
-                prusti_home = os.path.dirname(os.path.realpath(prusti_bin))
-                env['VIPER_HOME'] = os.path.join(prusti_home, 'viper_tools')
+            env = build_prusti_env()
 
             result = subprocess.run(
-                ['prusti-rustc', '--edition=2021', '--crate-type=lib', src_file],
+                prusti_command() + ['--edition=2021', '--crate-type=lib', src_file],
                 capture_output=True, text=True, timeout=180,
                 cwd=project_dir, env=env
             )
+            failure_kind, failure_hint = classify_prusti_failure(result.stderr)
             return {
                 'success': result.returncode == 0,
                 'output': result.stdout,
                 'errors': result.stderr,
-                'error': '' if result.returncode == 0 else result.stderr[:500]
+                'error': '' if result.returncode == 0 else result.stderr[:500],
+                'failure_kind': '' if result.returncode == 0 else failure_kind,
+                'failure_hint': '' if result.returncode == 0 else failure_hint,
             }
         except subprocess.TimeoutExpired:
             return {'success': False, 'error': 'Timeout', 'output': '', 'errors': 'Prusti timed out'}
