@@ -29,6 +29,7 @@ from rust_verifiers import (
     prepend_creusot_prelude,
     preprocess_prusti_source,
     prusti_command,
+    should_skip_prusti_for_source,
     strip_rust_main_for_lib,
 )
 
@@ -1229,6 +1230,20 @@ theorem lock_acquired (h : locked = false) :
 
                 with open(self.current_file, 'r') as f:
                     rust_code = f.read()
+                skip_prusti_src, src_reason = should_skip_prusti_for_source(rust_code)
+                if skip_prusti_src:
+                    self.after(0, lambda: self.console.insert(
+                        "end", f"⏭️ Prusti skipped: {src_reason}\n"
+                    ))
+                    self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
+                    self.save_verification_state('prusti', {
+                        'success': False,
+                        'output': '',
+                        'errors': '',
+                        'skipped': True,
+                        'reason': src_reason,
+                    })
+                    return
                 skip, reason = self._should_skip_tool("prusti", rust_code)
                 if skip:
                     self.after(0, lambda: self.console.insert(

@@ -32,7 +32,10 @@ def build_prusti_env(base_env=None):
 def prusti_command():
     """Build Prusti command with optional pinned toolchain isolation."""
     pinned = os.environ.get(
-        "PRUSTI_TOOLCHAIN", "nightly-2023-08-15-x86_64-unknown-linux-gnu"
+        "DG_PRUSTI_TOOLCHAIN",
+        os.environ.get(
+            "RUSTUP_TOOLCHAIN", "nightly-2023-08-15-x86_64-unknown-linux-gnu"
+        ),
     )
     try:
         toolchains = subprocess.run(
@@ -90,6 +93,13 @@ def preprocess_prusti_source(rust_code):
     # Conservative cleanup for direct nondet calls outside removed functions.
     code = re.sub(r"\bkani::any\s*\(\s*\)", "Default::default()", code)
     return code
+
+
+def should_skip_prusti_for_source(rust_code):
+    """Return (skip, reason) for source patterns unsupported by temp-file Prusti path."""
+    if "use anchor_lang::" in rust_code or "#[program]" in rust_code or "#[account]" in rust_code:
+        return True, "Anchor program requires Cargo dependencies not available in temp Prusti compile"
+    return False, ""
 
 
 def classify_prusti_failure(stderr):
@@ -249,6 +259,17 @@ impl ContractState {{
     def verify_with_prusti(self, rust_code):
         if not self.prusti_available:
             return {'success': False, 'error': 'Prusti not installed', 'output': '', 'errors': ''}
+        skip, reason = should_skip_prusti_for_source(rust_code)
+        if skip:
+            return {
+                'success': False,
+                'output': '',
+                'errors': '',
+                'error': f"Skipped: {reason}",
+                'failure_kind': 'skipped',
+                'failure_hint': reason,
+                'skipped': True,
+            }
         
         project_dir = None
         try:
