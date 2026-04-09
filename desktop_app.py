@@ -21,6 +21,7 @@ import tkinter as tk
 
 # Project directory for file I/O
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+LEAN_TIMEOUT_SECONDS = 120
 
 from rust_verifiers import (
     CREUSOT_STD_PATH,
@@ -395,6 +396,14 @@ class FormalVerifierApp(ctk.CTk):
             text_color="#888888"
         )
         self.tool_status.pack(anchor="w")
+
+        self.lean_prewarm_status = ctk.CTkLabel(
+            sidebar_inner,
+            text="○ Lean prewarm: pending",
+            font=ctk.CTkFont(size=10),
+            text_color="#888888"
+        )
+        self.lean_prewarm_status.pack(anchor="w")
         
         # Check tools
         self.check_tools()
@@ -452,6 +461,7 @@ class FormalVerifierApp(ctk.CTk):
         self.file_type = None
         self.dashboard_process = None
         self.auto_scroll_enabled = True
+        self.lean_running = False
         
         # Show welcome message
         self.show_welcome()
@@ -461,13 +471,49 @@ class FormalVerifierApp(ctk.CTk):
         
         # Start verification state monitor
         self.start_verification_monitor()
+        self.prewarm_lean_runtime()
     
     def toggle_auto_scroll(self):
         self.auto_scroll_enabled = self.auto_scroll.get()
 
+    def prewarm_lean_runtime(self):
+        """Warm up Lean/Elan once to reduce first-run latency."""
+        def _prewarm():
+            try:
+                result = subprocess.run(
+                    ["lean", "--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=25,
+                )
+                ok = result.returncode == 0
+                self.after(
+                    0,
+                    lambda: self.lean_prewarm_status.configure(
+                        text=("✅ Lean prewarm: ready" if ok else "⚠️ Lean prewarm: failed"),
+                        text_color=("#00ffcc" if ok else "#ffaa66"),
+                    ),
+                )
+            except Exception:
+                # Non-fatal; verification path reports runtime issues.
+                self.after(
+                    0,
+                    lambda: self.lean_prewarm_status.configure(
+                        text="⚠️ Lean prewarm: failed",
+                        text_color="#ffaa66",
+                    ),
+                )
+        threading.Thread(target=_prewarm, daemon=True).start()
+
     def _tool_relevance(self, rust_code):
         """Infer which Rust verifiers are relevant for this file."""
         has_kani = "#[kani::proof]" in rust_code or "kani::" in rust_code
+        has_anchor = (
+            "use anchor_lang::" in rust_code
+            or "#[program]" in rust_code
+            or "#[account]" in rust_code
+            or "declare_id!(" in rust_code
+        )
         has_creusot = (
             "#[cfg(creusot)]" in rust_code
             or "#[requires(" in rust_code
@@ -482,6 +528,7 @@ class FormalVerifierApp(ctk.CTk):
         )
         return {
             "kani": has_kani,
+            "anchor": has_anchor,
             "creusot": has_creusot,
             "prusti": has_prusti,
         }
@@ -490,6 +537,8 @@ class FormalVerifierApp(ctk.CTk):
         if not self.skip_incompatible.get():
             return False, ""
         rel = self._tool_relevance(rust_code)
+        if rel["anchor"] and tool_name in ("prusti", "creusot", "kani"):
+            return True, "Anchor program requires Cargo dependencies not available in temp verifier compile"
         if rel["kani"] and not rel["creusot"] and tool_name in ("prusti", "creusot"):
             return True, "Kani-specific input detected"
         if rel["creusot"] and not rel["kani"] and tool_name == "kani":
@@ -1005,6 +1054,23 @@ class FormalVerifierApp(ctk.CTk):
         # Also update the display status
         self.update_tool_status_display()
 
+    def save_tool_log(self, tool, output="", errors=""):
+        """Persist full verifier output/errors to disk for debugging."""
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_path = os.path.join(PROJECT_DIR, f"{tool}_verification_{ts}.log")
+        try:
+            with open(log_path, "w", encoding="utf-8") as f:
+                f.write(f"=== {tool.upper()} VERIFICATION LOG ===\n")
+                f.write(f"timestamp: {datetime.now().isoformat()}\n")
+                f.write(f"file: {self.current_file}\n\n")
+                f.write("--- STDOUT ---\n")
+                f.write(output or "")
+                f.write("\n\n--- STDERR ---\n")
+                f.write(errors or "")
+            return log_path
+        except Exception:
+            return ""
+
     def update_tool_status_display(self):
         """Update the tool status display in sidebar"""
         state_file = os.path.join(PROJECT_DIR, 'verification_state.json')
@@ -1115,7 +1181,11 @@ class FormalVerifierApp(ctk.CTk):
         if not self.current_file:
             self.console.insert("end", "❌ No file selected\n")
             return
+        if self.lean_running:
+            self.console.insert("end", "⏳ Lean verification already running. Please wait.\n")
+            return
 
+        self.lean_running = True
         self.lean_btn.configure(state="disabled", text="⏳ Running Lean...")
 
         def run_lean():
@@ -1165,7 +1235,7 @@ theorem lock_acquired (h : locked = false) :
 
                 result = subprocess.run(
                     ['lean', tmp_file.name],
-                    capture_output=True, text=True, timeout=60
+                    capture_output=True, text=True, timeout=LEAN_TIMEOUT_SECONDS
                 )
                 success = result.returncode == 0
 
@@ -1191,12 +1261,14 @@ theorem lock_acquired (h : locked = false) :
 
             except subprocess.TimeoutExpired:
                 self.after(0, lambda: self.console.insert("end",
-                    "❌ Lean timed out (30s). Check lean is on PATH.\n"))
+                    f"❌ Lean timed out ({LEAN_TIMEOUT_SECONDS}s). "
+                    "Lean/Elan may still be warming up.\n"))
                 self.after(0, lambda: self.lean_btn.configure(state="normal", text="⚡ LEAN VERIFICATION"))
             except Exception as e:
                 self.after(0, lambda: self.console.insert("end", f"❌ Lean error: {e}\n"))
                 self.after(0, lambda: self.lean_btn.configure(state="normal", text="⚡ LEAN VERIFICATION"))
             finally:
+                self.lean_running = False
                 if tmp_file and os.path.exists(tmp_file.name):
                     os.unlink(tmp_file.name)
 
@@ -1295,6 +1367,7 @@ theorem lock_acquired (h : locked = false) :
                     'output': result.stdout,
                     'errors': result.stderr
                 })
+                log_path = self.save_tool_log('prusti', result.stdout, result.stderr)
 
                 def display():
                     if success:
@@ -1307,7 +1380,8 @@ theorem lock_acquired (h : locked = false) :
                         if result.stdout:
                             self.console.insert("end", result.stdout[:500] + "\n")
                     else:
-                        self.console.insert("end", f"❌ Prusti failed:\n{result.stderr[:600]}\n")
+                        err_tail = (result.stderr or "")[-4000:]
+                        self.console.insert("end", f"❌ Prusti failed:\n{err_tail}\n")
                         kind, hint = classify_prusti_failure(result.stderr)
                         if hint:
                             self.console.insert(
@@ -1318,6 +1392,8 @@ theorem lock_acquired (h : locked = false) :
                                     if kind == "ice" else "\n"
                                 )
                             )
+                    if log_path:
+                        self.console.insert("end", f"📄 Full Prusti log: {log_path}\n")
                     self.console.see("end")
                     self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION")
 
@@ -1412,6 +1488,7 @@ theorem lock_acquired (h : locked = false) :
                     'output': result.stdout,
                     'errors': result.stderr
                 })
+                log_path = self.save_tool_log('creusot', result.stdout, result.stderr)
 
                 def display():
                     if success:
@@ -1419,7 +1496,10 @@ theorem lock_acquired (h : locked = false) :
                         if result.stdout:
                             self.console.insert("end", result.stdout[:500] + "\n")
                     else:
-                        self.console.insert("end", f"❌ Creusot failed:\n{result.stderr[:600]}\n")
+                        err_tail = (result.stderr or "")[-4000:]
+                        self.console.insert("end", f"❌ Creusot failed:\n{err_tail}\n")
+                    if log_path:
+                        self.console.insert("end", f"📄 Full Creusot log: {log_path}\n")
                     self.console.see("end")
                     self.creusot_btn.configure(state="normal", text="📐 CREUSOT VERIFICATION")
 
@@ -1497,6 +1577,7 @@ theorem lock_acquired (h : locked = false) :
                     'output': result.stdout,
                     'errors': result.stderr
                 })
+                log_path = self.save_tool_log('kani', result.stdout, result.stderr)
 
                 def display():
                     if success:
@@ -1507,9 +1588,12 @@ theorem lock_acquired (h : locked = false) :
                             ]):
                                 self.console.insert("end", f"   {line}\n")
                     else:
-                        self.console.insert("end", f"❌ Kani failed:\n{result.stderr[:600]}\n")
+                        err_tail = (result.stderr or "")[-4000:]
+                        self.console.insert("end", f"❌ Kani failed:\n{err_tail}\n")
                         if result.stdout:
                             self.console.insert("end", result.stdout[:400] + "\n")
+                    if log_path:
+                        self.console.insert("end", f"📄 Full Kani log: {log_path}\n")
                     self.console.see("end")
                     self.kani_btn.configure(state="normal", text="🦀 KANI VERIFICATION")
 

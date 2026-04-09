@@ -105,12 +105,13 @@ echo "[6/7] Writing project env file: ${PROJECT_DIR}/.prusti.env"
 cat > "${PROJECT_DIR}/.prusti.env" <<EOF
 # Auto-generated for DeFi Guardian
 export PATH="${PRUSTI_BIN_DIR}:\$PATH"
-export RUSTUP_TOOLCHAIN="${PRUSTI_TOOLCHAIN}"
+export DG_PRUSTI_TOOLCHAIN="${PRUSTI_TOOLCHAIN}"
 ${VIPER_EXPORT_LINE}
 
 # Important: never export PRUSTI_* (Prusti treats these as config keys)
 unset PRUSTI_HOME
 unset PRUSTI_TOOLCHAIN
+unset RUSTUP_TOOLCHAIN
 EOF
 
 echo "[7/7] Verifying install"

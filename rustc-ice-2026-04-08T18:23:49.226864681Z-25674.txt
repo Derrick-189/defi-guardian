@@ -1,0 +1,79 @@
+thread 'main' panicked at prusti-utils/src/config.rs:240:9:
+Found an unknown configuration flag `toolchain` in the `PRUSTI_*` environment variables
+stack backtrace:
+   0:     0x7f827676345c - std::backtrace_rs::backtrace::libunwind::trace::hd28b74870fb29f5e
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/../../backtrace/src/backtrace/libunwind.rs:93:5
+   1:     0x7f827676345c - std::backtrace_rs::backtrace::trace_unsynchronized::ha778ba6652f5fff7
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/../../backtrace/src/backtrace/mod.rs:66:5
+   2:     0x7f827676345c - std::sys_common::backtrace::_print_fmt::h57512da8fd27ebfe
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/sys_common/backtrace.rs:67:5
+   3:     0x7f827676345c - <std::sys_common::backtrace::_print::DisplayBacktrace as core::fmt::Display>::fmt::h9ff91e3dfaf4de84
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/sys_common/backtrace.rs:44:22
+   4:     0x7f82767c95ac - core::fmt::rt::Argument::fmt::hb4c9152c9d66f707
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/core/src/fmt/rt.rs:138:9
+   5:     0x7f82767c95ac - core::fmt::write::hca827d819a7788c0
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/core/src/fmt/mod.rs:1094:21
+   6:     0x7f8276755dfe - std::io::Write::write_fmt::h2114dc47bae691de
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/io/mod.rs:1714:15
+   7:     0x7f8276763244 - std::sys_common::backtrace::_print::h83dbca21f18ac9f0
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/sys_common/backtrace.rs:47:5
+   8:     0x7f8276763244 - std::sys_common::backtrace::print::h50f6064ce0c0ed75
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/sys_common/backtrace.rs:34:9
+   9:     0x7f827676633a - std::panicking::panic_hook_with_disk_dump::{{closure}}::habdb4fb696892949
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/panicking.rs:278:22
+  10:     0x7f8276765fe9 - std::panicking::panic_hook_with_disk_dump::h9e67e3f11439835d
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/panicking.rs:305:9
+  11:     0x7f8279949c19 - <rustc_driver_impl[2b0dd1b38bbe9303]::install_ice_hook::{closure#0} as core[b7a320a1e2fc1667]::ops::function::FnOnce<(&core[b7a320a1e2fc1667]::panic::panic_info::PanicInfo,)>>::call_once::{shim:vtable#0}
+  12:     0x7f8276766be0 - <alloc::boxed::Box<F,A> as core::ops::function::Fn<Args>>::call::h5d5db5c849147bae
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/alloc/src/boxed.rs:2021:9
+  13:     0x7f8276766be0 - std::panicking::rust_panic_with_hook::h03521a4f77cf14d2
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/panicking.rs:733:13
+  14:     0x7f8276766967 - std::panicking::begin_panic_handler::{{closure}}::ha8912bac885c0f14
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/panicking.rs:621:13
+  15:     0x7f8276763986 - std::sys_common::backtrace::__rust_end_short_backtrace::h4ba480d82605b76d
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/sys_common/backtrace.rs:170:18
+  16:     0x7f82767666b2 - rust_begin_unwind
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/panicking.rs:617:5
+  17:     0x7f82767c59b3 - core::panicking::panic_fmt::ha6b7709b07688c2f
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/core/src/panicking.rs:67:14
+  18:     0x562fb31cbd15 - prusti_utils::config::check_keys::hbb22aa4bc4b2e8ee
+  19:     0x562fb31dd71a - core::ops::function::FnOnce::call_once::hf8d04a2d41c07133
+  20:     0x562fb31d0916 - lazy_static::lazy::Lazy<T>::get::{{closure}}::ha4e7e3e0fd38daca
+  21:     0x562fb31d0c03 - std::sync::once::Once::call_once::{{closure}}::h9e4370dcb577b6e3
+  22:     0x562fb31caa9a - std::sys_common::once::futex::Once::call::hba5d6d063b6c99f5
+  23:     0x562fb31d0b6f - std::sync::once::Once::call_once::h23f14b24c66117be
+  24:     0x562fb31cfed8 - <prusti_utils::config::SETTINGS as core::ops::deref::Deref>::deref::h875724dfca7a3483
+  25:     0x562fb31ccbb1 - prusti_utils::config::read_setting::hb34c67c716897d3e
+  26:     0x562fb31ce1a2 - prusti_utils::config::be_rustc::ha70e473ed10563cb
+  27:     0x562fb156af18 - prusti_driver::main::h1f81948a572f2cf5
+  28:     0x562fb1572f93 - core::ops::function::FnOnce::call_once::hd9267e2adc6b70a7
+  29:     0x562fb1567f66 - std::sys_common::backtrace::__rust_begin_short_backtrace::h352b7f353daf29e0
+  30:     0x562fb15602e9 - std::rt::lang_start::{{closure}}::h33a5c293c7b4dc45
+  31:     0x7f82767462cb - core::ops::function::impls::<impl core::ops::function::FnOnce<A> for &F>::call_once::hfbf8f0649c935f80
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/core/src/ops/function.rs:284:13
+  32:     0x7f82767462cb - std::panicking::try::do_call::ha69b1998f2b96705
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/panicking.rs:524:40
+  33:     0x7f82767462cb - std::panicking::try::h109eef4df5728267
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/panicking.rs:488:19
+  34:     0x7f82767462cb - std::panic::catch_unwind::h2f424170846e3d6a
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/panic.rs:142:14
+  35:     0x7f82767462cb - std::rt::lang_start_internal::{{closure}}::h46c20054cee18f80
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/rt.rs:148:48
+  36:     0x7f82767462cb - std::panicking::try::do_call::h2577d9713798f437
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/panicking.rs:524:40
+  37:     0x7f82767462cb - std::panicking::try::h9c131a801d8cd802
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/panicking.rs:488:19
+  38:     0x7f82767462cb - std::panic::catch_unwind::hb79338d5f78bee10
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/panic.rs:142:14
+  39:     0x7f82767462cb - std::rt::lang_start_internal::h7158d782e9089ac6
+                               at /rustc/180dffba142c47240ca0d93096ce90b9fd97c8d7/library/std/src/rt.rs:148:20
+  40:     0x562fb15602c7 - std::rt::lang_start::h8e3bf482639ea4a2
+  41:     0x562fb156c695 - main
+  42:     0x7f8274d3df75 - <unknown>
+  43:     0x7f8274d3e027 - __libc_start_main
+  44:     0x562fb154e0ae - _start
+  45:                0x0 - <unknown>
+
+
+rustc version: 1.73.0-nightly (180dffba1 2023-08-14)
+platform: x86_64-unknown-linux-gnu

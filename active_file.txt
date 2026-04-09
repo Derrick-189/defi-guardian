@@ -1,1 +1,1 @@
-creusot_example.rs
+defi_vault.rs

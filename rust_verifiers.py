@@ -33,9 +33,7 @@ def prusti_command():
     """Build Prusti command with optional pinned toolchain isolation."""
     pinned = os.environ.get(
         "DG_PRUSTI_TOOLCHAIN",
-        os.environ.get(
-            "RUSTUP_TOOLCHAIN", "nightly-2023-08-15-x86_64-unknown-linux-gnu"
-        ),
+        "nightly-2023-08-15-x86_64-unknown-linux-gnu",
     )
     try:
         toolchains = subprocess.run(
