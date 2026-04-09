@@ -9,7 +9,7 @@
 
 use std::cmp::min;
 #[cfg(prusti)]
-use prusti_contracts::{ensures, pure, requires};
+use prusti_contracts::{ensures, old, pure, requires};
 
 // ============================================ //
 // 1. CONTRACT STATE                            //

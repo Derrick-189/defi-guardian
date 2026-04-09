@@ -191,7 +191,7 @@
 		_m = 3; goto P999; /* 0 */
 
 		 /* PROC Program */
-	case 9: // STATE 1 - /home/slade/defi_guardian/translated_output.pml:17 - [printf('Validating Rust State Machine...\\n')] (0:23:1 - 1)
+	case 9: // STATE 1 - /home/slade/defi_guardian/translated_output.pml:18 - [printf('Validating Rust State Machine...\\n')] (0:23:1 - 1)
 		IfNotBlocked
 		reached[0][1] = 1;
 		Printf("Validating Rust State Machine...\n");
@@ -207,13 +207,13 @@
 		reached[0][24] = 1;
 		;
 		_m = 3; goto P999; /* 2 */
-	case 10: // STATE 4 - /home/slade/defi_guardian/translated_output.pml:22 - [((state==1))] (0:0:0 - 1)
+	case 10: // STATE 4 - /home/slade/defi_guardian/translated_output.pml:23 - [((state==1))] (0:0:0 - 1)
 		IfNotBlocked
 		reached[0][4] = 1;
 		if (!((((int)now.state)==1)))
 			continue;
 		_m = 3; goto P999; /* 0 */
-	case 11: // STATE 5 - /home/slade/defi_guardian/translated_output.pml:23 - [printf('Executing program logic...\\n')] (0:12:1 - 1)
+	case 11: // STATE 5 - /home/slade/defi_guardian/translated_output.pml:24 - [printf('Executing program logic...\\n')] (0:12:1 - 1)
 		IfNotBlocked
 		reached[0][5] = 1;
 		Printf("Executing program logic...\n");
@@ -226,7 +226,7 @@
 #endif
 		;
 		_m = 3; goto P999; /* 1 */
-	case 12: // STATE 7 - /home/slade/defi_guardian/translated_output.pml:28 - [((balance>=10))] (26:0:3 - 1)
+	case 12: // STATE 7 - /home/slade/defi_guardian/translated_output.pml:29 - [((balance>=10))] (26:0:3 - 1)
 		IfNotBlocked
 		reached[0][7] = 1;
 		if (!((now.balance>=10)))
@@ -269,7 +269,7 @@
 		reached[0][17] = 1;
 		;
 		_m = 3; goto P999; /* 7 */
-	case 13: // STATE 11 - /home/slade/defi_guardian/translated_output.pml:32 - [printf('Insufficient balance\\n')] (0:26:2 - 1)
+	case 13: // STATE 11 - /home/slade/defi_guardian/translated_output.pml:33 - [printf('Insufficient balance\\n')] (0:26:2 - 1)
 		IfNotBlocked
 		reached[0][11] = 1;
 		Printf("Insufficient balance\n");
@@ -300,7 +300,7 @@
 		reached[0][17] = 1;
 		;
 		_m = 3; goto P999; /* 5 */
-	case 14: // STATE 14 - /home/slade/defi_guardian/translated_output.pml:35 - [lock = 0] (0:26:2 - 3)
+	case 14: // STATE 14 - /home/slade/defi_guardian/translated_output.pml:36 - [lock = 0] (0:26:2 - 3)
 		IfNotBlocked
 		reached[0][14] = 1;
 		(trpt+1)->bup.ovals = grab_ints(2);
@@ -325,13 +325,13 @@
 		reached[0][17] = 1;
 		;
 		_m = 3; goto P999; /* 3 */
-	case 15: // STATE 19 - /home/slade/defi_guardian/translated_output.pml:40 - [((state==2))] (0:0:0 - 1)
+	case 15: // STATE 19 - /home/slade/defi_guardian/translated_output.pml:41 - [((state==2))] (0:0:0 - 1)
 		IfNotBlocked
 		reached[0][19] = 1;
 		if (!((((int)now.state)==2)))
 			continue;
 		_m = 3; goto P999; /* 0 */
-	case 16: // STATE 20 - /home/slade/defi_guardian/translated_output.pml:41 - [printf('Program terminated.\\n')] (0:26:0 - 1)
+	case 16: // STATE 20 - /home/slade/defi_guardian/translated_output.pml:42 - [printf('Program terminated.\\n')] (0:26:0 - 1)
 		IfNotBlocked
 		reached[0][20] = 1;
 		Printf("Program terminated.\n");
@@ -339,7 +339,7 @@
 		reached[0][21] = 1;
 		;
 		_m = 3; goto P999; /* 1 */
-	case 17: // STATE 26 - /home/slade/defi_guardian/translated_output.pml:45 - [-end-] (0:0:0 - 3)
+	case 17: // STATE 26 - /home/slade/defi_guardian/translated_output.pml:46 - [-end-] (0:0:0 - 3)
 		IfNotBlocked
 		reached[0][26] = 1;
 		if (!delproc(1, II)) continue;

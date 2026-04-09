@@ -1,38 +1,47 @@
 {
-  "timestamp": 1775730961.314719,
-  "datetime": "2026-04-09 13:36:01",
+  "timestamp": 1775738353.8247614,
+  "datetime": "2026-04-09 15:39:13",
   "success": true,
-  "output": "\n--- LTL safety_no_overflow ---\npan: ltl formula safety_no_overflow\n\n(Spin Version 6.5.2 -- 6 December 2019)\n\t+ Partial Order Reduction\n\nFull statespace search for:\n\tnever claim         \t+ (safety_no_overflow)\n\tassertion violations\t+ (if within scope of claim)\n\tacceptance   cycles \t+ (fairness disabled)\n\tinvalid end states\t- (disabled by never claim)\n\nState-vector 28 byte, depth reached 11, errors: 0\n        5 states, stored\n        1 states, matched\n        6 transitions (= stored+matched)\n        2 atomic steps\nhash conflicts:         0 (resolved)\n\nStats on memory usage (in Megabytes):\n    0.000\tequivalent memory usage for states (stored*(State-vector + overhead))\n    0.287\tactual memory usage for states\n  128.000\tmemory used for hash table (-w24)\n    0.534\tmemory used for DFS stack (-m10000)\n  128.730\ttotal actual memory usage\n\n\nunreached in proctype Program\n\t/home/slade/defi_guardian/translated_output.pml:30, state 9, \"printf('Withdrawal successful. New balance: %d\\n',balance)\"\n\t(1 of 26 states)\nunreached in claim safety_no_overflow\n\t_spin_nvr.tmp:8, state 10, \"-end-\"\n\t(1 of 10 states)\n\npan: elapsed time 0 seconds\n\n--- LTL liveness_progress ---\npan: ltl formula liveness_progress\n\n(Spin Version 6.5.2 -- 6 December 2019)\n\t+ Partial Order Reduction\n\nFull statespace search for:\n\tnever claim         \t+ (liveness_progress)\n\tassertion violations\t+ (if within scope of claim)\n\tacceptance   cycles \t+ (fairness disabled)\n\tinvalid end states\t- (disabled by never claim)\n\nState-vector 28 byte, depth reached 2, errors: 0\n        2 states, stored (4 visited)\n        0 states, matched\n        4 transitions (= visited+matched)\n        0 atomic steps\nhash conflicts:         0 (resolved)\n\nStats on memory usage (in Megabytes):\n    0.000\tequivalent memory usage for states (stored*(State-vector + overhead))\n    0.287\tactual memory usage for states\n  128.000\tmemory used for hash table (-w24)\n    0.534\tmemory used for DFS stack (-m10000)\n  128.730\ttotal actual memory usage\n\n\nunreached in proctype Program\n\t/home/slade/defi_guardian/translated_output.pml:30, state 9, \"printf('Withdrawal successful. New balance: %d\\n',balance)\"\n\t/home/slade/defi_guardian/translated_output.pml:32, state 11, \"printf('Insufficient balance\\n')\"\n\t/home/slade/defi_guardian/translated_output.pml:28, state 12, \"((balance>=10))\"\n\t/home/slade/defi_guardian/translated_output.pml:28, state 12, \"else\"\n\t/home/slade/defi_guardian/translated_output.pml:37, state 16, \"state = 2\"\n\t/home/slade/defi_guardian/translated_output.pml:23, state 18, \"printf('Executing program logic...\\n')\"\n\t/home/slade/defi_guardian/translated_output.pml:41, state 22, \"printf('Program terminated.\\n')\"\n\t/home/slade/defi_guardian/translated_output.pml:45, state 26, \"-end-\"\n\t(7 of 26 states)\nunreached in claim liveness_progress\n\t_spin_nvr.tmp:15, state 6, \"-end-\"\n\t(1 of 6 states)\n\npan: elapsed time 0 seconds\n\n--- LTL invariant_balance ---\npan: ltl formula invariant_balance\n\n(Spin Version 6.5.2 -- 6 December 2019)\n\t+ Partial Order Reduction\n\nFull statespace search for:\n\tnever claim         \t+ (invariant_balance)\n\tassertion violations\t+ (if within scope of claim)\n\tacceptance   cycles \t+ (fairness disabled)\n\tinvalid end states\t- (disabled by never claim)\n\nState-vector 28 byte, depth reached 11, errors: 0\n        5 states, stored\n        1 states, matched\n        6 transitions (= stored+matched)\n        2 atomic steps\nhash conflicts:         0 (resolved)\n\nStats on memory usage (in Megabytes):\n    0.000\tequivalent memory usage for states (stored*(State-vector + overhead))\n    0.287\tactual memory usage for states\n  128.000\tmemory used for hash table (-w24)\n    0.534\tmemory used for DFS stack (-m10000)\n  128.730\ttotal actual memory usage\n\n\nunreached in proctype Program\n\t/home/slade/defi_guardian/translated_output.pml:30, state 9, \"printf('Withdrawal successful. New balance: %d\\n',balance)\"\n\t(1 of 26 states)\nunreached in claim invariant_balance\n\t_spin_nvr.tmp:24, state 10, \"-end-\"\n\t(1 of 10 states)\n\npan: elapsed time 0 seconds\n",
+  "output": "\n--- LTL safety_no_overflow ---\npan: ltl formula safety_no_overflow\n\n(Spin Version 6.5.2 -- 6 December 2019)\n\t+ Partial Order Reduction\n\nFull statespace search for:\n\tnever claim         \t+ (safety_no_overflow)\n\tassertion violations\t+ (if within scope of claim)\n\tacceptance   cycles \t+ (fairness disabled)\n\tinvalid end states\t- (disabled by never claim)\n\nState-vector 28 byte, depth reached 11, errors: 0\n        5 states, stored\n        1 states, matched\n        6 transitions (= stored+matched)\n        2 atomic steps\nhash conflicts:         0 (resolved)\n\nStats on memory usage (in Megabytes):\n    0.000\tequivalent memory usage for states (stored*(State-vector + overhead))\n    0.287\tactual memory usage for states\n  128.000\tmemory used for hash table (-w24)\n    0.534\tmemory used for DFS stack (-m10000)\n  128.730\ttotal actual memory usage\n\n\nunreached in proctype Program\n\t/home/slade/defi_guardian/translated_output.pml:31, state 9, \"printf('Withdrawal successful. New balance: %d\\n',balance)\"\n\t(1 of 26 states)\nunreached in claim safety_no_overflow\n\t_spin_nvr.tmp:8, state 10, \"-end-\"\n\t(1 of 10 states)\n\npan: elapsed time 0 seconds\n\n--- LTL liveness_progress ---\npan: ltl formula liveness_progress\n\n(Spin Version 6.5.2 -- 6 December 2019)\n\t+ Partial Order Reduction\n\nFull statespace search for:\n\tnever claim         \t+ (liveness_progress)\n\tassertion violations\t+ (if within scope of claim)\n\tacceptance   cycles \t+ (fairness disabled)\n\tinvalid end states\t- (disabled by never claim)\n\nState-vector 28 byte, depth reached 2, errors: 0\n        2 states, stored (4 visited)\n        0 states, matched\n        4 transitions (= visited+matched)\n        0 atomic steps\nhash conflicts:         0 (resolved)\n\nStats on memory usage (in Megabytes):\n    0.000\tequivalent memory usage for states (stored*(State-vector + overhead))\n    0.287\tactual memory usage for states\n  128.000\tmemory used for hash table (-w24)\n    0.534\tmemory used for DFS stack (-m10000)\n  128.730\ttotal actual memory usage\n\n\nunreached in proctype Program\n\t/home/slade/defi_guardian/translated_output.pml:31, state 9, \"printf('Withdrawal successful. New balance: %d\\n',balance)\"\n\t/home/slade/defi_guardian/translated_output.pml:33, state 11, \"printf('Insufficient balance\\n')\"\n\t/home/slade/defi_guardian/translated_output.pml:29, state 12, \"((balance>=10))\"\n\t/home/slade/defi_guardian/translated_output.pml:29, state 12, \"else\"\n\t/home/slade/defi_guardian/translated_output.pml:38, state 16, \"state = 2\"\n\t/home/slade/defi_guardian/translated_output.pml:24, state 18, \"printf('Executing program logic...\\n')\"\n\t/home/slade/defi_guardian/translated_output.pml:42, state 22, \"printf('Program terminated.\\n')\"\n\t/home/slade/defi_guardian/translated_output.pml:46, state 26, \"-end-\"\n\t(7 of 26 states)\nunreached in claim liveness_progress\n\t_spin_nvr.tmp:15, state 6, \"-end-\"\n\t(1 of 6 states)\n\npan: elapsed time 0 seconds\n\n--- LTL invariant_balance ---\npan: ltl formula invariant_balance\n\n(Spin Version 6.5.2 -- 6 December 2019)\n\t+ Partial Order Reduction\n\nFull statespace search for:\n\tnever claim         \t+ (invariant_balance)\n\tassertion violations\t+ (if within scope of claim)\n\tacceptance   cycles \t+ (fairness disabled)\n\tinvalid end states\t- (disabled by never claim)\n\nState-vector 28 byte, depth reached 11, errors: 0\n        5 states, stored\n        1 states, matched\n        6 transitions (= stored+matched)\n        2 atomic steps\nhash conflicts:         0 (resolved)\n\nStats on memory usage (in Megabytes):\n    0.000\tequivalent memory usage for states (stored*(State-vector + overhead))\n    0.287\tactual memory usage for states\n  128.000\tmemory used for hash table (-w24)\n    0.534\tmemory used for DFS stack (-m10000)\n  128.730\ttotal actual memory usage\n\n\nunreached in proctype Program\n\t/home/slade/defi_guardian/translated_output.pml:31, state 9, \"printf('Withdrawal successful. New balance: %d\\n',balance)\"\n\t(1 of 26 states)\nunreached in claim invariant_balance\n\t_spin_nvr.tmp:24, state 10, \"-end-\"\n\t(1 of 10 states)\n\npan: elapsed time 0 seconds\n",
   "errors": "",
-  "model_name": "defi_vault.rs",
+  "model_name": "lib.rs",
   "verified": true,
   "ltl_results": [],
   "depth": 11,
   "states_stored": 5,
   "transitions": 6,
   "errors_count": 0,
-  "coq": {
-    "timestamp": "2026-04-09T13:36:04.676079",
-    "success": true,
-    "output": "\u2705 Coq verification successful!",
-    "errors": ""
-  },
-  "prusti": {
-    "timestamp": "2026-04-09T13:37:16.355994",
+  "kani": {
+    "timestamp": "2026-04-09T15:39:23.714593",
+    "status": "SKIP",
     "success": false,
     "output": "",
-    "errors": "  __          __        __  ___             \n |__)  _\\/_  |__) |  | /__`  |   ____\\/_  | \n |      /\\   |  \\ \\__/ .__/  |       /\\   | \n\nPrusti version: 0.2.2, commit a0681ee 2023-08-22 15:08:33 UTC, b"
+    "errors": "",
+    "failure_kind": "",
+    "failure_hint": "",
+    "reason": "Anchor program requires Cargo dependencies not available in temp verifier compile",
+    "log_path": ""
   },
   "creusot": {
-    "timestamp": "2026-04-09T13:38:07.052944",
+    "timestamp": "2026-04-09T15:39:30.782294",
+    "status": "SKIP",
     "success": false,
     "output": "",
-    "errors": "    Updating crates.io index\n   Compiling proc-macro2 v1.0.106\n   Compiling autocfg v1.5.0\n   Compiling unicode-ident v1.0.24\n   Compiling libc v0.2.184\n   Compiling quote v1.0.45\n   Compiling getrand"
+    "errors": "",
+    "failure_kind": "",
+    "failure_hint": "",
+    "reason": "Anchor program requires Cargo dependencies not available in temp verifier compile",
+    "log_path": ""
   },
-  "kani": {
-    "timestamp": "2026-04-09T13:38:23.280983",
+  "prusti": {
+    "timestamp": "2026-04-09T15:39:35.265291",
+    "status": "SKIP",
     "success": false,
-    "output": "Kani Rust Verifier 0.67.0 (cargo plugin)\nwarning: unexpected `cfg` condition name: `prusti`\n   --> src/lib.rs:330:7\n    |\n330 | #[cfg(prusti)]\n    |       ^^^^^^\n    |\n    = help: expected names are: `docsrs`, `feature`, `kani`, and `test` and 31 more\n    = help: consider using a Cargo feature instead\n    = help: or consider adding in `Cargo.toml` the `check-cfg` lint config for the lint:\n             [lints.rust]\n             unexpected_cfgs = { level = \"warn\", check-cfg = ['cfg(prusti)'] }\n   ",
-    "errors": "   Compiling kani_verify v0.1.0 (/tmp/tmpyir3_oio)\nerror: could not compile `kani_verify` (lib) due to 9 previous errors; 21 warnings emitted\n"
+    "output": "",
+    "errors": "",
+    "failure_kind": "",
+    "failure_hint": "",
+    "reason": "Anchor program requires Cargo dependencies not available in temp Prusti compile",
+    "log_path": ""
   }
 }

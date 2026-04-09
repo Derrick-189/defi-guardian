@@ -119,17 +119,39 @@ class FormalVerifierApp(ctk.CTk):
         self.geometry("1500x950")
         
         # Configure grid - sidebar layout
-        self.grid_columnconfigure(0, weight=0)  # Sidebar
+        # Keep a generous default width close to pre-scrollable layout proportions.
+        self.sidebar_expanded_width = 460
+        self.sidebar_collapsed_width = 320
+        self.sidebar_is_expanded = True
+        self.grid_columnconfigure(0, weight=0, minsize=self.sidebar_expanded_width)  # Sidebar
         self.grid_columnconfigure(1, weight=1)  # Main content
         self.grid_rowconfigure(0, weight=1)
         
         # ==================== SIDEBAR ====================
-        self.sidebar = ctk.CTkFrame(self, width=320, corner_radius=15)
+        self.sidebar = ctk.CTkFrame(self, width=self.sidebar_expanded_width, corner_radius=15)
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=10)
         self.sidebar.grid_propagate(False)
         
-        sidebar_inner = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        sidebar_inner = ctk.CTkScrollableFrame(
+            self.sidebar,
+            width=self.sidebar_expanded_width - 40,
+            fg_color="transparent",
+            scrollbar_button_color="#3a3a3a",
+            scrollbar_button_hover_color="#555555",
+        )
         sidebar_inner.pack(fill="both", expand=True, padx=15, pady=15)
+        self.sidebar_inner = sidebar_inner
+
+        self.sidebar_toggle_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="↔ SIDEBAR WIDTH",
+            command=self.toggle_sidebar_width,
+            height=30,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#1f2937",
+            hover_color="#374151"
+        )
+        self.sidebar_toggle_btn.pack(fill="x", pady=(0, 10))
         
         # Logo
         ctk.CTkLabel(
@@ -205,6 +227,17 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#2e7d32"
         )
         self.verify_btn.pack(fill="x", pady=5)
+        self.stop_spin_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="🛑 STOP SPIN",
+            command=lambda: self.request_stop_tool("spin"),
+            state="disabled",
+            height=34,
+            font=ctk.CTkFont(size=11),
+            fg_color="#7f1d1d",
+            hover_color="#991b1b"
+        )
+        self.stop_spin_btn.pack(fill="x", pady=(0, 5))
         
         self.coq_btn = ctk.CTkButton(
             sidebar_inner,
@@ -216,7 +249,17 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#8e44ad"
         )
         self.coq_btn.pack(fill="x", pady=5)
-        
+        self.stop_coq_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="🛑 STOP COQ",
+            command=lambda: self.request_stop_tool("coq"),
+            state="disabled",
+            height=34,
+            font=ctk.CTkFont(size=11),
+            fg_color="#7f1d1d",
+            hover_color="#991b1b"
+        )
+        self.stop_coq_btn.pack(fill="x", pady=(0, 5))
         self.lean_btn = ctk.CTkButton(
             sidebar_inner,
             text="⚡ LEAN VERIFICATION",
@@ -227,6 +270,17 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#d35400"
         )
         self.lean_btn.pack(fill="x", pady=5)
+        self.stop_lean_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="🛑 STOP LEAN",
+            command=lambda: self.request_stop_tool("lean"),
+            state="disabled",
+            height=34,
+            font=ctk.CTkFont(size=11),
+            fg_color="#7f1d1d",
+            hover_color="#991b1b"
+        )
+        self.stop_lean_btn.pack(fill="x", pady=(0, 5))
         
         # Separator before Rust tools
         ctk.CTkFrame(sidebar_inner, height=2, fg_color="#3a3a3a").pack(pady=15, fill="x")
@@ -249,6 +303,17 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#c0392b"
         )
         self.prusti_btn.pack(fill="x", pady=3)
+        self.stop_prusti_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="🛑 STOP PRUSTI",
+            command=lambda: self.request_stop_tool("prusti"),
+            state="disabled",
+            height=32,
+            font=ctk.CTkFont(size=11),
+            fg_color="#7f1d1d",
+            hover_color="#991b1b"
+        )
+        self.stop_prusti_btn.pack(fill="x", pady=(0, 3))
         
         self.creusot_btn = ctk.CTkButton(
             sidebar_inner,
@@ -260,6 +325,17 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#1abc9c"
         )
         self.creusot_btn.pack(fill="x", pady=3)
+        self.stop_creusot_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="🛑 STOP CREUSOT",
+            command=lambda: self.request_stop_tool("creusot"),
+            state="disabled",
+            height=32,
+            font=ctk.CTkFont(size=11),
+            fg_color="#7f1d1d",
+            hover_color="#991b1b"
+        )
+        self.stop_creusot_btn.pack(fill="x", pady=(0, 3))
 
         self.kani_btn = ctk.CTkButton(
             sidebar_inner,
@@ -271,6 +347,17 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#6c3483"
         )
         self.kani_btn.pack(fill="x", pady=3)
+        self.stop_kani_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="🛑 STOP KANI",
+            command=lambda: self.request_stop_tool("kani"),
+            state="disabled",
+            height=32,
+            font=ctk.CTkFont(size=11),
+            fg_color="#7f1d1d",
+            hover_color="#991b1b"
+        )
+        self.stop_kani_btn.pack(fill="x", pady=(0, 3))
         
         self.elan_btn = ctk.CTkButton(
             sidebar_inner,
@@ -462,6 +549,24 @@ class FormalVerifierApp(ctk.CTk):
         self.dashboard_process = None
         self.auto_scroll_enabled = True
         self.lean_running = False
+        self.tool_processes = {}
+        self.stop_requested = {}
+        self.tool_stop_buttons = {
+            "spin": self.stop_spin_btn,
+            "lean": self.stop_lean_btn,
+            "prusti": self.stop_prusti_btn,
+            "creusot": self.stop_creusot_btn,
+            "kani": self.stop_kani_btn,
+        }
+        self.tool_processes = {}
+        self.stop_requested = {}
+        self.tool_stop_buttons = {
+            "spin": self.stop_spin_btn,
+            "lean": self.stop_lean_btn,
+            "prusti": self.stop_prusti_btn,
+            "creusot": self.stop_creusot_btn,
+            "kani": self.stop_kani_btn,
+        }
         
         # Show welcome message
         self.show_welcome()
@@ -475,6 +580,97 @@ class FormalVerifierApp(ctk.CTk):
     
     def toggle_auto_scroll(self):
         self.auto_scroll_enabled = self.auto_scroll.get()
+
+    def toggle_sidebar_width(self):
+        """Toggle sidebar between compact and expanded widths."""
+        if self.sidebar_is_expanded:
+            target = self.sidebar_collapsed_width
+            self.sidebar_is_expanded = False
+        else:
+            target = self.sidebar_expanded_width
+            self.sidebar_is_expanded = True
+        self.sidebar.configure(width=target)
+        self.grid_columnconfigure(0, minsize=target)
+        self.sidebar_inner.configure(width=max(160, target - 40))
+        self.sidebar.update_idletasks()
+
+    def set_tool_running(self, tool, running):
+        btn = self.tool_stop_buttons.get(tool)
+        if btn:
+            btn.configure(state="normal" if running else "disabled")
+
+    def request_stop_tool(self, tool):
+        self.stop_requested[tool] = True
+        proc = self.tool_processes.get(tool)
+        if proc and proc.poll() is None:
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+            self.console.insert("end", f"🛑 Stop requested for {tool.upper()}...\n")
+        else:
+            self.console.insert("end", f"ℹ️ {tool.upper()} is not currently running.\n")
+        self.console.see("end")
+
+    def run_cancellable_command(self, tool, cmd, cwd=None, env=None, timeout=None, shell=False):
+        start = time.time()
+        proc = subprocess.Popen(
+            cmd,
+            cwd=cwd,
+            env=env,
+            shell=shell,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        self.tool_processes[tool] = proc
+        self.stop_requested[tool] = False
+        self.after(0, lambda: self.set_tool_running(tool, True))
+        try:
+            while True:
+                if self.stop_requested.get(tool):
+                    try:
+                        proc.terminate()
+                        stdout, stderr = proc.communicate(timeout=5)
+                    except Exception:
+                        proc.kill()
+                        stdout, stderr = proc.communicate()
+                    return {
+                        'returncode': -15,
+                        'stdout': stdout or '',
+                        'stderr': (stderr or '') + '\nStopped by user.',
+                        'cancelled': True,
+                        'timed_out': False,
+                    }
+                if timeout is not None and (time.time() - start) > timeout:
+                    try:
+                        proc.terminate()
+                        stdout, stderr = proc.communicate(timeout=5)
+                    except Exception:
+                        proc.kill()
+                        stdout, stderr = proc.communicate()
+                    return {
+                        'returncode': 124,
+                        'stdout': stdout or '',
+                        'stderr': stderr or '',
+                        'cancelled': False,
+                        'timed_out': True,
+                    }
+                rc = proc.poll()
+                if rc is not None:
+                    stdout, stderr = proc.communicate()
+                    return {
+                        'returncode': rc,
+                        'stdout': stdout or '',
+                        'stderr': stderr or '',
+                        'cancelled': False,
+                        'timed_out': False,
+                    }
+                time.sleep(0.2)
+        finally:
+            self.tool_processes.pop(tool, None)
+            self.stop_requested[tool] = False
+            self.after(0, lambda: self.set_tool_running(tool, False))
 
     def prewarm_lean_runtime(self):
         """Warm up Lean/Elan once to reduce first-run latency."""
@@ -769,6 +965,7 @@ class FormalVerifierApp(ctk.CTk):
         
         def verify():
             self.verify_btn.configure(state="disabled", text="⏳ VERIFYING...")
+            self.set_tool_running("spin", True)
             self.status_label.configure(text="🔍 Running SPIN verification...")
             
             self.console.insert("end", "\n" + "="*80 + "\n")
@@ -832,18 +1029,36 @@ class FormalVerifierApp(ctk.CTk):
                 
                 # Continue with SPIN verification...
                 self.console.insert("end", "[2/5] 🔧 Generating SPIN verifier...\n")
-                result = subprocess.run(f"spin -a {verify_file}", 
-                                       shell=True, capture_output=True, text=True, cwd=PROJECT_DIR)
-                if result.stdout and self.verbose_output.get():
-                    self.console.insert("end", result.stdout)
-                if result.stderr:
-                    self.console.insert("end", f"   ⚠️ {result.stderr}\n")
+                result = self.run_cancellable_command(
+                    "spin", ["spin", "-a", verify_file], cwd=PROJECT_DIR, timeout=120
+                )
+                if result.get('cancelled'):
+                    self.console.insert("end", "🛑 SPIN generation stopped by user.\n")
+                    self.status_label.configure(text="🛑 SPIN stopped by user")
+                    return
+                if result.get('timed_out'):
+                    self.console.insert("end", "❌ SPIN generation timed out.\n")
+                    self.status_label.configure(text="⏰ SPIN generation timed out")
+                    return
+                if result['stdout'] and self.verbose_output.get():
+                    self.console.insert("end", result['stdout'])
+                if result['stderr']:
+                    self.console.insert("end", f"   ⚠️ {result['stderr']}\n")
                 
                 self.console.insert("end", "\n[3/5] ⚙️ Compiling verifier...\n")
-                compile_result = subprocess.run("gcc -O3 -o pan pan.c", 
-                                               shell=True, capture_output=True, text=True, cwd=PROJECT_DIR)
-                if compile_result.stderr and self.verbose_output.get():
-                    self.console.insert("end", compile_result.stderr)
+                compile_result = self.run_cancellable_command(
+                    "spin", ["gcc", "-O3", "-o", "pan", "pan.c"], cwd=PROJECT_DIR, timeout=120
+                )
+                if compile_result.get('cancelled'):
+                    self.console.insert("end", "🛑 GCC compile stopped by user.\n")
+                    self.status_label.configure(text="🛑 SPIN stopped by user")
+                    return
+                if compile_result.get('timed_out'):
+                    self.console.insert("end", "❌ GCC compile timed out.\n")
+                    self.status_label.configure(text="⏰ SPIN compile timed out")
+                    return
+                if compile_result['stderr'] and self.verbose_output.get():
+                    self.console.insert("end", compile_result['stderr'])
                 
                 # Save verification state in project directory
                 state_path = os.path.join(PROJECT_DIR, "verification_state.json")
@@ -866,19 +1081,37 @@ class FormalVerifierApp(ctk.CTk):
                 if ltl_names:
                     for ltl_name in ltl_names:
                         self.console.insert("end", f"   Verifying LTL: {ltl_name}...\n")
-                        result = subprocess.run(["./pan", "-a", "-N", ltl_name], 
-                                               capture_output=True, text=True, timeout=120, cwd=PROJECT_DIR)
-                        combined_output += f"\n--- LTL {ltl_name} ---\n{result.stdout}"
-                        combined_stderr += result.stderr
-                        if result.returncode != 0:
+                        result = self.run_cancellable_command(
+                            "spin", ["./pan", "-a", "-N", ltl_name], cwd=PROJECT_DIR, timeout=120
+                        )
+                        if result.get('cancelled'):
+                            self.console.insert("end", f"🛑 LTL run '{ltl_name}' stopped by user.\n")
+                            self.status_label.configure(text="🛑 SPIN stopped by user")
+                            return
+                        if result.get('timed_out'):
+                            self.console.insert("end", f"❌ LTL run '{ltl_name}' timed out.\n")
+                            self.status_label.configure(text="⏰ SPIN timed out")
+                            return
+                        combined_output += f"\n--- LTL {ltl_name} ---\n{result['stdout']}"
+                        combined_stderr += result['stderr']
+                        if result['returncode'] != 0:
                             all_success = False
                 else:
                     # No specific LTL claims, run default
-                    result = subprocess.run(["./pan", "-a"], 
-                                           capture_output=True, text=True, timeout=120, cwd=PROJECT_DIR)
-                    combined_output = result.stdout
-                    combined_stderr = result.stderr
-                    all_success = result.returncode == 0
+                    result = self.run_cancellable_command(
+                        "spin", ["./pan", "-a"], cwd=PROJECT_DIR, timeout=120
+                    )
+                    if result.get('cancelled'):
+                        self.console.insert("end", "🛑 SPIN run stopped by user.\n")
+                        self.status_label.configure(text="🛑 SPIN stopped by user")
+                        return
+                    if result.get('timed_out'):
+                        self.console.insert("end", "❌ SPIN run timed out.\n")
+                        self.status_label.configure(text="⏰ SPIN timed out")
+                        return
+                    combined_output = result['stdout']
+                    combined_stderr = result['stderr']
+                    all_success = result['returncode'] == 0
 
                 verify_result = type('obj', (object,), {
                     'returncode': 0 if all_success else 1,
@@ -920,6 +1153,7 @@ class FormalVerifierApp(ctk.CTk):
                     if depth_match:
                         depth = int(depth_match.group(1))
 
+                spin_log_path = self.save_tool_log('spin', verify_result.stdout, verify_result.stderr)
                 # Save SPIN state
                 self.save_verification_state('spin', {
                     'success': success,
@@ -927,7 +1161,8 @@ class FormalVerifierApp(ctk.CTk):
                     'errors': verify_result.stderr,
                     'states_stored': states_stored,
                     'transitions': transitions,
-                    'depth': depth
+                    'depth': depth,
+                    'log_path': spin_log_path,
                 })
 
                 # Extract LTL verification results
@@ -1004,6 +1239,7 @@ class FormalVerifierApp(ctk.CTk):
             if self.auto_scroll_enabled:
                 self.console.see("end")
             self.verify_btn.configure(state="normal", text="🚀 RUN SPIN VERIFICATION")
+            self.set_tool_running("spin", False)
             
             # Cleanup
             for f in [os.path.join(PROJECT_DIR, x) for x in ["pan.c", "pan.h", "pan", "pan.trail"]]:
@@ -1032,11 +1268,22 @@ class FormalVerifierApp(ctk.CTk):
                 pass
         
         # Update state for this tool
+        if result.get('skipped'):
+            status = 'SKIP'
+        elif result.get('infra_error'):
+            status = 'INFRA_ERROR'
+        else:
+            status = 'PASS' if result.get('success', False) else 'FAIL'
         state[tool] = {
             'timestamp': datetime.now().isoformat(),
+            'status': status,
             'success': result.get('success', False),
-            'output': result.get('output', '')[:500],
-            'errors': result.get('errors', '')[:200]
+            'output': result.get('output', ''),
+            'errors': result.get('errors', ''),
+            'failure_kind': result.get('failure_kind', ''),
+            'failure_hint': result.get('failure_hint', ''),
+            'reason': result.get('reason', ''),
+            'log_path': result.get('log_path', ''),
         }
         
         # Also update overall verification info if this is SPIN
@@ -1151,8 +1398,15 @@ class FormalVerifierApp(ctk.CTk):
                 coq_script = verifier.generate_coq_script(contract_name, {})
                 result = verifier.verify_with_coq(coq_script)
                 
+                coq_out = result.get('output', '')
+                coq_err = result.get('errors', result.get('error', ''))
+                coq_log_path = self.save_tool_log('coq', coq_out, coq_err)
                 # Save Coq state
-                self.save_verification_state('coq', result)
+                self.save_verification_state('coq', {
+                    **result,
+                    'errors': coq_err,
+                    'log_path': coq_log_path,
+                })
                 
                 def display():
                     self.console.insert("end", "\n" + "="*60 + "\n")
@@ -1187,6 +1441,7 @@ class FormalVerifierApp(ctk.CTk):
 
         self.lean_running = True
         self.lean_btn.configure(state="disabled", text="⏳ Running Lean...")
+        self.set_tool_running("lean", True)
 
         def run_lean():
             import tempfile, shutil
@@ -1233,42 +1488,50 @@ theorem lock_acquired (h : locked = false) :
                 tmp_file.write(lean_script)
                 tmp_file.close()
 
-                result = subprocess.run(
-                    ['lean', tmp_file.name],
-                    capture_output=True, text=True, timeout=LEAN_TIMEOUT_SECONDS
+                result = self.run_cancellable_command(
+                    "lean", ['lean', tmp_file.name], timeout=LEAN_TIMEOUT_SECONDS
                 )
-                success = result.returncode == 0
+                if result.get('cancelled'):
+                    self.after(0, lambda: self.console.insert("end", "🛑 Lean stopped by user.\n"))
+                    self.after(0, lambda: self.lean_btn.configure(state="normal", text="⚡ LEAN VERIFICATION"))
+                    return
+                if result.get('timed_out'):
+                    self.after(0, lambda: self.console.insert(
+                        "end",
+                        f"❌ Lean timed out ({LEAN_TIMEOUT_SECONDS}s). Lean/Elan may still be warming up.\n"
+                    ))
+                    self.after(0, lambda: self.lean_btn.configure(state="normal", text="⚡ LEAN VERIFICATION"))
+                    return
+                success = result['returncode'] == 0
 
+                lean_log_path = self.save_tool_log('lean', result['stdout'], result['stderr'])
                 self.save_verification_state('lean', {
                     'success': success,
-                    'output': result.stdout,
-                    'errors': result.stderr
+                    'output': result['stdout'],
+                    'errors': result['stderr'],
+                    'log_path': lean_log_path,
                 })
 
                 def display():
                     if success:
                         self.console.insert("end", "✅ Lean verification successful!\n")
-                        if result.stdout:
-                            self.console.insert("end", result.stdout[:400] + "\n")
+                        if result['stdout']:
+                            self.console.insert("end", result['stdout'][:400] + "\n")
                     else:
                         # Lean sometimes prints errors to stdout
-                        err = result.stderr or result.stdout
+                        err = result['stderr'] or result['stdout']
                         self.console.insert("end", f"❌ Lean failed:\n{err[:500]}\n")
                     self.console.see("end")
                     self.lean_btn.configure(state="normal", text="⚡ LEAN VERIFICATION")
 
                 self.after(0, display)
 
-            except subprocess.TimeoutExpired:
-                self.after(0, lambda: self.console.insert("end",
-                    f"❌ Lean timed out ({LEAN_TIMEOUT_SECONDS}s). "
-                    "Lean/Elan may still be warming up.\n"))
-                self.after(0, lambda: self.lean_btn.configure(state="normal", text="⚡ LEAN VERIFICATION"))
             except Exception as e:
                 self.after(0, lambda: self.console.insert("end", f"❌ Lean error: {e}\n"))
                 self.after(0, lambda: self.lean_btn.configure(state="normal", text="⚡ LEAN VERIFICATION"))
             finally:
                 self.lean_running = False
+                self.after(0, lambda: self.set_tool_running("lean", False))
                 if tmp_file and os.path.exists(tmp_file.name):
                     os.unlink(tmp_file.name)
 
@@ -1292,6 +1555,7 @@ theorem lock_acquired (h : locked = false) :
             return
 
         self.prusti_btn.configure(state="disabled", text="⏳ Running Prusti...")
+        self.set_tool_running("prusti", True)
 
         def run_prusti():
             import tempfile, shutil
@@ -1353,21 +1617,29 @@ theorem lock_acquired (h : locked = false) :
 
                 env = build_prusti_env()
 
-                result = subprocess.run(
+                result = self.run_cancellable_command(
+                    "prusti",
                     prusti_command() + ['--edition=2021', '--crate-type=lib', lib_rs],
-                    capture_output=True,
-                    text=True,
                     timeout=300,
                     cwd=project_dir,
                     env=env,
                 )
-                success = result.returncode == 0
+                if result.get('cancelled'):
+                    self.after(0, lambda: self.console.insert("end", "🛑 Prusti stopped by user.\n"))
+                    self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
+                    return
+                if result.get('timed_out'):
+                    self.after(0, lambda: self.console.insert("end", "❌ Prusti timed out.\n"))
+                    self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
+                    return
+                success = result['returncode'] == 0
+                log_path = self.save_tool_log('prusti', result['stdout'], result['stderr'])
                 self.save_verification_state('prusti', {
                     'success': success,
-                    'output': result.stdout,
-                    'errors': result.stderr
+                    'output': result['stdout'],
+                    'errors': result['stderr'],
+                    'log_path': log_path,
                 })
-                log_path = self.save_tool_log('prusti', result.stdout, result.stderr)
 
                 def display():
                     if success:
@@ -1377,12 +1649,12 @@ theorem lock_acquired (h : locked = false) :
                                 "end",
                                 "ℹ️ Preprocessed Kani-specific code for Prusti compatibility.\n",
                             )
-                        if result.stdout:
-                            self.console.insert("end", result.stdout[:500] + "\n")
+                        if result['stdout']:
+                            self.console.insert("end", result['stdout'][:500] + "\n")
                     else:
-                        err_tail = (result.stderr or "")[-4000:]
+                        err_tail = (result['stderr'] or "")[-4000:]
                         self.console.insert("end", f"❌ Prusti failed:\n{err_tail}\n")
-                        kind, hint = classify_prusti_failure(result.stderr)
+                        kind, hint = classify_prusti_failure(result['stderr'])
                         if hint:
                             self.console.insert(
                                 "end",
@@ -1406,6 +1678,7 @@ theorem lock_acquired (h : locked = false) :
                 self.after(0, lambda: self.console.insert("end", f"❌ Prusti error: {e}\n"))
                 self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
             finally:
+                self.after(0, lambda: self.set_tool_running("prusti", False))
                 if project_dir and os.path.exists(project_dir):
                     shutil.rmtree(project_dir, ignore_errors=True)
 
@@ -1422,6 +1695,7 @@ theorem lock_acquired (h : locked = false) :
             return
 
         self.creusot_btn.configure(state="disabled", text="⏳ Running Creusot...")
+        self.set_tool_running("creusot", True)
 
         def run_creusot():
             import tempfile, shutil
@@ -1477,26 +1751,37 @@ theorem lock_acquired (h : locked = false) :
                     nightly_lib + ':' + env.get('LD_LIBRARY_PATH', '')
                 )
 
-                result = subprocess.run(
+                result = self.run_cancellable_command(
+                    "creusot",
                     ['cargo', 'creusot'],
-                    capture_output=True, text=True, timeout=600,
-                    cwd=project_dir, env=env
+                    timeout=600,
+                    cwd=project_dir,
+                    env=env,
                 )
-                success = result.returncode == 0
+                if result.get('cancelled'):
+                    self.after(0, lambda: self.console.insert("end", "🛑 Creusot stopped by user.\n"))
+                    self.after(0, lambda: self.creusot_btn.configure(state="normal", text="📐 CREUSOT VERIFICATION"))
+                    return
+                if result.get('timed_out'):
+                    self.after(0, lambda: self.console.insert("end", "❌ Creusot timed out.\n"))
+                    self.after(0, lambda: self.creusot_btn.configure(state="normal", text="📐 CREUSOT VERIFICATION"))
+                    return
+                success = result['returncode'] == 0
+                log_path = self.save_tool_log('creusot', result['stdout'], result['stderr'])
                 self.save_verification_state('creusot', {
                     'success': success,
-                    'output': result.stdout,
-                    'errors': result.stderr
+                    'output': result['stdout'],
+                    'errors': result['stderr'],
+                    'log_path': log_path,
                 })
-                log_path = self.save_tool_log('creusot', result.stdout, result.stderr)
 
                 def display():
                     if success:
                         self.console.insert("end", "✅ Creusot verification successful!\n")
-                        if result.stdout:
-                            self.console.insert("end", result.stdout[:500] + "\n")
+                        if result['stdout']:
+                            self.console.insert("end", result['stdout'][:500] + "\n")
                     else:
-                        err_tail = (result.stderr or "")[-4000:]
+                        err_tail = (result['stderr'] or "")[-4000:]
                         self.console.insert("end", f"❌ Creusot failed:\n{err_tail}\n")
                     if log_path:
                         self.console.insert("end", f"📄 Full Creusot log: {log_path}\n")
@@ -1512,6 +1797,7 @@ theorem lock_acquired (h : locked = false) :
                 self.after(0, lambda: self.console.insert("end", f"❌ Creusot error: {e}\n"))
                 self.after(0, lambda: self.creusot_btn.configure(state="normal", text="📐 CREUSOT VERIFICATION"))
             finally:
+                self.after(0, lambda: self.set_tool_running("creusot", False))
                 if project_dir and os.path.exists(project_dir):
                     shutil.rmtree(project_dir, ignore_errors=True)
 
@@ -1528,6 +1814,7 @@ theorem lock_acquired (h : locked = false) :
             return
 
         self.kani_btn.configure(state="disabled", text="⏳ Running Kani...")
+        self.set_tool_running("kani", True)
 
         def run_kani():
             import tempfile, shutil
@@ -1566,32 +1853,42 @@ theorem lock_acquired (h : locked = false) :
                         'edition = "2021"\n'
                     )
 
-                result = subprocess.run(
+                result = self.run_cancellable_command(
+                    "kani",
                     ['cargo', 'kani'],
-                    capture_output=True, text=True, timeout=300,
-                    cwd=project_dir
+                    timeout=300,
+                    cwd=project_dir,
                 )
-                success = result.returncode == 0
+                if result.get('cancelled'):
+                    self.after(0, lambda: self.console.insert("end", "🛑 Kani stopped by user.\n"))
+                    self.after(0, lambda: self.kani_btn.configure(state="normal", text="🦀 KANI VERIFICATION"))
+                    return
+                if result.get('timed_out'):
+                    self.after(0, lambda: self.console.insert("end", "❌ Kani timed out (300s).\n"))
+                    self.after(0, lambda: self.kani_btn.configure(state="normal", text="🦀 KANI VERIFICATION"))
+                    return
+                success = result['returncode'] == 0
+                log_path = self.save_tool_log('kani', result['stdout'], result['stderr'])
                 self.save_verification_state('kani', {
                     'success': success,
-                    'output': result.stdout,
-                    'errors': result.stderr
+                    'output': result['stdout'],
+                    'errors': result['stderr'],
+                    'log_path': log_path,
                 })
-                log_path = self.save_tool_log('kani', result.stdout, result.stderr)
 
                 def display():
                     if success:
                         self.console.insert("end", "✅ Kani verification successful!\n")
-                        for line in result.stdout.splitlines():
+                        for line in result['stdout'].splitlines():
                             if any(k in line for k in [
                                 'VERIFICATION', 'harness', 'PASS', 'FAIL', 'SUCCESS', 'proof'
                             ]):
                                 self.console.insert("end", f"   {line}\n")
                     else:
-                        err_tail = (result.stderr or "")[-4000:]
+                        err_tail = (result['stderr'] or "")[-4000:]
                         self.console.insert("end", f"❌ Kani failed:\n{err_tail}\n")
-                        if result.stdout:
-                            self.console.insert("end", result.stdout[:400] + "\n")
+                        if result['stdout']:
+                            self.console.insert("end", result['stdout'][:400] + "\n")
                     if log_path:
                         self.console.insert("end", f"📄 Full Kani log: {log_path}\n")
                     self.console.see("end")
@@ -1606,6 +1903,7 @@ theorem lock_acquired (h : locked = false) :
                 self.after(0, lambda: self.console.insert("end", f"❌ Kani error: {e}\n"))
                 self.after(0, lambda: self.kani_btn.configure(state="normal", text="🦀 KANI VERIFICATION"))
             finally:
+                self.after(0, lambda: self.set_tool_running("kani", False))
                 if project_dir and os.path.exists(project_dir):
                     shutil.rmtree(project_dir, ignore_errors=True)
 
@@ -1652,7 +1950,9 @@ theorem lock_acquired (h : locked = false) :
                 rust_code = f.read()
             annotated = self.rust_verifier.generate_rust_annotations(rust_code)
             results = {}
-            for tool in ("prusti", "kani", "creusot"):
+            # Triangulation is Rust-only by design; SPIN runs separately.
+            triangulation_tools = ("prusti", "kani", "creusot")
+            for tool in triangulation_tools:
                 skip, reason = self._should_skip_tool(tool, rust_code)
                 if skip:
                     results[tool] = {
@@ -1677,7 +1977,7 @@ theorem lock_acquired (h : locked = false) :
 
     def _display_rust_results(self, results):
         self.console.insert("end", "\n" + "="*70 + "\n")
-        self.console.insert("end", "TRIANGULATION RESULTS\n")
+        self.console.insert("end", "TRIANGULATION RESULTS (PRUSTI/KANI/CREUSOT)\n")
         self.console.insert("end", "="*70 + "\n")
         for tool, result in results.items():
             if result.get('skipped'):
@@ -1686,9 +1986,9 @@ theorem lock_acquired (h : locked = false) :
                 status = "✅ PASS" if result['success'] else "❌ FAIL"
             self.console.insert("end", f"{tool.upper()}: {status}\n")
             if result.get('errors'):
-                self.console.insert("end", f"  {result['errors'][:200]}\n")
+                self.console.insert("end", f"  {result['errors']}\n")
             elif result.get('failure_hint'):
-                self.console.insert("end", f"  {result['failure_hint'][:200]}\n")
+                self.console.insert("end", f"  {result['failure_hint']}\n")
         self.console.see("end")
 
     def open_translated_output(self):
@@ -1738,11 +2038,21 @@ theorem lock_acquired (h : locked = false) :
         popup = ctk.CTkToplevel(self)
         popup.title(f"Translated Output — {os.path.basename(self.current_file) if self.current_file else 'unknown'} → Promela")
         popup.geometry("1000x750")
-        popup.grab_set()
+        popup.resizable(True, True)
+        popup.minsize(760, 500)
+        popup.lift()
+        popup.focus_force()
+        # grab_set can fail if called before the window is viewable on some WMs.
+        try:
+            popup.wait_visibility()
+            popup.grab_set()
+        except tk.TclError:
+            # Non-fatal: keep popup usable without modal grab.
+            pass
         
         # Configure popup grid
         popup.grid_columnconfigure(0, weight=1)
-        popup.grid_rowconfigure(1, weight=1)
+        popup.grid_rowconfigure(3, weight=1)
         
         # Header frame
         header = ctk.CTkFrame(popup, fg_color="transparent")
@@ -1808,8 +2118,8 @@ theorem lock_acquired (h : locked = false) :
             text_frame,
             font=("Courier New", 11),
             wrap="none",
-            fg_color="#0a0a0a",
-            text_color="#00ff00"
+            fg_color="#101317",
+            text_color="#e6e6e6"
         )
         textbox.grid(row=0, column=0, sticky="nsew")
         

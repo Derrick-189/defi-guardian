@@ -5,6 +5,7 @@
 int lock = 0;
 byte state = 0;
 int balance = 0;
+int user_balance = 0;
 
 /* === LTL PROPERTIES === */
 ltl safety_no_overflow { [] (balance >= 0 && balance <= 1000000) }

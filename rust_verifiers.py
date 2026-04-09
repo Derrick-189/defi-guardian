@@ -144,10 +144,11 @@ def strip_rust_main_for_lib(rust_code: str) -> str:
 
 
 def prepend_creusot_prelude(rust_code: str) -> str:
-    """Insert ``use creusot_std::prelude::*`` after any leading ``//!`` crate docs.
+    """Insert `use creusot_std::prelude::*` after crate header items.
 
-    Prepending before inner docs would break E0753 (inner doc comments must appear
-    before other items in the crate root).
+    The prelude must be inserted after any leading crate-level docs (`//!`) and
+    inner attributes (`#![...]`), otherwise Rust errors with:
+    "an inner attribute is not permitted in this context".
     """
     if "creusot_contracts" in rust_code or "creusot_std" in rust_code:
         return rust_code
@@ -156,6 +157,8 @@ def prepend_creusot_prelude(rust_code: str) -> str:
     while i < len(lines) and lines[i].strip() == "":
         i += 1
     while i < len(lines) and lines[i].lstrip().startswith("//!"):
+        i += 1
+    while i < len(lines) and lines[i].lstrip().startswith("#!["):
         i += 1
     head = "".join(lines[:i])
     rest = "".join(lines[i:])

@@ -5,6 +5,7 @@ Full Sidebar Settings and State Type Selection
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -12,7 +13,6 @@ import subprocess
 import os
 import tempfile
 import re
-import time
 import asyncio
 import threading
 from datetime import datetime
@@ -79,10 +79,21 @@ def get_tool_status(tool_name):
     state = load_verification_state()
     if tool_name in state:
         tool_state = state[tool_name]
-        success = tool_state.get('success', False)
+        status = tool_state.get('status', '')
+        if status:
+            success = status == "PASS"
+            status_label = {
+                "PASS": "✅ PASS",
+                "FAIL": "❌ FAIL",
+                "SKIP": "⏭️ SKIP",
+                "INFRA_ERROR": "⚠️ INFRA",
+            }.get(status, f"⚪ {status}")
+        else:
+            success = tool_state.get('success', False)
+            status_label = '✅ PASS' if success else '❌ FAIL'
         timestamp = tool_state.get('timestamp', '')
         return {
-            'status': '✅ PASS' if success else '❌ FAIL',
+            'status': status_label,
             'timestamp': timestamp,
             'success': success
         }
@@ -344,12 +355,39 @@ def get_active_filename():
             return f.read().strip()
     return "No Model Loaded"
 
+TOOL_COMMANDS = {
+    "SPIN": ["spin", "-V"],
+    "Coq": ["coqc", "--version"],
+    "Lean": ["lean", "--version"],
+    "Graphviz": ["dot", "-V"],
+    "Prusti": ["prusti-rustc", "--version"],
+    "Kani": ["cargo", "kani", "--version"],
+}
+
+
 def check_tool(name, cmd):
     try:
-        subprocess.run([cmd, "--version"], capture_output=True, timeout=2)
+        subprocess.run(cmd, capture_output=True, timeout=3)
         return True
     except:
         return False
+
+
+def schedule_auto_refresh(interval_ms):
+    """Trigger a browser refresh after interval without blocking Python."""
+    components.html(
+        f"""
+        <script>
+          const interval = {int(interval_ms)};
+          if (!window.__defiGuardianRefreshTimer) {{
+            window.__defiGuardianRefreshTimer = setTimeout(() => {{
+              window.parent.location.reload();
+            }}, interval);
+          }}
+        </script>
+        """,
+        height=0,
+    )
 
 def run_spin_verification(pml_file):
     """Run SPIN verification"""
@@ -792,17 +830,17 @@ with st.sidebar:
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(f"{'✅' if check_tool('SPIN', 'spin') else '❌'} SPIN - {spin_status['status']}")
-        st.markdown(f"{'✅' if check_tool('Coq', 'coqc') else '❌'} Coq - {coq_status['status']}")
+        st.markdown(f"{'✅' if check_tool('SPIN', TOOL_COMMANDS['SPIN']) else '❌'} SPIN - {spin_status['status']}")
+        st.markdown(f"{'✅' if check_tool('Coq', TOOL_COMMANDS['Coq']) else '❌'} Coq - {coq_status['status']}")
     with col2:
-        st.markdown(f"{'✅' if check_tool('Lean', 'lean') else '❌'} Lean - {lean_status['status']}")
-        st.markdown(f"{'✅' if check_tool('Graphviz', 'dot') else '❌'} Graphviz")
-        st.markdown(f"{'✅' if check_tool('Prusti', 'prusti') else '❌'} Prusti - {prusti_status['status']}")
-        st.markdown(f"{'✅' if check_tool('Kani', 'kani') else '❌'} Kani - {kani_status['status']}")
+        st.markdown(f"{'✅' if check_tool('Lean', TOOL_COMMANDS['Lean']) else '❌'} Lean - {lean_status['status']}")
+        st.markdown(f"{'✅' if check_tool('Graphviz', TOOL_COMMANDS['Graphviz']) else '❌'} Graphviz")
+        st.markdown(f"{'✅' if check_tool('Prusti', TOOL_COMMANDS['Prusti']) else '❌'} Prusti - {prusti_status['status']}")
+        st.markdown(f"{'✅' if check_tool('Kani', TOOL_COMMANDS['Kani']) else '❌'} Kani - {kani_status['status']}")
 
-    if st.session_state.auto_refresh:
-        time.sleep(5)
-        st.rerun()
+    # Live mode takes precedence over 5s auto-refresh to avoid double timers.
+    if st.session_state.auto_refresh and not st.session_state.auto_refresh_dashboard:
+        schedule_auto_refresh(5000)
 
 # Fast auto-refresh dashboard option
 if st.session_state.auto_refresh_dashboard:
@@ -810,8 +848,7 @@ if st.session_state.auto_refresh_dashboard:
         '<div style="position: fixed; top: 10px; right: 10px; background: #00ffcc; color: black; padding: 5px 10px; border-radius: 20px;">🔴 LIVE</div>',
         unsafe_allow_html=True
     )
-    time.sleep(2)
-    st.rerun()
+    schedule_auto_refresh(2000)
 
 # ==================== MAIN CONTENT ====================
 
