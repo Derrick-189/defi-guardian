@@ -12,7 +12,22 @@ import sys
 import webbrowser
 import threading
 import time
+import socket
 from pathlib import Path
+
+STREAMLIT_START_TIMEOUT = float(os.environ.get("DG_STREAMLIT_START_TIMEOUT", "120"))
+
+
+def _wait_for_tcp_port(host: str, port: int, timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=2.0):
+                return True
+        except OSError:
+            time.sleep(0.25)
+    return False
+
 
 class DeFiGuardianLauncher:
     def __init__(self):
@@ -372,12 +387,24 @@ class DeFiGuardianLauncher:
                     cwd=str(self.base_dir)
                 )
                 self.dashboard_running = True
-                
-                # Wait and open browser
-                time.sleep(3)
+
+                self.status_text.insert(
+                    tk.END,
+                    "⏳ Waiting for Streamlit on :8501 (first run may take 30–90s)…\n",
+                )
+                self.status_text.see(tk.END)
+
+                ready = _wait_for_tcp_port("localhost", 8501, STREAMLIT_START_TIMEOUT)
                 webbrowser.open("http://localhost:8501")
-                
-                self.status_text.insert(tk.END, "✅ Dashboard launched at http://localhost:8501\n")
+                if ready:
+                    self.status_text.insert(
+                        tk.END, "✅ Dashboard ready at http://localhost:8501\n"
+                    )
+                else:
+                    self.status_text.insert(
+                        tk.END,
+                        "⚠️ Port not ready in time; browser opened — refresh if blank.\n",
+                    )
                 self.status_text.see(tk.END)
                 
                 # Monitor process

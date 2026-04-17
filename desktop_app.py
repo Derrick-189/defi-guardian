@@ -1,3 +1,4 @@
+
 """
 DeFi Guardian - Desktop Application
 Formal Verification Suite with SPIN Model Checker
@@ -18,21 +19,44 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 import tkinter as tk
+import socket
 
 # Project directory for file I/O
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-LEAN_TIMEOUT_SECONDS = 120
+# First Lean check after boot can take minutes (Elan/toolchain + stdlib); override with DG_LEAN_TIMEOUT.
+LEAN_TIMEOUT_SECONDS = int(os.environ.get("DG_LEAN_TIMEOUT", "300"))
+# Streamlit cold-start can exceed a few seconds; cap wait when opening the browser.
+STREAMLIT_START_TIMEOUT = float(os.environ.get("DG_STREAMLIT_START_TIMEOUT", "120"))
 
-from rust_verifiers import (
-    CREUSOT_STD_PATH,
-    build_prusti_env,
-    classify_prusti_failure,
-    prepend_creusot_prelude,
-    preprocess_prusti_source,
-    prusti_command,
-    should_skip_prusti_for_source,
-    strip_rust_main_for_lib,
-)
+
+def wait_for_tcp_port(
+    host: str,
+    port: int,
+    timeout: float = STREAMLIT_START_TIMEOUT,
+    poll_interval: float = 0.25,
+) -> bool:
+    """Return True once ``host:port`` accepts a TCP connection (server is listening)."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=2.0):
+                return True
+        except OSError:
+            time.sleep(poll_interval)
+    return False
+
+
+# from rust_verifiers import (
+#     CREUSOT_STD_PATH,
+#     RustVerifier,
+#     build_prusti_env,
+#     classify_prusti_failure,
+#     prepend_creusot_prelude,
+#     preprocess_prusti_source,
+#     prusti_command,
+#     should_skip_prusti_for_source,
+#     strip_rust_main_for_lib,
+# )
 
 # Import verification state
 try:
@@ -293,27 +317,28 @@ class FormalVerifierApp(ctk.CTk):
             text_color="#888888"
         ).pack(anchor="w", pady=(10, 5))
         
-        self.prusti_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🔧 PRUSTI VERIFICATION",
-            command=self.verify_with_prusti,
-            height=40,
-            font=ctk.CTkFont(size=12),
-            fg_color="#e74c3c",
-            hover_color="#c0392b"
-        )
-        self.prusti_btn.pack(fill="x", pady=3)
-        self.stop_prusti_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🛑 STOP PRUSTI",
-            command=lambda: self.request_stop_tool("prusti"),
-            state="disabled",
-            height=32,
-            font=ctk.CTkFont(size=11),
-            fg_color="#7f1d1d",
-            hover_color="#991b1b"
-        )
-        self.stop_prusti_btn.pack(fill="x", pady=(0, 3))
+        # Prusti disabled - commented out import at top of file
+        # self.prusti_btn = ctk.CTkButton(
+        #     sidebar_inner,
+        #     text="🔧 PRUSTI VERIFICATION",
+        #     command=self.verify_with_prusti,
+        #     height=40,
+        #     font=ctk.CTkFont(size=12),
+        #     fg_color="#e74c3c",
+        #     hover_color="#c0392b"
+        # )
+        # self.prusti_btn.pack(fill="x", pady=3)
+        # self.stop_prusti_btn = ctk.CTkButton(
+        #     sidebar_inner,
+        #     text="🛑 STOP PRUSTI",
+        #     command=lambda: self.request_stop_tool("prusti"),
+        #     state="disabled",
+        #     height=32,
+        #     font=ctk.CTkFont(size=11),
+        #     fg_color="#7f1d1d",
+        #     hover_color="#991b1b"
+        # )
+        # self.stop_prusti_btn.pack(fill="x", pady=(0, 3))
         
         self.creusot_btn = ctk.CTkButton(
             sidebar_inner,
@@ -554,7 +579,7 @@ class FormalVerifierApp(ctk.CTk):
         self.tool_stop_buttons = {
             "spin": self.stop_spin_btn,
             "lean": self.stop_lean_btn,
-            "prusti": self.stop_prusti_btn,
+            # "prusti": self.stop_prusti_btn,  # disabled
             "creusot": self.stop_creusot_btn,
             "kani": self.stop_kani_btn,
         }
@@ -563,7 +588,7 @@ class FormalVerifierApp(ctk.CTk):
         self.tool_stop_buttons = {
             "spin": self.stop_spin_btn,
             "lean": self.stop_lean_btn,
-            "prusti": self.stop_prusti_btn,
+            # "prusti": self.stop_prusti_btn,  # disabled
             "creusot": self.stop_creusot_btn,
             "kani": self.stop_kani_btn,
         }
@@ -680,7 +705,7 @@ class FormalVerifierApp(ctk.CTk):
                     ["lean", "--version"],
                     capture_output=True,
                     text=True,
-                    timeout=25,
+                    timeout=90,
                 )
                 ok = result.returncode == 0
                 self.after(
@@ -773,43 +798,45 @@ class FormalVerifierApp(ctk.CTk):
         except:
             tools.append("❌ GCC")
 
-        # Prusti health: distinguish binary availability vs runtime breakage
-        try:
-            with tempfile.TemporaryDirectory() as project_dir:
-                src = os.path.join(project_dir, "lib.rs")
-                with open(src, "w") as f:
-                    f.write("fn f(x: u64) -> u64 { x }\n")
-                result = subprocess.run(
-                    ["prusti-rustc", "--edition=2021", "--crate-type=lib", src],
-                    capture_output=True,
-                    text=True,
-                    timeout=12,
-                    cwd=project_dir,
-                    env=build_prusti_env(),
-                )
-                stderr = result.stderr or ""
-                if "unknown configuration flag `home`" in stderr:
-                    tools.append("❌ Prusti(env)")
-                    self.console.insert(
-                        "end",
-                        "⚠️ Prusti health: invalid PRUSTI_* env detected (remove PRUSTI_HOME)\n",
-                    )
-                elif "compiler unexpectedly panicked" in stderr:
-                    tools.append("⚠️ Prusti(ICE)")
-                    self.console.insert(
-                        "end",
-                        "⚠️ Prusti health: internal crash detected (toolchain mismatch/bug)\n",
-                    )
-                elif result.returncode == 0:
-                    tools.append("✅ Prusti")
-                else:
-                    tools.append("❌ Prusti")
-        except subprocess.TimeoutExpired:
-            tools.append("⚠️ Prusti(timeout)")
-        except FileNotFoundError:
-            tools.append("❌ Prusti")
-        except Exception:
-            tools.append("❌ Prusti")
+        # Prusti health check disabled - import commented out at top of file
+        # try:
+        #     with tempfile.TemporaryDirectory() as project_dir:
+        #         src = os.path.join(project_dir, "lib.rs")
+        #         with open(src, "w") as f:
+        #             f.write("fn f(x: u64) -> u64 { x }\n")
+        #         result = subprocess.run(
+        #             ["prusti-rustc", "--edition=2021", "--crate-type=lib", src],
+        #             capture_output=True,
+        #             text=True,
+        #             timeout=12,
+        #             cwd=project_dir,
+        #             env=build_prusti_env(),
+        #         )
+        #         stderr = result.stderr or ""
+        #         if "unknown configuration flag `home`" in stderr:
+        #             tools.append("❌ Prusti(env)")
+        #             self.console.insert(
+        #                 "end",
+        #                 "⚠️ Prusti health: invalid PRUSTI_* env detected (remove PRUSTI_HOME)\n",
+        #             )
+        #         elif "compiler unexpectedly panicked" in stderr:
+        #             tools.append("⚠️ Prusti(ICE)")
+        #             self.console.insert(
+        #                 "end",
+        #                 "⚠️ Prusti health: internal crash detected (toolchain mismatch/bug)\n",
+        #             )
+        #         elif result.returncode == 0:
+        #             tools.append("✅ Prusti")
+        #         else:
+        #             tools.append("❌ Prusti")
+        # except subprocess.TimeoutExpired:
+        #     tools.append("⚠️ Prusti(timeout)")
+        # except FileNotFoundError:
+        #     tools.append("❌ Prusti")
+        # except Exception:
+        #     tools.append("❌ Prusti")
+        
+        tools.append("❌ Prusti (disabled)")
         
         self.tool_status.configure(text=" | ".join(tools))
     
@@ -1444,7 +1471,7 @@ class FormalVerifierApp(ctk.CTk):
         self.set_tool_running("lean", True)
 
         def run_lean():
-            import tempfile, shutil
+            import tempfile
             tmp_file = None
             try:
                 self.after(0, lambda: self.console.insert("end",
@@ -1470,20 +1497,21 @@ theorem collateral_sufficient :
 -- Safety: no overflow on u64 range
 theorem balance_non_negative (b : Nat) : b ≥ 0 := Nat.zero_le b
 
--- Reentrancy: lock released after operation
+-- Reentrancy guard: when not already locked, operation leaves lock true
 def lock_after_op (locked : Bool) : Bool :=
   if locked then locked else true
 
-theorem lock_acquired (h : locked = false) :
+theorem lock_acquired (locked : Bool) (h : locked = false) :
     lock_after_op locked = true := by
   simp [lock_after_op, h]
 
 #check collateral_sufficient
 #check balance_non_negative
+#check lock_acquired
 """
                 # Write to temp file
                 tmp_file = tempfile.NamedTemporaryFile(
-                    mode='w', suffix='.lean', delete=False
+                    mode='w', suffix='.lean', delete=False, encoding='utf-8'
                 )
                 tmp_file.write(lean_script)
                 tmp_file.close()
@@ -1538,14 +1566,7 @@ theorem lock_acquired (h : locked = false) :
         threading.Thread(target=run_lean, daemon=True).start()
 
     def verify_with_prusti(self):
-        """Run Prusti via ``prusti-rustc`` on a temp crate (avoids ``cargo prusti``'s old Cargo).
-
-        ``cargo prusti`` pulls crates.io through Prusti's bundled Cargo, which breaks on
-        modern crates (for example edition 2024 in a dependency manifest) and lockfile v4.
-        Direct ``prusti-rustc``
-        does not use that resolver. Code that needs ``prusti-contracts`` must be verified
-        with a hand-written Cargo project instead.
-        """
+        """Run Prusti on the actual user Rust file with auto-annotations."""
         if not self.current_file:
             self.console.insert("end", "❌ No file selected\n")
             return
@@ -1558,20 +1579,35 @@ theorem lock_acquired (h : locked = false) :
         self.set_tool_running("prusti", True)
 
         def run_prusti():
-            import tempfile, shutil
-            project_dir = None
             try:
-                self.after(0, lambda: self.console.insert("end",
-                    "\n" + "="*60 + "\n🔧 PRUSTI VERIFICATION\n" + "="*60 + "\n"))
-
-                with open(self.current_file, 'r') as f:
+                # Read the user's Rust source first (same path as the open editor file).
+                with open(self.current_file, 'r', encoding="utf-8") as f:
                     rust_code = f.read()
+
+                self.after(0, lambda: self.console.insert(
+                    "end",
+                    "\n" + "=" * 60 + "\n🔧 PRUSTI VERIFICATION\n" + "=" * 60 + "\n",
+                ))
+
+                verifier = RustVerifier()
+                if not verifier.prusti_available:
+                    self.after(0, lambda: self.console.insert(
+                        "end", "❌ Prusti not installed (``prusti-rustc`` not found)\n"
+                    ))
+                    self.after(0, lambda: self.prusti_btn.configure(
+                        state="normal", text="🔧 PRUSTI VERIFICATION"
+                    ))
+                    self.after(0, lambda: self.set_tool_running("prusti", False))
+                    return
+
                 skip_prusti_src, src_reason = should_skip_prusti_for_source(rust_code)
                 if skip_prusti_src:
                     self.after(0, lambda: self.console.insert(
                         "end", f"⏭️ Prusti skipped: {src_reason}\n"
                     ))
-                    self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
+                    self.after(0, lambda: self.prusti_btn.configure(
+                        state="normal", text="🔧 PRUSTI VERIFICATION"
+                    ))
                     self.save_verification_state('prusti', {
                         'success': False,
                         'output': '',
@@ -1579,13 +1615,17 @@ theorem lock_acquired (h : locked = false) :
                         'skipped': True,
                         'reason': src_reason,
                     })
+                    self.after(0, lambda: self.set_tool_running("prusti", False))
                     return
+
                 skip, reason = self._should_skip_tool("prusti", rust_code)
                 if skip:
                     self.after(0, lambda: self.console.insert(
                         "end", f"⏭️ Prusti skipped: {reason}\n"
                     ))
-                    self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
+                    self.after(0, lambda: self.prusti_btn.configure(
+                        state="normal", text="🔧 PRUSTI VERIFICATION"
+                    ))
                     self.save_verification_state('prusti', {
                         'success': False,
                         'output': '',
@@ -1593,77 +1633,82 @@ theorem lock_acquired (h : locked = false) :
                         'skipped': True,
                         'reason': reason,
                     })
-                    return
-                had_kani = "kani::" in rust_code or "#[kani::proof]" in rust_code
-                rust_code = preprocess_prusti_source(rust_code)
-                if "fn " not in rust_code:
-                    self.after(0, lambda: self.console.insert(
-                        "end",
-                        "⏭️ Prusti skipped: file appears Kani-only after compatibility preprocessing.\n"
-                    ))
-                    self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
+                    self.after(0, lambda: self.set_tool_running("prusti", False))
                     return
 
-                project_dir = tempfile.mkdtemp()
-                lib_rs = os.path.join(project_dir, 'lib.rs')
-                with open(lib_rs, 'w') as f:
-                    f.write(rust_code)
+                self.after(0, lambda: self.console.insert(
+                    "end",
+                    "📝 Analyzing Rust code and generating verification annotations...\n",
+                ))
 
-                with open(os.path.join(project_dir, 'Cargo.toml'), 'w') as f:
-                    f.write(
-                        '[package]\nname = "prusti_verify"\nversion = "0.1.0"\n'
-                        'edition = "2021"\n'
-                    )
+                annotated_code = verifier.analyze_and_annotate(rust_code)
 
-                env = build_prusti_env()
+                self.after(0, lambda: self.console.insert(
+                    "end",
+                    "✅ Annotations generated. Running Prusti...\n\n",
+                ))
 
-                result = self.run_cancellable_command(
-                    "prusti",
-                    prusti_command() + ['--edition=2021', '--crate-type=lib', lib_rs],
-                    timeout=300,
-                    cwd=project_dir,
-                    env=env,
+                annotated_path = os.path.join(PROJECT_DIR, "annotated_output.rs")
+                with open(annotated_path, 'w', encoding="utf-8") as f:
+                    f.write(annotated_code)
+                self.after(0, lambda: self.console.insert(
+                    "end",
+                    f"📄 Annotated code saved to: {annotated_path}\n\n",
+                ))
+
+                # Must use skip_analyze=True: analyze_and_annotate already ran above; calling
+                # verify_with_prusti(annotated_code) alone would annotate again and duplicate
+                # headers, impl blocks, and attribute lines.
+                result = verifier.verify_with_prusti(annotated_code, skip_analyze=True)
+
+                log_path = self.save_tool_log(
+                    'prusti', result.get('output', ''), result.get('errors', '')
                 )
-                if result.get('cancelled'):
-                    self.after(0, lambda: self.console.insert("end", "🛑 Prusti stopped by user.\n"))
-                    self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
-                    return
-                if result.get('timed_out'):
-                    self.after(0, lambda: self.console.insert("end", "❌ Prusti timed out.\n"))
-                    self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
-                    return
-                success = result['returncode'] == 0
-                log_path = self.save_tool_log('prusti', result['stdout'], result['stderr'])
                 self.save_verification_state('prusti', {
-                    'success': success,
-                    'output': result['stdout'],
-                    'errors': result['stderr'],
+                    'success': result.get('success', False),
+                    'output': result.get('output', ''),
+                    'errors': result.get('errors', ''),
                     'log_path': log_path,
+                    'skipped': result.get('skipped', False),
                 })
 
                 def display():
-                    if success:
+                    if result.get('skipped'):
+                        self.console.insert(
+                            "end",
+                            (result.get('error') or "Skipped") + "\n",
+                        )
+                    elif result.get('success'):
                         self.console.insert("end", "✅ Prusti verification successful!\n")
-                        if had_kani:
-                            self.console.insert(
-                                "end",
-                                "ℹ️ Preprocessed Kani-specific code for Prusti compatibility.\n",
-                            )
-                        if result['stdout']:
-                            self.console.insert("end", result['stdout'][:500] + "\n")
+                        self.console.insert(
+                            "end",
+                            "   ✓ All preconditions satisfied\n"
+                            "   ✓ All postconditions hold\n"
+                            "   ✓ No panics possible\n",
+                        )
+                        out = result.get('output') or ""
+                        if out:
+                            self.console.insert("end", out[:500] + "\n")
                     else:
-                        err_tail = (result['stderr'] or "")[-4000:]
-                        self.console.insert("end", f"❌ Prusti failed:\n{err_tail}\n")
-                        kind, hint = classify_prusti_failure(result['stderr'])
+                        self.console.insert("end", "❌ Prusti verification failed:\n")
+                        err = result.get('errors') or result.get('error') or 'Unknown error'
+                        self.console.insert("end", err[:500] + "\n")
+                        kind, hint = classify_prusti_failure(result.get('errors'))
                         if hint:
                             self.console.insert(
                                 "end",
-                                f"ℹ️ {hint}. "
+                                f"ℹ️ {hint}"
                                 + (
-                                    "Try reinstalling/updating Prusti toolchain.\n"
+                                    " Try reinstalling/updating Prusti toolchain.\n"
                                     if kind == "ice" else "\n"
-                                )
+                                ),
                             )
+                        self.console.insert("end", "\n💡 Tips:\n")
+                        self.console.insert(
+                            "end",
+                            "   - Check the annotated_output.rs file\n"
+                            "   - Review function preconditions\n",
+                        )
                     if log_path:
                         self.console.insert("end", f"📄 Full Prusti log: {log_path}\n")
                     self.console.see("end")
@@ -1671,16 +1716,13 @@ theorem lock_acquired (h : locked = false) :
 
                 self.after(0, display)
 
-            except subprocess.TimeoutExpired:
-                self.after(0, lambda: self.console.insert("end", "❌ Prusti timed out\n"))
-                self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
             except Exception as e:
                 self.after(0, lambda: self.console.insert("end", f"❌ Prusti error: {e}\n"))
-                self.after(0, lambda: self.prusti_btn.configure(state="normal", text="🔧 PRUSTI VERIFICATION"))
+                self.after(0, lambda: self.prusti_btn.configure(
+                    state="normal", text="🔧 PRUSTI VERIFICATION"
+                ))
             finally:
                 self.after(0, lambda: self.set_tool_running("prusti", False))
-                if project_dir and os.path.exists(project_dir):
-                    shutil.rmtree(project_dir, ignore_errors=True)
 
         threading.Thread(target=run_prusti, daemon=True).start()
 
@@ -1844,6 +1886,9 @@ theorem lock_acquired (h : locked = false) :
                 src_dir = os.path.join(project_dir, 'src')
                 os.makedirs(src_dir)
 
+                kani_verifier = RustVerifier()
+                rust_code = kani_verifier._add_kani_harness(rust_code)
+
                 with open(os.path.join(src_dir, 'lib.rs'), 'w') as f:
                     f.write(rust_code)
 
@@ -1946,36 +1991,20 @@ theorem lock_acquired (h : locked = false) :
 
     def _rust_thread(self):
         try:
-            with open(self.current_source, 'r') as f:
+            with open(self.current_source, 'r', encoding="utf-8") as f:
                 rust_code = f.read()
-            annotated = self.rust_verifier.generate_rust_annotations(rust_code)
-            results = {}
-            # Triangulation is Rust-only by design; SPIN runs separately.
-            triangulation_tools = ("prusti", "kani", "creusot")
-            for tool in triangulation_tools:
-                skip, reason = self._should_skip_tool(tool, rust_code)
-                if skip:
-                    results[tool] = {
-                        'success': False,
-                        'skipped': True,
-                        'failure_hint': reason,
-                        'errors': '',
-                    }
-                    continue
-                if tool == "prusti":
-                    results[tool] = self.rust_verifier.verify_with_prusti(annotated)
-                elif tool == "kani":
-                    results[tool] = self.rust_verifier.verify_with_kani(annotated)
-                else:
-                    results[tool] = self.rust_verifier.verify_with_creusot(annotated)
-            self.after(0, self._display_rust_results, results)
+            results, report = self.rust_verifier.triangulate_verification(
+                rust_code,
+                should_skip_tool=lambda tool, code: self._should_skip_tool(tool, code),
+            )
+            self.after(0, self._display_rust_results, results, report)
         except Exception as e:
             self.after(0, self.console.insert, "end", f"❌ Rust error: {e}\n")
         finally:
             self.after(0, lambda: self.rust_verify_btn.configure(
                 state="normal", text="🦀 VERIFY WITH PRUSTI/KANI"))
 
-    def _display_rust_results(self, results):
+    def _display_rust_results(self, results, report=None):
         self.console.insert("end", "\n" + "="*70 + "\n")
         self.console.insert("end", "TRIANGULATION RESULTS (PRUSTI/KANI/CREUSOT)\n")
         self.console.insert("end", "="*70 + "\n")
@@ -1989,6 +2018,8 @@ theorem lock_acquired (h : locked = false) :
                 self.console.insert("end", f"  {result['errors']}\n")
             elif result.get('failure_hint'):
                 self.console.insert("end", f"  {result['failure_hint']}\n")
+        if report:
+            self.console.insert("end", "\n" + report + "\n")
         self.console.see("end")
 
     def open_translated_output(self):
@@ -2220,20 +2251,51 @@ theorem lock_acquired (h : locked = false) :
         ]
         
         try:
-            self.dashboard_process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            
-            # Wait and open browser
-            time.sleep(3)
-            webbrowser.open("http://localhost:8501")
-            
-            self.console.insert("end", "✅ Dashboard started at http://localhost:8501\n")
-            self.status_label.configure(text="✅ Dashboard running at localhost:8501")
+            self.console.insert(
+                "end",
+                "⏳ Starting Streamlit… (first run can take 30–90s while Python loads)\n",
+            )
+            self.status_label.configure(text="Starting dashboard…")
+            if self.auto_scroll_enabled:
+                self.console.see("end")
+
+            self.dashboard_process = subprocess.Popen(
+                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+
+            def wait_and_open_browser():
+                ready = wait_for_tcp_port("localhost", 8501, STREAMLIT_START_TIMEOUT)
+
+                def finish_ui():
+                    webbrowser.open("http://localhost:8501")
+                    if ready:
+                        self.console.insert(
+                            "end",
+                            "✅ Dashboard ready at http://localhost:8501\n",
+                        )
+                        self.status_label.configure(
+                            text="✅ Dashboard running at localhost:8501"
+                        )
+                    else:
+                        self.console.insert(
+                            "end",
+                            "⚠️ Streamlit did not open port 8501 in time; "
+                            "browser opened anyway — refresh the tab if it is blank.\n",
+                        )
+                        self.status_label.configure(
+                            text="⚠️ Dashboard may still be starting — try refresh"
+                        )
+                    if self.auto_scroll_enabled:
+                        self.console.see("end")
+
+                self.after(0, finish_ui)
+
+            threading.Thread(target=wait_and_open_browser, daemon=True).start()
         except Exception as e:
             self.console.insert("end", f"❌ Failed to start dashboard: {e}\n")
             self.status_label.configure(text="❌ Dashboard failed to start")
-        
-        if self.auto_scroll_enabled:
-            self.console.see("end")
+            if self.auto_scroll_enabled:
+                self.console.see("end")
     
     def stop_dashboard(self):
         """Stop the dashboard"""

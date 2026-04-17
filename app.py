@@ -360,7 +360,7 @@ TOOL_COMMANDS = {
     "Coq": ["coqc", "--version"],
     "Lean": ["lean", "--version"],
     "Graphviz": ["dot", "-V"],
-    "Prusti": ["prusti-rustc", "--version"],
+    # "Prusti": ["prusti-rustc", "--version"],  # disabled - Docker image broken
     "Kani": ["cargo", "kani", "--version"],
 }
 
@@ -825,7 +825,7 @@ with st.sidebar:
     spin_status = get_tool_status('spin')
     coq_status = get_tool_status('coq')
     lean_status = get_tool_status('lean')
-    prusti_status = get_tool_status('prusti')
+    # prusti_status = get_tool_status('prusti')  # disabled
     kani_status = get_tool_status('kani')
 
     col1, col2 = st.columns(2)
@@ -835,7 +835,7 @@ with st.sidebar:
     with col2:
         st.markdown(f"{'✅' if check_tool('Lean', TOOL_COMMANDS['Lean']) else '❌'} Lean - {lean_status['status']}")
         st.markdown(f"{'✅' if check_tool('Graphviz', TOOL_COMMANDS['Graphviz']) else '❌'} Graphviz")
-        st.markdown(f"{'✅' if check_tool('Prusti', TOOL_COMMANDS['Prusti']) else '❌'} Prusti - {prusti_status['status']}")
+        # st.markdown(f"{'✅' if check_tool('Prusti', TOOL_COMMANDS['Prusti']) else '❌'} Prusti - {prusti_status['status']}")  # disabled
         st.markdown(f"{'✅' if check_tool('Kani', TOOL_COMMANDS['Kani']) else '❌'} Kani - {kani_status['status']}")
 
     # Live mode takes precedence over 5s auto-refresh to avoid double timers.
@@ -1123,7 +1123,8 @@ if os.path.exists("verification_state.json"):
     
     cols = st.columns(4)
     tools = [("Coq", "coq"), ("Lean", "lean"),
-             ("Prusti", "prusti"), ("Kani", "kani")]
+             # ("Prusti", "prusti"),  # disabled
+             ("Kani", "kani")]
     
     for col, (name, key) in zip(cols, tools):
         with col:

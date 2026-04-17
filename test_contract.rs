@@ -1,67 +1,56 @@
-// Simple Rust contract for testing DeFi Guardian verification
-// This demonstrates basic state management and invariants
+// test_contract.rs — Example Anchor lending pool for DeFi Guardian / verification testing
+// Requires a full Anchor workspace (Cargo.toml + lib.rs entry) to compile with `anchor build`.
 
-#[derive(Debug)]
-pub struct SimpleContract {
-    pub balance: u64,
-    pub owner: String,
-    pub locked: bool,
-}
+use anchor_lang::prelude::*;
 
-impl SimpleContract {
-    pub fn new(owner: String) -> Self {
-        SimpleContract {
-            balance: 0,
-            owner,
-            locked: false,
-        }
-    }
+declare_id!("4nTqA9yqL8i5N8xK2vR3mP7wQ1jF6hD0cB9sZ4eY8uA");
 
-    pub fn deposit(&mut self, amount: u64) {
-        assert!(!self.locked, "Contract is locked");
-        assert!(amount > 0, "Amount must be positive");
+#[program]
+pub mod lending_pool {
+    use super::*;
 
-        self.balance += amount;
-        assert!(self.balance >= amount, "Balance overflow detected");
-    }
-
-    pub fn withdraw(&mut self, amount: u64) -> Result<(), &'static str> {
-        if self.locked {
-            return Err("Contract is locked");
-        }
-        if amount > self.balance {
-            return Err("Insufficient balance");
-        }
-
-        self.balance -= amount;
+    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+        let account = &mut ctx.accounts.user_account;
+        account.balance = account.balance.checked_add(amount).unwrap();
         Ok(())
     }
 
-    pub fn lock(&mut self) {
-        self.locked = true;
-    }
+    pub fn borrow(ctx: Context<Borrow>, amount: u64) -> Result<()> {
+        let account = &mut ctx.accounts.user_account;
 
-    pub fn unlock(&mut self) {
-        self.locked = false;
+        // Invariant: must have sufficient collateral (value covers existing + new debt)
+        require!(
+            account.collateral * account.price >= account.debt + amount,
+            ErrorCode::InsufficientCollateral
+        );
+
+        account.debt = account.debt.checked_add(amount).unwrap();
+        Ok(())
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Accounts)]
+pub struct Deposit<'info> {
+    #[account(mut)]
+    pub user_account: Account<'info, UserAccount>,
+}
 
-    #[test]
-    fn test_deposit() {
-        let mut contract = SimpleContract::new("owner".to_string());
-        contract.deposit(100);
-        assert_eq!(contract.balance, 100);
-    }
+#[derive(Accounts)]
+pub struct Borrow<'info> {
+    #[account(mut)]
+    pub user_account: Account<'info, UserAccount>,
+}
 
-    #[test]
-    fn test_withdraw() {
-        let mut contract = SimpleContract::new("owner".to_string());
-        contract.deposit(100);
-        assert!(contract.withdraw(50).is_ok());
-        assert_eq!(contract.balance, 50);
-    }
+#[account]
+pub struct UserAccount {
+    pub balance: u64,
+    pub collateral: u64,
+    pub debt: u64,
+    pub price: u64,
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Insufficient collateral for borrow")]
+    InsufficientCollateral,
 }
