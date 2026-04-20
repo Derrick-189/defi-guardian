@@ -1,4 +1,3 @@
-
 """
 DeFi Guardian - Desktop Application
 Formal Verification Suite with SPIN Model Checker
@@ -28,6 +27,361 @@ LEAN_TIMEOUT_SECONDS = int(os.environ.get("DG_LEAN_TIMEOUT", "300"))
 # Streamlit cold-start can exceed a few seconds; cap wait when opening the browser.
 STREAMLIT_START_TIMEOUT = float(os.environ.get("DG_STREAMLIT_START_TIMEOUT", "120"))
 
+class ResizablePanel:
+    """Handle resizing of panels with mouse drag"""
+    def __init__(self, master, panel_to_resize, orientation='vertical', min_size=200, max_size=800):
+        self.master = master
+        self.panel = panel_to_resize
+        self.orientation = orientation
+        self.min_size = min_size
+        self.max_size = max_size
+        self.dragging = False
+        self.start_x = 0
+        self.start_y = 0
+        self.start_size = 0
+        
+        # Create resize handle
+        if orientation == 'vertical':
+            self.handle = ctk.CTkFrame(master, width=5, height=20, cursor="sb_h_double_arrow",
+                                       fg_color="#3a3a3a", corner_radius=2)
+            self.handle.bind("<Button-1>", self.start_drag)
+            self.handle.bind("<B1-Motion>", self.drag)
+            self.handle.bind("<ButtonRelease-1>", self.stop_drag)
+        else:
+            self.handle = ctk.CTkFrame(master, width=20, height=5, cursor="sb_v_double_arrow",
+                                       fg_color="#3a3a3a", corner_radius=2)
+            self.handle.bind("<Button-1>", self.start_drag)
+            self.handle.bind("<B1-Motion>", self.drag)
+            self.handle.bind("<ButtonRelease-1>", self.stop_drag)
+    
+    def start_drag(self, event):
+        self.dragging = True
+        self.start_x = event.x_root
+        self.start_y = event.y_root
+        if self.orientation == 'vertical':
+            self.start_size = self.panel.winfo_width()
+        else:
+            self.start_size = self.panel.winfo_height()
+    
+    def drag(self, event):
+        if self.dragging:
+            if self.orientation == 'vertical':
+                delta = event.x_root - self.start_x
+                new_size = self.start_size + delta
+                new_size = max(self.min_size, min(self.max_size, new_size))
+                self.panel.configure(width=new_size)
+                self.master.grid_columnconfigure(0, minsize=new_size)
+            else:
+                delta = event.y_root - self.start_y
+                new_size = self.start_size + delta
+                new_size = max(self.min_size, min(self.max_size, new_size))
+                self.panel.configure(height=new_size)
+                self.master.grid_rowconfigure(1, minsize=new_size)
+    
+    def stop_drag(self, event):
+        self.dragging = False
+
+
+class ThemeManager:
+    """Manage color themes for the application"""
+    
+    # Predefined themes matching the image
+    THEMES = {
+        "Solarized Dark": {
+            "bg": "#002b36",
+            "fg": "#839496",
+            "accent": "#268bd2",
+            "success": "#2aa198",
+            "error": "#dc322f",
+            "warning": "#cb4b16",
+            "editor_bg": "#073642",
+            "editor_fg": "#93a1a1",
+            "terminal_bg": "#002b36",
+            "terminal_fg": "#00ff00",
+            "sidebar_bg": "#002b36",
+            "button_bg": "#268bd2",
+            "button_hover": "#2aa198"
+        },
+        "Dark+ (Default)": {
+            "bg": "#1e1e1e",
+            "fg": "#cccccc",
+            "accent": "#007acc",
+            "success": "#6a9955",
+            "error": "#f48771",
+            "warning": "#dcdcaa",
+            "editor_bg": "#1e1e1e",
+            "editor_fg": "#cccccc",
+            "terminal_bg": "#0c0c0c",
+            "terminal_fg": "#00ff00",
+            "sidebar_bg": "#252526",
+            "button_bg": "#007acc",
+            "button_hover": "#0451a5"
+        },
+        "Monokai": {
+            "bg": "#272822",
+            "fg": "#f8f8f2",
+            "accent": "#66d9ef",
+            "success": "#a6e22e",
+            "error": "#f92672",
+            "warning": "#fd971f",
+            "editor_bg": "#272822",
+            "editor_fg": "#f8f8f2",
+            "terminal_bg": "#272822",
+            "terminal_fg": "#00ff00",
+            "sidebar_bg": "#272822",
+            "button_bg": "#66d9ef",
+            "button_hover": "#a6e22e"
+        },
+        "Tokyo Night": {
+            "bg": "#1a1b26",
+            "fg": "#a9b1d6",
+            "accent": "#7aa2f7",
+            "success": "#9ece6a",
+            "error": "#f7768e",
+            "warning": "#e0af68",
+            "editor_bg": "#1a1b26",
+            "editor_fg": "#a9b1d6",
+            "terminal_bg": "#1a1b26",
+            "terminal_fg": "#00ff00",
+            "sidebar_bg": "#16161e",
+            "button_bg": "#7aa2f7",
+            "button_hover": "#bb9af7"
+        },
+        "Abyss": {
+            "bg": "#0b0c10",
+            "fg": "#c5c6c7",
+            "accent": "#45a29e",
+            "success": "#66fcf1",
+            "error": "#f05454",
+            "warning": "#f2a900",
+            "editor_bg": "#0b0c10",
+            "editor_fg": "#c5c6c7",
+            "terminal_bg": "#0b0c10",
+            "terminal_fg": "#66fcf1",
+            "sidebar_bg": "#1f2833",
+            "button_bg": "#45a29e",
+            "button_hover": "#66fcf1"
+        },
+        "Quiet Light": {
+            "bg": "#f3f3f3",
+            "fg": "#333333",
+            "accent": "#0066cc",
+            "success": "#008000",
+            "error": "#cc0000",
+            "warning": "#e6b800",
+            "editor_bg": "#ffffff",
+            "editor_fg": "#333333",
+            "terminal_bg": "#f3f3f3",
+            "terminal_fg": "#008000",
+            "sidebar_bg": "#eaeaea",
+            "button_bg": "#0066cc",
+            "button_hover": "#0052a3"
+        }
+    }
+    
+    def __init__(self, app):
+        self.app = app
+        self.current_theme = "Dark+ (Default)"
+    
+    def apply_theme(self, theme_name):
+        """Apply a color theme to the application"""
+        if theme_name not in self.THEMES:
+            return
+        
+        theme = self.THEMES[theme_name]
+        self.current_theme = theme_name
+        
+        # Apply to main window
+        ctk.set_appearance_mode("dark" if "Dark" in theme_name or "Night" in theme_name else "light")
+        
+        # Apply theme colors to widgets
+        self.app.configure(fg_color=theme["bg"])
+        
+        # Sidebar
+        if hasattr(self.app, 'sidebar'):
+            self.app.sidebar.configure(fg_color=theme["sidebar_bg"])
+        
+        # Main frame
+        if hasattr(self.app, 'main_frame'):
+            self.app.main_frame.configure(fg_color=theme["bg"])
+        
+        # Editor frames
+        if hasattr(self.app, 'top_frame'):
+            self.app.top_frame.configure(fg_color=theme["editor_bg"])
+        
+        if hasattr(self.app, 'bottom_frame'):
+            self.app.bottom_frame.configure(fg_color=theme["terminal_bg"])
+        
+        # Terminal colors
+        terminals = ['console_widget', 'spin_terminal']
+        for term in terminals:
+            if hasattr(self.app, term):
+                widget = getattr(self.app, term)
+                widget.configure(fg_color=theme["terminal_bg"], text_color=theme["terminal_fg"])
+        
+        # Source editor
+        if hasattr(self.app, 'source_editor'):
+            self.app.source_editor.configure(fg_color=theme["editor_bg"], text_color=theme["editor_fg"])
+        
+        if hasattr(self.app, 'translated_editor'):
+            self.app.translated_editor.configure(fg_color=theme["editor_bg"], text_color=theme["editor_fg"])
+        
+        # Save preference
+        self.save_theme_preference(theme_name)
+    
+    def save_theme_preference(self, theme_name):
+        """Save theme preference to file"""
+        config_file = os.path.join(PROJECT_DIR, "theme_config.json")
+        try:
+            with open(config_file, 'w') as f:
+                json.dump({"theme": theme_name}, f)
+        except:
+            pass
+    
+    def load_theme_preference(self):
+        """Load saved theme preference"""
+        config_file = os.path.join(PROJECT_DIR, "theme_config.json")
+        try:
+            with open(config_file, 'r') as f:
+                config = json.load(f)
+                if "theme" in config and config["theme"] in self.THEMES:
+                    return config["theme"]
+        except:
+            pass
+        return "Dark+ (Default)"
+
+
+class ScrollableSidebar(ctk.CTkFrame):
+    """Custom scrollable sidebar with improved behavior"""
+    
+    def __init__(self, master, width=420, **kwargs):
+        super().__init__(master, width=width, **kwargs)
+        self.width = width
+        self.grid_propagate(False)
+        
+        # Create canvas for scrolling
+        self.canvas = tk.Canvas(
+            self,
+            highlightthickness=0,
+            bg="#1e1e1e",
+            width=width - 20
+        )
+        self.canvas.pack(side="left", fill="both", expand=True)
+        
+        # Add scrollbar
+        self.scrollbar = ctk.CTkScrollbar(
+            self,
+            command=self.canvas.yview,
+            orientation="vertical"
+        )
+        self.scrollbar.pack(side="right", fill="y")
+        
+        # Configure canvas scrolling
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        
+        # Create inner frame for content
+        self.inner_frame = ctk.CTkFrame(self.canvas, fg_color="transparent")
+        self.canvas_window = self.canvas.create_window(
+            (0, 0),
+            window=self.inner_frame,
+            anchor="nw",
+            width=width - 30
+        )
+        
+        # Bind events
+        self.inner_frame.bind("<Configure>", self._on_frame_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        
+        # Mouse wheel binding
+        self.bind_mousewheel()
+    
+    def _on_frame_configure(self, event=None):
+        """Reset the scroll region to encompasses inner frame"""
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+    
+    def _on_canvas_configure(self, event):
+        """Resize inner frame when canvas is resized"""
+        self.canvas.itemconfig(self.canvas_window, width=event.width)
+    
+    def bind_mousewheel(self, widget=None):
+        """Bind mouse wheel scrolling recursively to all widgets"""
+        if widget is None:
+            widget = self
+            
+        def on_mousewheel(event):
+            # For Linux (Button-4/5), delta is not used
+            if event.num == 4:
+                self.canvas.yview_scroll(-1, "units")
+            elif event.num == 5:
+                self.canvas.yview_scroll(1, "units")
+            else:
+                # Windows/macOS
+                self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            return "break"
+        
+        # Bind to the widget itself
+        widget.bind("<MouseWheel>", on_mousewheel, add="+")
+        widget.bind("<Button-4>", on_mousewheel, add="+")
+        widget.bind("<Button-5>", on_mousewheel, add="+")
+        
+        # Recursively bind to all children
+        for child in widget.winfo_children():
+            self.bind_mousewheel(child)
+    
+    def get_inner_frame(self):
+        """Return inner frame for adding widgets"""
+        return self.inner_frame
+
+
+class ThemeSettingsPanel(ctk.CTkFrame):
+    """Theme selection and customization panel"""
+    
+    def __init__(self, parent, theme_manager, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.theme_manager = theme_manager
+        
+        # Theme selection label
+        ctk.CTkLabel(
+            self,
+            text="",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#888888"
+        ).pack(anchor="w", pady=(10, 5))
+        
+        # Theme dropdown
+        self.theme_var = ctk.StringVar(value=theme_manager.current_theme)
+        self.theme_dropdown = ctk.CTkOptionMenu(
+            self,
+            values=list(ThemeManager.THEMES.keys()),
+            variable=self.theme_var,
+            command=self.on_theme_change,
+            dynamic_resizing=False,
+            width=200
+        )
+        self.theme_dropdown.pack(fill="x", pady=5)
+        
+        # Preview label
+        self.preview_label = ctk.CTkLabel(
+            self,
+            text="",
+            font=ctk.CTkFont(size=10),
+            text_color="#888888"
+        )
+        self.preview_label.pack(anchor="w", pady=(5, 10))
+        
+        # Update preview on selection
+        self.update_preview()
+    
+    def on_theme_change(self, choice):
+        """Handle theme change"""
+        self.theme_manager.apply_theme(choice)
+        self.update_preview()
+    
+    def update_preview(self):
+        """Update preview text"""
+        theme = self.theme_manager.current_theme
+        self.preview_label.configure(text=f"Current: {theme}")
+
 
 def wait_for_tcp_port(
     host: str,
@@ -46,17 +400,18 @@ def wait_for_tcp_port(
     return False
 
 
-# from rust_verifiers import (
-#     CREUSOT_STD_PATH,
-#     RustVerifier,
-#     build_prusti_env,
-#     classify_prusti_failure,
-#     prepend_creusot_prelude,
-#     preprocess_prusti_source,
-#     prusti_command,
-#     should_skip_prusti_for_source,
-#     strip_rust_main_for_lib,
-# )
+from rust_verifiers import (
+    CREUSOT_STD_PATH,
+    RustVerifier,
+    build_prusti_env,
+    classify_prusti_failure,
+    prepend_creusot_prelude,
+    preprocess_prusti_source,
+    prusti_command,
+    should_skip_prusti_for_source,
+    strip_rust_main_for_lib,
+)
+from verus_integration import VerusIntegration
 
 # Import verification state
 try:
@@ -143,59 +498,203 @@ class FormalVerifierApp(ctk.CTk):
         self.geometry("1500x950")
         
         # Configure grid - sidebar layout
-        # Keep a generous default width close to pre-scrollable layout proportions.
         self.sidebar_expanded_width = 460
         self.sidebar_collapsed_width = 320
         self.sidebar_is_expanded = True
-        self.grid_columnconfigure(0, weight=0, minsize=self.sidebar_expanded_width)  # Sidebar
-        self.grid_columnconfigure(1, weight=1)  # Main content
+        self.grid_columnconfigure(0, weight=0, minsize=self.sidebar_expanded_width)
+        self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
         
-        # ==================== SIDEBAR ====================
-        self.sidebar = ctk.CTkFrame(self, width=self.sidebar_expanded_width, corner_radius=15)
-        self.sidebar.grid(row=0, column=0, sticky="nsew", padx=(10, 5), pady=10)
-        self.sidebar.grid_propagate(False)
+        # Initialize variables before using them
+        self.current_file = None
+        self.file_type = None
+        self.dashboard_process = None
+        self.auto_scroll_enabled = True
+        self.lean_running = False
+        self.tool_processes = {}
+        self.stop_requested = {}
+        self.monitoring = True
+        self.tool_stop_buttons = {}
         
-        sidebar_inner = ctk.CTkScrollableFrame(
-            self.sidebar,
-            width=self.sidebar_expanded_width - 40,
-            fg_color="transparent",
-            scrollbar_button_color="#3a3a3a",
-            scrollbar_button_hover_color="#555555",
+        # Create sidebar
+        self.create_sidebar()
+        
+        # After creating all widgets
+        self.after(100, self.ensure_sidebar_visibility)
+        
+        # ==================== MAIN EDITOR AREA ====================
+        self.main_frame = ctk.CTkFrame(self, corner_radius=15, fg_color="#1e1e1e")
+        self.main_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
+        self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_rowconfigure(0, weight=1)
+        
+        # Configure main frame for vertical layout (70% top, 30% bottom)
+        self.main_frame.grid_rowconfigure(0, weight=7)
+        self.main_frame.grid_rowconfigure(1, weight=3)
+        
+        # ==================== TOP PANE: CODE EDITOR (70%) ====================
+        self.top_frame = ctk.CTkFrame(self.main_frame, fg_color="#252526", corner_radius=8)
+        self.top_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=(10, 5))
+        
+        # Editor tabview
+        self.editor_tabs = ctk.CTkTabview(self.top_frame, segmented_button_fg_color="#1e1e1e")
+        self.editor_tabs.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Create tabs
+        self.editor_tabs.add("Source")
+        self.editor_tabs.add("Translated Promela")
+        self.editor_tabs.add("Problems")
+        
+        # Configure tab appearance
+        self.editor_tabs._segmented_button.configure(
+            fg_color="#2d2d30",
+            selected_color="#094771",
+            selected_hover_color="#007acc",
+            unselected_color="#2d2d30",
+            text_color="#cccccc",
+            text_color_disabled="#666666"
         )
-        sidebar_inner.pack(fill="both", expand=True, padx=15, pady=15)
-        self.sidebar_inner = sidebar_inner
+        
+        # Source editor tab
+        self.source_editor = ctk.CTkTextbox(
+            self.editor_tabs.tab("Source"),
+            font=("Consolas", 12),
+            wrap="word",
+            fg_color="#1e1e1e",
+            text_color="#cccccc",
+            border_width=0
+        )
+        self.source_editor.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Translated Promela tab
+        self.translated_editor = ctk.CTkTextbox(
+            self.editor_tabs.tab("Translated Promela"),
+            font=("Consolas", 12),
+            wrap="word",
+            fg_color="#1e1e1e",
+            text_color="#cccccc",
+            border_width=0
+        )
+        self.translated_editor.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Problems tab (listview style)
+        self.problems_text = ctk.CTkTextbox(
+            self.editor_tabs.tab("Problems"),
+            font=("Consolas", 11),
+            wrap="word",
+            fg_color="#1e1e1e",
+            text_color="#cccccc",
+            border_width=0
+        )
+        self.problems_text.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # ==================== BOTTOM PANE: TERMINAL (30%) ====================
+        self.bottom_frame = ctk.CTkFrame(self.main_frame, fg_color="#252526", corner_radius=8)
+        self.bottom_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(5, 10))
+        
+        # Terminal tabview
+        self.terminal_tabs = ctk.CTkTabview(self.bottom_frame, segmented_button_fg_color="#1e1e1e")
+        self.terminal_tabs.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Create single unified terminal tab
+        self.terminal_tabs.add("Verification Console")
+        
+        # Configure terminal tab appearance
+        self.terminal_tabs._segmented_button.configure(
+            fg_color="#2d2d30",
+            selected_color="#094771",
+            selected_hover_color="#007acc",
+            unselected_color="#2d2d30",
+            text_color="#cccccc",
+            text_color_disabled="#666666"
+        )
+        
+        # Unified Verification Console terminal
+        self.console_widget = ctk.CTkTextbox(
+            self.terminal_tabs.tab("Verification Console"),
+            font=("Consolas", 11),
+            wrap="word",
+            fg_color="#0c0c0c",
+            text_color="#00ff00",
+            border_width=0
+        )
+        self.console_widget.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Point self.console and self.spin_terminal to the unified console
+        self.console = self.console_widget
+        self.spin_terminal = self.console_widget
+        
+        # Show welcome message
+        self.show_welcome()
+        
+        # Scan for recent files
+        self.scan_recent_files()
+        
+        # Add resizable panels
+        self.setup_resizable_panels()
+        
+        # Initialize theme manager
+        self.theme_manager = ThemeManager(self)
+        loaded_theme = self.theme_manager.load_theme_preference()
+        self.theme_manager.apply_theme(loaded_theme)
+        
+        # Add theme settings to sidebar
+        self.add_theme_settings()
+        
+        # Setup keyboard shortcuts
+        self.setup_keyboard_shortcuts()
+        
+        # Start verification state monitor
+        self.start_verification_monitor()
+        self.prewarm_lean_runtime()
+        
+        # Initialize file tree
+        self.scan_project_directory()
+        
+        # Bind window resize event
+        self.bind("<Configure>", self.on_window_resize)
+    
+    def create_sidebar(self):
+        """Create the sidebar with all controls"""
+        # Create a container frame for sidebar and handle
+        self.sidebar_container = ctk.CTkFrame(self, fg_color="transparent", width=self.sidebar_expanded_width)
+        self.sidebar_container.grid(row=0, column=0, sticky="nsew", padx=(10, 0), pady=10)
+        self.sidebar_container.grid_propagate(False)
 
-        self.sidebar_toggle_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="↔ SIDEBAR WIDTH",
-            command=self.toggle_sidebar_width,
-            height=30,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color="#1f2937",
-            hover_color="#374151"
-        )
-        self.sidebar_toggle_btn.pack(fill="x", pady=(0, 10))
+        # Create sidebar frame inside container
+        self.sidebar = ctk.CTkFrame(self.sidebar_container, width=self.sidebar_expanded_width, corner_radius=15)
+        self.sidebar.pack(side="left", fill="both", expand=True)
         
-        # Logo
+        # Create resize handle between sidebar and main
+        self.sidebar_resize_handle = ctk.CTkFrame(self.sidebar_container, width=5, cursor="sb_h_double_arrow",
+                                                   fg_color="#3a3a3a")
+        self.sidebar_resize_handle.pack(side="left", fill="y", padx=2)
+        
+        # Create scrollable inner frame
+        self.sidebar_inner = ScrollableSidebar(self.sidebar, width=self.sidebar_expanded_width - 30)
+        self.sidebar_inner.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        sidebar_inner = self.sidebar_inner.get_inner_frame()
+        
+        # Title
         ctk.CTkLabel(
             sidebar_inner,
             text="🛡️ DEFI GUARDIAN",
-            font=ctk.CTkFont(size=28, weight="bold"),
+            font=ctk.CTkFont(size=18, weight="bold"),
             text_color="#00ffcc"
-        ).pack(pady=(10, 20))
+        ).pack(anchor="w", pady=(10, 5))
         
         ctk.CTkLabel(
             sidebar_inner,
             text="Formal Verification Suite",
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(size=11),
             text_color="#888888"
-        ).pack(pady=(0, 20))
+        ).pack(anchor="w", pady=(0, 15))
         
-        # File Selection
+        # File Operations
         ctk.CTkLabel(
             sidebar_inner,
-            text="📁 FILE MANAGEMENT",
+            text="📂 FILE OPERATIONS",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color="#888888"
         ).pack(anchor="w", pady=(10, 5))
@@ -205,29 +704,69 @@ class FormalVerifierApp(ctk.CTk):
             text="📂 OPEN SOURCE FILE",
             command=self.load_file,
             height=45,
-            font=ctk.CTkFont(size=14, weight="bold"),
-            fg_color="#2196f3",
-            hover_color="#1976d2"
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color="#2c3e50",
+            hover_color="#1a2632"
         )
         self.load_btn.pack(fill="x", pady=5)
         
         # File info display
+        self.file_info_frame = ctk.CTkFrame(sidebar_inner, fg_color="transparent")
+        self.file_info_frame.pack(fill="x", pady=5)
+        
         self.file_label = ctk.CTkLabel(
-            sidebar_inner,
-            text="📄 No file selected",
-            wraplength=280,
-            font=ctk.CTkFont(size=12),
-            text_color="#ffaa66"
+            self.file_info_frame,
+            text="  No file loaded",
+            font=ctk.CTkFont(size=10),
+            text_color="#888888"
         )
-        self.file_label.pack(pady=10)
+        self.file_label.pack(anchor="w")
         
         self.file_type_label = ctk.CTkLabel(
-            sidebar_inner,
+            self.file_info_frame,
             text="",
-            font=ctk.CTkFont(size=11),
+            font=ctk.CTkFont(size=9),
             text_color="#666666"
         )
-        self.file_type_label.pack()
+        self.file_type_label.pack(anchor="w")
+        
+        # File Explorer section
+        ctk.CTkLabel(
+            sidebar_inner,
+            text="📁 EXPLORER",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#888888"
+        ).pack(anchor="w", pady=(15, 5))
+        
+        self.explorer_frame = ctk.CTkFrame(sidebar_inner, fg_color="transparent")
+        self.explorer_frame.pack(fill="x", pady=5)
+        
+        # Open Editors section
+        self.open_editors_label = ctk.CTkLabel(
+            self.explorer_frame,
+            text="OPEN EDITORS",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color="#888888"
+        )
+        self.open_editors_label.pack(anchor="w", pady=(5, 2))
+        
+        self.open_editors_frame = ctk.CTkFrame(self.explorer_frame, fg_color="transparent")
+        self.open_editors_frame.pack(fill="x", pady=2)
+        
+        # Project files section
+        self.project_files_label = ctk.CTkLabel(
+            self.explorer_frame,
+            text="DEFI_GUARDIAN",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color="#888888"
+        )
+        self.project_files_label.pack(anchor="w", pady=(10, 2))
+        
+        self.project_files_frame = ctk.CTkFrame(self.explorer_frame, fg_color="transparent")
+        self.project_files_frame.pack(fill="x", pady=2)
+        
+        # Populate file explorer
+        self.populate_file_explorer()
         
         # Separator
         ctk.CTkFrame(sidebar_inner, height=2, fg_color="#3a3a3a").pack(pady=15, fill="x")
@@ -251,6 +790,7 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#2e7d32"
         )
         self.verify_btn.pack(fill="x", pady=5)
+        
         self.stop_spin_btn = ctk.CTkButton(
             sidebar_inner,
             text="🛑 STOP SPIN",
@@ -273,6 +813,7 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#8e44ad"
         )
         self.coq_btn.pack(fill="x", pady=5)
+        
         self.stop_coq_btn = ctk.CTkButton(
             sidebar_inner,
             text="🛑 STOP COQ",
@@ -284,6 +825,7 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#991b1b"
         )
         self.stop_coq_btn.pack(fill="x", pady=(0, 5))
+        
         self.lean_btn = ctk.CTkButton(
             sidebar_inner,
             text="⚡ LEAN VERIFICATION",
@@ -294,6 +836,7 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#d35400"
         )
         self.lean_btn.pack(fill="x", pady=5)
+        
         self.stop_lean_btn = ctk.CTkButton(
             sidebar_inner,
             text="🛑 STOP LEAN",
@@ -317,28 +860,28 @@ class FormalVerifierApp(ctk.CTk):
             text_color="#888888"
         ).pack(anchor="w", pady=(10, 5))
         
-        # Prusti disabled - commented out import at top of file
-        # self.prusti_btn = ctk.CTkButton(
-        #     sidebar_inner,
-        #     text="🔧 PRUSTI VERIFICATION",
-        #     command=self.verify_with_prusti,
-        #     height=40,
-        #     font=ctk.CTkFont(size=12),
-        #     fg_color="#e74c3c",
-        #     hover_color="#c0392b"
-        # )
-        # self.prusti_btn.pack(fill="x", pady=3)
-        # self.stop_prusti_btn = ctk.CTkButton(
-        #     sidebar_inner,
-        #     text="🛑 STOP PRUSTI",
-        #     command=lambda: self.request_stop_tool("prusti"),
-        #     state="disabled",
-        #     height=32,
-        #     font=ctk.CTkFont(size=11),
-        #     fg_color="#7f1d1d",
-        #     hover_color="#991b1b"
-        # )
-        # self.stop_prusti_btn.pack(fill="x", pady=(0, 3))
+        self.prusti_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="🔧 PRUSTI VERIFICATION",
+            command=self.verify_with_prusti,
+            height=40,
+            font=ctk.CTkFont(size=12),
+            fg_color="#e74c3c",
+            hover_color="#c0392b"
+        )
+        self.prusti_btn.pack(fill="x", pady=3)
+        
+        self.stop_prusti_btn = ctk.CTkButton(
+            sidebar_inner,
+            text="🛑 STOP PRUSTI",
+            command=lambda: self.request_stop_tool("prusti"),
+            state="disabled",
+            height=32,
+            font=ctk.CTkFont(size=11),
+            fg_color="#7f1d1d",
+            hover_color="#991b1b"
+        )
+        self.stop_prusti_btn.pack(fill="x", pady=(0, 3))
         
         self.creusot_btn = ctk.CTkButton(
             sidebar_inner,
@@ -350,6 +893,7 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#1abc9c"
         )
         self.creusot_btn.pack(fill="x", pady=3)
+        
         self.stop_creusot_btn = ctk.CTkButton(
             sidebar_inner,
             text="🛑 STOP CREUSOT",
@@ -372,6 +916,7 @@ class FormalVerifierApp(ctk.CTk):
             hover_color="#6c3483"
         )
         self.kani_btn.pack(fill="x", pady=3)
+        
         self.stop_kani_btn = ctk.CTkButton(
             sidebar_inner,
             text="🛑 STOP KANI",
@@ -489,6 +1034,41 @@ class FormalVerifierApp(ctk.CTk):
         )
         self.skip_incompatible.pack(anchor="w", pady=2)
         self.skip_incompatible.select()
+
+        # Console Operations (Clear/Export)
+        ctk.CTkLabel(
+            sidebar_inner,
+            text="🖥️ CONSOLE OPERATIONS",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#888888"
+        ).pack(anchor="w", pady=(15, 5))
+
+        console_ops_frame = ctk.CTkFrame(sidebar_inner, fg_color="transparent")
+        console_ops_frame.pack(fill="x", pady=2)
+
+        self.clear_btn = ctk.CTkButton(
+            console_ops_frame,
+            text="🧹 CLEAR CONSOLE",
+            command=self.clear_console,
+            height=35,
+            width=140,
+            font=ctk.CTkFont(size=11),
+            fg_color="#34495e",
+            hover_color="#2c3e50"
+        )
+        self.clear_btn.pack(side="left", padx=(0, 5), expand=True, fill="x")
+
+        self.export_btn = ctk.CTkButton(
+            console_ops_frame,
+            text="📥 EXPORT LOGS",
+            command=self.export_console,
+            height=35,
+            width=140,
+            font=ctk.CTkFont(size=11),
+            fg_color="#34495e",
+            hover_color="#2c3e50"
+        )
+        self.export_btn.pack(side="left", padx=(5, 0), expand=True, fill="x")
         
         # Status
         ctk.CTkFrame(sidebar_inner, height=2, fg_color="#3a3a3a").pack(pady=15, fill="x")
@@ -520,89 +1100,464 @@ class FormalVerifierApp(ctk.CTk):
         # Check tools
         self.check_tools()
         
-        # ==================== MAIN CONSOLE ====================
-        self.main_frame = ctk.CTkFrame(self, corner_radius=15)
-        self.main_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
-        self.main_frame.grid_columnconfigure(0, weight=1)
-        self.main_frame.grid_rowconfigure(1, weight=1)
+        # Initialize tool_stop_buttons dictionary
+        self.tool_stop_buttons = {
+            "spin": self.stop_spin_btn,
+            "coq": self.stop_coq_btn,
+            "lean": self.stop_lean_btn,
+            "prusti": self.stop_prusti_btn,
+            "creusot": self.stop_creusot_btn,
+            "kani": self.stop_kani_btn,
+        }
         
-        # Console header
-        console_header = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        console_header.grid(row=0, column=0, sticky="ew", padx=15, pady=10)
-        console_header.grid_columnconfigure(0, weight=1)
+        # Bind mouse wheel to all sidebar elements after creation
+        self.sidebar_inner.bind_mousewheel()
+
+    def ensure_sidebar_visibility(self):
+        """Ensure sidebar is properly visible after creation"""
+        self.sidebar.update_idletasks()
+        self.sidebar_inner.update_idletasks()
+
+    def on_window_resize(self, event=None):
+        """Handle window resize to update scrollable area"""
+        if hasattr(self, 'sidebar_inner'):
+            self.sidebar_inner.update_idletasks()
+            if hasattr(self.sidebar_inner, '_parent_canvas'):
+                self.sidebar_inner._parent_canvas.configure(
+                    scrollregion=self.sidebar_inner._parent_canvas.bbox("all")
+                )
+
+    def setup_resizable_panels(self):
+        """Setup resizable panels with drag handles"""
+        # We already have self.sidebar_resize_handle in the sidebar container
+        # from create_sidebar, so we just need to bind it if not already done
+        if hasattr(self, 'sidebar_resize_handle'):
+            self.sidebar_resize_handle.bind("<Button-1>", self.start_sidebar_resize)
+            self.sidebar_resize_handle.bind("<B1-Motion>", self.resize_sidebar)
+            self.sidebar_resize_handle.bind("<ButtonRelease-1>", self.stop_sidebar_resize)
         
+        # Add resize handle between editor and console
+        # First, reconfigure main_frame rows to accommodate a handle row
+        self.main_frame.grid_rowconfigure(0, weight=7)
+        self.main_frame.grid_rowconfigure(1, weight=0) # Handle row
+        self.main_frame.grid_rowconfigure(2, weight=3)
+        
+        # Move bottom_frame to row 2
+        self.bottom_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=(5, 10))
+        
+        # Create the horizontal handle in row 1
+        self.editor_console_handle = ctk.CTkFrame(self.main_frame, height=4, cursor="sb_v_double_arrow",
+                                                   fg_color="#3a3a3a")
+        self.editor_console_handle.grid(row=1, column=0, sticky="ew", padx=10, pady=0)
+        
+        # Bind drag events for vertical resize
+        self.editor_console_handle.bind("<Button-1>", self.start_vertical_resize)
+        self.editor_console_handle.bind("<B1-Motion>", self.resize_vertical)
+        self.editor_console_handle.bind("<ButtonRelease-1>", self.stop_vertical_resize)
+        
+        # Store resize state
+        self.resizing_sidebar = False
+        self.resizing_vertical = False
+        self.start_sidebar_x = 0
+        self.start_sidebar_width = 0
+        self.start_vertical_y = 0
+        self.start_vertical_height = 0
+
+    def start_sidebar_resize(self, event):
+        """Start sidebar resize operation"""
+        self.resizing_sidebar = True
+        self.start_sidebar_x = event.x_root
+        self.start_sidebar_width = self.sidebar.winfo_width()
+
+    def resize_sidebar(self, event):
+        """Handle sidebar resize with improved stability"""
+        if self.resizing_sidebar:
+            delta = event.x_root - self.start_sidebar_x
+            new_width = max(250, min(600, self.start_sidebar_width + delta))
+            
+            # Use a smaller throttle for better responsiveness
+            if not hasattr(self, '_last_resize_time'):
+                self._last_resize_time = 0
+            
+            current_time = time.time()
+            if current_time - self._last_resize_time > 0.008:  # ~120fps
+                # Update container and sidebar width
+                self.sidebar_container.configure(width=new_width + 15)
+                self.sidebar.configure(width=new_width)
+                
+                # Update grid minsize less frequently to avoid shakiness
+                if abs(new_width - getattr(self, '_last_grid_width', 0)) > 5:
+                    self.grid_columnconfigure(0, minsize=new_width + 15)
+                    self._last_grid_width = new_width
+                
+                self._last_resize_time = current_time
+
+    def stop_sidebar_resize(self, event):
+        """Stop sidebar resize operation"""
+        self.resizing_sidebar = False
+
+    def start_vertical_resize(self, event):
+        """Start vertical resize operation"""
+        self.resizing_vertical = True
+        self.start_vertical_y = event.y_root
+        self.start_vertical_height = self.top_frame.winfo_height()
+
+    def resize_vertical(self, event):
+        """Handle vertical resize between editor and console"""
+        if self.resizing_vertical:
+            delta = event.y_root - self.start_vertical_y
+            total_height = self.top_frame.winfo_height() + self.bottom_frame.winfo_height() + 20
+            
+            new_top_height = max(200, min(total_height - 150, self.start_vertical_height + delta))
+            new_bottom_height = total_height - new_top_height - 20
+            
+            # Update grid weights
+            self.main_frame.grid_rowconfigure(0, weight=new_top_height)
+            self.main_frame.grid_rowconfigure(2, weight=new_bottom_height)
+
+    def stop_vertical_resize(self, event):
+        """Stop vertical resize operation"""
+        self.resizing_vertical = False
+
+    def add_theme_settings(self):
+        """Add theme settings panel to sidebar"""
+        sidebar_inner = self.sidebar_inner.get_inner_frame()
+        
+        # Find where to insert theme settings (after settings section)
+        theme_frame = ctk.CTkFrame(sidebar_inner, fg_color="transparent")
+        theme_frame.pack(fill="x", pady=5)
+        
+        # Add theme settings
+        self.theme_settings = ThemeSettingsPanel(theme_frame, self.theme_manager)
+        self.theme_settings.pack(fill="x")
+        
+        # Add custom color picker for advanced customization
         ctk.CTkLabel(
-            console_header,
-            text="📝 VERIFICATION CONSOLE",
-            font=ctk.CTkFont(size=18, weight="bold"),
-            text_color="#00ffcc"
-        ).grid(row=0, column=0, sticky="w")
+            theme_frame,
+            text="",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color="#888888"
+        ).pack(anchor="w", pady=(10, 5))
         
-        clear_btn = ctk.CTkButton(
-            console_header,
-            text="🗑️ Clear",
-            command=self.clear_console,
-            height=32,
-            width=80,
-            font=ctk.CTkFont(size=12)
-        )
-        clear_btn.grid(row=0, column=1, padx=5)
+        # Color picker buttons
+        color_frame = ctk.CTkFrame(theme_frame, fg_color="transparent")
+        color_frame.pack(fill="x", pady=5)
         
-        export_btn = ctk.CTkButton(
-            console_header,
-            text="💾 Export",
-            command=self.export_console,
-            height=32,
-            width=80,
-            font=ctk.CTkFont(size=12)
-        )
-        export_btn.grid(row=0, column=2, padx=5)
+        colors = ["accent", "success", "error", "warning"]
+        color_labels = ["Accent", "Success", "Error", "Warning"]
         
-        # Console text area
-        self.console = ctk.CTkTextbox(
-            self.main_frame,
-            font=("Courier New", 12),
-            wrap="word",
-            fg_color="#0a0a0a",
-            text_color="#00ff00"
-        )
-        self.console.grid(row=1, column=0, sticky="nsew", padx=15, pady=(0, 15))
+        for color, label in zip(colors, color_labels):
+            btn = ctk.CTkButton(
+                color_frame,
+                text=f"{label}",
+                width=80,
+                height=30,
+                font=ctk.CTkFont(size=10),
+                fg_color=self.theme_manager.THEMES[self.theme_manager.current_theme][color],
+                command=lambda c=color: self.pick_custom_color(c)
+            )
+            btn.pack(side="left", padx=2)
+
+    def pick_custom_color(self, color_key):
+        """Open color picker dialog for custom color selection"""
+        import tkinter.colorchooser as colorchooser
         
-        # Variables
-        self.current_file = None
-        self.file_type = None
-        self.dashboard_process = None
-        self.auto_scroll_enabled = True
-        self.lean_running = False
-        self.tool_processes = {}
-        self.stop_requested = {}
-        self.tool_stop_buttons = {
-            "spin": self.stop_spin_btn,
-            "lean": self.stop_lean_btn,
-            # "prusti": self.stop_prusti_btn,  # disabled
-            "creusot": self.stop_creusot_btn,
-            "kani": self.stop_kani_btn,
-        }
-        self.tool_processes = {}
-        self.stop_requested = {}
-        self.tool_stop_buttons = {
-            "spin": self.stop_spin_btn,
-            "lean": self.stop_lean_btn,
-            # "prusti": self.stop_prusti_btn,  # disabled
-            "creusot": self.stop_creusot_btn,
-            "kani": self.stop_kani_btn,
-        }
-        
-        # Show welcome message
-        self.show_welcome()
-        
-        # Scan for recent files
-        self.scan_recent_files()
-        
-        # Start verification state monitor
-        self.start_verification_monitor()
-        self.prewarm_lean_runtime()
+        color = colorchooser.askcolor(title=f"Select {color_key} color")
+        if color[1]:
+            # Update theme
+            theme = self.theme_manager.THEMES[self.theme_manager.current_theme].copy()
+            theme[color_key] = color[1]
+            
+            # Create temporary theme
+            custom_theme_name = f"{self.theme_manager.current_theme} (Custom)"
+            ThemeManager.THEMES[custom_theme_name] = theme
+            
+            # Apply custom theme
+            self.theme_manager.apply_theme(custom_theme_name)
+            
+            # Update dropdown
+            self.theme_settings.theme_dropdown.configure(values=list(ThemeManager.THEMES.keys()))
+            self.theme_settings.theme_var.set(custom_theme_name)
     
+    def setup_keyboard_shortcuts(self):
+        """Setup keyboard shortcuts for panel resizing"""
+        
+        def increase_sidebar():
+            new_width = min(600, self.sidebar.winfo_width() + 50)
+            self.sidebar.configure(width=new_width)
+            self.sidebar_container.configure(width=new_width + 15)
+        
+        def decrease_sidebar():
+            new_width = max(250, self.sidebar.winfo_width() - 50)
+            self.sidebar.configure(width=new_width)
+            self.sidebar_container.configure(width=new_width + 15)
+        
+        def increase_console():
+            current_weight = self.main_frame.grid_rowconfigure(1)['weight']
+            new_weight = min(80, current_weight + 5)
+            self.main_frame.grid_rowconfigure(1, weight=new_weight)
+        
+        def decrease_console():
+            current_weight = self.main_frame.grid_rowconfigure(1)['weight']
+            new_weight = max(20, current_weight - 5)
+            self.main_frame.grid_rowconfigure(1, weight=new_weight)
+        
+        # Bind shortcuts
+        self.bind("<Control-Shift-Right>", lambda e: increase_sidebar())
+        self.bind("<Control-Shift-Left>", lambda e: decrease_sidebar())
+        self.bind("<Control-Shift-Up>", lambda e: increase_console())
+        self.bind("<Control-Shift-Down>", lambda e: decrease_console())
+    
+    def populate_file_explorer(self):
+        """Populate the file explorer with project files"""
+        # Clear existing widgets
+        for widget in self.open_editors_frame.winfo_children():
+            widget.destroy()
+        for widget in self.project_files_frame.winfo_children():
+            widget.destroy()
+        
+        # Add current file to open editors if any
+        if self.current_file:
+            file_btn = ctk.CTkButton(
+                self.open_editors_frame,
+                text=f"  {os.path.basename(self.current_file)}",
+                command=lambda f=self.current_file: self.load_file_to_editor(f),
+                height=25,
+                font=ctk.CTkFont(size=10),
+                fg_color="transparent",
+                hover_color="#2a2d2e"
+            )
+            file_btn.pack(fill="x", pady=1)
+        
+        # Add important project files
+        important_files = [
+            ("active_file.txt", "text"),
+            ("translated_output.pml", "promela"),
+            ("verification_state.json", "json"),
+            ("state_graph.json", "json"),
+            ("file_tree.json", "json"),
+            ("user_lending.rs", "rust"),
+            ("burn.sol", "solidity"),
+            ("app.py", "python"),
+            ("desktop_app.py", "python")
+        ]
+        
+        for filename, file_type in important_files:
+            file_path = os.path.join(PROJECT_DIR, filename)
+            if os.path.exists(file_path):
+                # Get icon for file type
+                icon_map = {
+                    "rust": "R",
+                    "solidity": "S", 
+                    "promela": "P",
+                    "json": "{ }",
+                    "python": "Py",
+                    "text": "T"
+                }
+                icon = icon_map.get(file_type, "F")
+                
+                file_btn = ctk.CTkButton(
+                    self.project_files_frame,
+                    text=f"  {icon} {filename}",
+                    command=lambda f=file_path: self.load_file_to_editor(f),
+                    height=25,
+                    font=ctk.CTkFont(size=10),
+                    fg_color="transparent",
+                    hover_color="#2a2d2e"
+                )
+                file_btn.pack(fill="x", pady=1)
+    
+    def load_file_to_editor(self, file_path):
+        """Load file content into the source editor"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            self.source_editor.delete("1.0", "end")
+            self.source_editor.insert("1.0", content)
+            
+            # Update current file
+            self.current_file = file_path
+            self.file_type = os.path.splitext(file_path)[1].lower()
+            
+            # Update file label
+            self.file_label.configure(text=f"  {os.path.basename(file_path)}")
+            
+            # Update file type label
+            type_map = {'.rs': 'Rust', '.sol': 'Solidity', '.pml': 'Promela', '.py': 'Python', '.json': 'JSON', '.txt': 'Text'}
+            file_type_display = type_map.get(self.file_type, 'Unknown')
+            self.file_type_label.configure(text=file_type_display)
+            
+            # If native Promela, show in translated tab too
+            if self.file_type == '.pml':
+                self.translated_editor.delete("1.0", "end")
+                self.translated_editor.insert("1.0", content)
+            else:
+                self.translated_editor.delete("1.0", "end")
+                self.translated_editor.insert("1.0", "Run SPIN Verification to see translated Promela output.")
+            
+            # Clear problems on new file load
+            self.problems_text.delete("1.0", "end")
+            self.problems_text.insert("1.0", "Run verification to scan for problems.")
+            
+            # Refresh file explorer to show this file in open editors
+            self.populate_file_explorer()
+            
+            # Enable verify button
+            self.verify_btn.configure(state="normal")
+            
+        except Exception as e:
+            self.console.insert("end", f"Error loading file {file_path}: {str(e)}\n")
+    
+    def scan_project_directory(self, base_path=None):
+        """Scan project directory and create file_tree.json in a background thread"""
+        if base_path is None:
+            base_path = PROJECT_DIR
+            
+        def _scan():
+            def get_file_icon(filename):
+                """Get appropriate icon for file type"""
+                if filename.endswith('.rs'):
+                    return 'rust'
+                elif filename.endswith('.sol'):
+                    return 'solidity'
+                elif filename.endswith('.pml'):
+                    return 'promela'
+                elif filename.endswith('.json'):
+                    return 'json'
+                elif filename.endswith('.txt'):
+                    return 'text'
+                elif filename.endswith('.log'):
+                    return 'log'
+                elif filename.endswith('.py'):
+                    return 'python'
+                else:
+                    return 'file'
+            
+            def build_tree(path, relative_path=""):
+                """Recursively build file tree structure"""
+                tree = {"name": os.path.basename(path), "type": "folder" if os.path.isdir(path) else "file", "children": []}
+                
+                if os.path.isdir(path):
+                    try:
+                        items = []
+                        for item in os.listdir(path):
+                            # Skip hidden files and common build/cache directories
+                            if item.startswith('.') or item in ['target', '__pycache__', 'node_modules']:
+                                continue
+                            items.append(item)
+                        
+                        # Sort: folders first, then files
+                        items.sort(key=lambda x: (not os.path.isdir(os.path.join(path, x)), x.lower()))
+                        
+                        for item in items:
+                            item_path = os.path.join(path, item)
+                            item_relative = os.path.join(relative_path, item) if relative_path else item
+                            
+                            if os.path.isdir(item_path):
+                                subtree = build_tree(item_path, item_relative)
+                                tree["children"].append(subtree)
+                            else:
+                                file_info = {
+                                    "name": item,
+                                    "type": "file",
+                                    "icon": get_file_icon(item),
+                                    "path": item_relative,
+                                    "size": os.path.getsize(item_path) if os.path.exists(item_path) else 0
+                                }
+                                tree["children"].append(file_info)
+                    except PermissionError:
+                        pass
+                else:
+                    tree["icon"] = get_file_icon(os.path.basename(path))
+                    tree["path"] = relative_path
+                    tree["size"] = os.path.getsize(path) if os.path.exists(path) else 0
+                
+                return tree
+            
+            try:
+                file_tree = build_tree(base_path)
+                
+                # Save to JSON file for Streamlit frontend
+                output_file = os.path.join(PROJECT_DIR, "file_tree.json")
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    json.dump(file_tree, f, indent=2, ensure_ascii=False)
+                
+                self.after(0, lambda: self.console.insert("end", f"   File tree saved to: {output_file}\n"))
+                
+            except Exception as e:
+                self.after(0, lambda: self.console.insert("end", f"   Error scanning project: {str(e)}\n"))
+
+        threading.Thread(target=_scan, daemon=True).start()
+    
+    def export_state_graph(self, verification_result):
+        """Export state graph data for 3D visualization"""
+        try:
+            # Parse SPIN output to extract state transitions
+            state_graph = {
+                "nodes": [],
+                "edges": [],
+                "counterexample_path": []
+            }
+            
+            # Extract states and transitions from SPIN output
+            output = verification_result.get('output', '')
+            
+            # Simple state extraction (can be enhanced with better parsing)
+            states = set()
+            edges = []
+            
+            # Look for state patterns in SPIN output
+            import re
+            
+            # Extract process states
+            state_pattern = r'proctype\s+(\w+)'
+            for match in re.finditer(state_pattern, output):
+                proc_name = match.group(1)
+                states.add(proc_name)
+            
+            # Extract transitions (simplified)
+            transition_pattern = r'(\w+)\s*->\s*(\w+)'
+            for match in re.finditer(transition_pattern, output):
+                from_state, to_state = match.groups()
+                states.update([from_state, to_state])
+                edges.append({"from": from_state, "to": to_state, "label": "transition"})
+            
+            # If no states found, create default states
+            if not states:
+                states = ["S0", "S1", "S2"]
+                edges = [
+                    {"from": "S0", "to": "S1", "label": "initialize"},
+                    {"from": "S1", "to": "S2", "label": "execute"}
+                ]
+            
+            state_graph["nodes"] = list(states)
+            state_graph["edges"] = edges
+            
+            # Add counterexample path if verification failed
+            if not verification_result.get('success', True):
+                # Try to parse counterexample from trail file
+                trail_file = os.path.join(PROJECT_DIR, "pan.trail")
+                if os.path.exists(trail_file):
+                    try:
+                        with open(trail_file, 'r') as f:
+                            trail_content = f.read()
+                        # Simple trail parsing (can be enhanced)
+                        trail_states = ["S0", "S1", "S2"]  # Placeholder
+                        state_graph["counterexample_path"] = trail_states
+                    except:
+                        state_graph["counterexample_path"] = ["S0", "S1"]
+            
+            # Save state graph to JSON
+            output_file = os.path.join(PROJECT_DIR, "state_graph.json")
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(state_graph, f, indent=2)
+            
+            self.console.insert("end", f"   State graph saved to: {output_file}\n")
+            
+        except Exception as e:
+            self.console.insert("end", f"   Error exporting state graph: {str(e)}\n")
+
     def toggle_auto_scroll(self):
         self.auto_scroll_enabled = self.auto_scroll.get()
 
@@ -767,96 +1722,106 @@ class FormalVerifierApp(ctk.CTk):
         return False, ""
     
     def check_tools(self):
-        """Check if verification tools are installed"""
-        tools = []
-        
-        # Check SPIN  (-V is the correct flag, not --version)
-        try:
-            r = subprocess.run(["spin", "-V"], capture_output=True, timeout=2)
-            tools.append("✅ SPIN" if r.returncode == 0 else "❌ SPIN")
-        except:
-            tools.append("❌ SPIN")
-        
-        # Check Coq
-        try:
-            subprocess.run(["coqc", "--version"], capture_output=True, timeout=2)
-            tools.append("✅ Coq")
-        except:
-            tools.append("❌ Coq")
-        
-        # Check Lean
-        try:
-            subprocess.run(["lean", "--version"], capture_output=True, timeout=2)
-            tools.append("✅ Lean")
-        except:
-            tools.append("❌ Lean")
-        
-        # Check GCC
-        try:
-            subprocess.run(["gcc", "--version"], capture_output=True, timeout=2)
-            tools.append("✅ GCC")
-        except:
-            tools.append("❌ GCC")
+        """Check if verification tools are installed in a background thread"""
+        def _check():
+            tools = []
+            
+            # Check SPIN (-V is the correct flag, not --version)
+            try:
+                r = subprocess.run(["spin", "-V"], capture_output=True, timeout=2)
+                tools.append("✅ SPIN" if r.returncode == 0 else "❌ SPIN")
+            except:
+                tools.append("❌ SPIN")
+            
+            # Check Coq
+            try:
+                subprocess.run(["coqc", "--version"], capture_output=True, timeout=2)
+                tools.append("✅ Coq")
+            except:
+                tools.append("❌ Coq")
+            
+            # Check Lean
+            try:
+                subprocess.run(["lean", "--version"], capture_output=True, timeout=2)
+                tools.append("✅ Lean")
+            except:
+                tools.append("❌ Lean")
+            
+            # Check GCC
+            try:
+                subprocess.run(["gcc", "--version"], capture_output=True, timeout=2)
+                tools.append("✅ GCC")
+            except:
+                tools.append("❌ GCC")
 
-        # Prusti health check disabled - import commented out at top of file
-        # try:
-        #     with tempfile.TemporaryDirectory() as project_dir:
-        #         src = os.path.join(project_dir, "lib.rs")
-        #         with open(src, "w") as f:
-        #             f.write("fn f(x: u64) -> u64 { x }\n")
-        #         result = subprocess.run(
-        #             ["prusti-rustc", "--edition=2021", "--crate-type=lib", src],
-        #             capture_output=True,
-        #             text=True,
-        #             timeout=12,
-        #             cwd=project_dir,
-        #             env=build_prusti_env(),
-        #         )
-        #         stderr = result.stderr or ""
-        #         if "unknown configuration flag `home`" in stderr:
-        #             tools.append("❌ Prusti(env)")
-        #             self.console.insert(
-        #                 "end",
-        #                 "⚠️ Prusti health: invalid PRUSTI_* env detected (remove PRUSTI_HOME)\n",
-        #             )
-        #         elif "compiler unexpectedly panicked" in stderr:
-        #             tools.append("⚠️ Prusti(ICE)")
-        #             self.console.insert(
-        #                 "end",
-        #                 "⚠️ Prusti health: internal crash detected (toolchain mismatch/bug)\n",
-        #             )
-        #         elif result.returncode == 0:
-        #             tools.append("✅ Prusti")
-        #         else:
-        #             tools.append("❌ Prusti")
-        # except subprocess.TimeoutExpired:
-        #     tools.append("⚠️ Prusti(timeout)")
-        # except FileNotFoundError:
-        #     tools.append("❌ Prusti")
-        # except Exception:
-        #     tools.append("❌ Prusti")
-        
-        tools.append("❌ Prusti (disabled)")
-        
-        self.tool_status.configure(text=" | ".join(tools))
+            # Prusti health check
+            try:
+                with tempfile.TemporaryDirectory() as project_dir:
+                    src = os.path.join(project_dir, "lib.rs")
+                    with open(src, "w") as f:
+                        f.write("fn f(x: u64) -> u64 { x }\n")
+                    result = subprocess.run(
+                        ["prusti-rustc", "--edition=2021", "--crate-type=lib", src],
+                        capture_output=True,
+                        text=True,
+                        timeout=12,
+                        cwd=project_dir,
+                        env=build_prusti_env(),
+                    )
+                    stderr = result.stderr or ""
+                    if "unknown configuration flag `home`" in stderr:
+                        tools.append("❌ Prusti(env)")
+                        self.after(0, lambda: self.console.insert(
+                            "end",
+                            "⚠️ Prusti health: invalid PRUSTI_* env detected (remove PRUSTI_HOME)\n",
+                        ))
+                    elif "compiler unexpectedly panicked" in stderr:
+                        tools.append("⚠️ Prusti(ICE)")
+                        self.after(0, lambda: self.console.insert(
+                            "end",
+                            "⚠️ Prusti health: internal crash detected (toolchain mismatch/bug)\n",
+                        ))
+                    elif result.returncode == 0:
+                        tools.append("✅ Prusti")
+                    else:
+                        tools.append("❌ Prusti")
+            except subprocess.TimeoutExpired:
+                tools.append("⚠️ Prusti(timeout)")
+            except FileNotFoundError:
+                tools.append("❌ Prusti")
+            except Exception:
+                tools.append("❌ Prusti")
+            
+            self.after(0, lambda: self.tool_status.configure(text=" | ".join(tools)))
+            
+        threading.Thread(target=_check, daemon=True).start()
     
     def scan_recent_files(self):
-        """Scan for recent .pml files"""
-        home = os.path.expanduser("~")
-        pml_files = []
+        """Scan for recent .pml files in a background thread"""
+        def _scan():
+            home = os.path.expanduser("~")
+            pml_files = []
+            
+            try:
+                for file in os.listdir(home):
+                    if file.endswith('.pml'):
+                        pml_files.append(file)
+            except:
+                pass
+            
+            if pml_files:
+                self.after(0, lambda: self._update_console_with_files(pml_files))
         
-        try:
-            for file in os.listdir(home):
-                if file.endswith('.pml'):
-                    pml_files.append(file)
-        except:
-            pass
-        
-        if pml_files:
-            self.console.insert("end", f"📁 Found {len(pml_files)} Promela file(s) in home directory:\n")
-            for f in pml_files[:5]:
-                self.console.insert("end", f"   • {f}\n")
-            self.console.insert("end", "\n")
+        threading.Thread(target=_scan, daemon=True).start()
+
+    def _update_console_with_files(self, pml_files):
+        """Update console with found files on main thread"""
+        self.console.insert("end", f"📁 Found {len(pml_files)} Promela file(s) in home directory:\n")
+        for f in pml_files[:5]:
+            self.console.insert("end", f"   • {f}\n")
+        self.console.insert("end", "\n")
+        if self.auto_scroll_enabled:
+            self.console.see("end")
     
     def show_welcome(self):
         welcome = """
@@ -932,18 +1897,19 @@ class FormalVerifierApp(ctk.CTk):
         )
         
         if file_path:
-            self.current_file = file_path
+            self.load_file_to_editor(file_path)
+            
             ext = os.path.splitext(file_path)[1].lower()
             
             if ext == '.pml':
                 self.file_type = 'pml'
                 type_str = "Promela Model"
-                verify_text = "🚀 VERIFY PROMELA MODEL"
+                verify_text = "VERIFY PROMELA MODEL"
                 self.file_type_label.configure(text="Type: Promela Model (Native)")
             elif ext == '.sol':
                 self.file_type = 'sol'
                 type_str = "Solidity Contract"
-                verify_text = "🔨 VERIFY SOLIDITY CONTRACT"
+                verify_text = "VERIFY SOLIDITY CONTRACT"
                 self.file_type_label.configure(text="Type: Solidity Contract (Will translate to Promela)")
             elif ext == '.rs':
                 self.file_type = 'rs'
@@ -1032,6 +1998,10 @@ class FormalVerifierApp(ctk.CTk):
                         dst.write(translated_content)
                     self.console.insert("end", f"   📄 Translated output saved to: {translated_path}\n\n")
                     
+                    # Update translated editor in UI
+                    self.after(0, lambda: self.translated_editor.delete("1.0", "end"))
+                    self.after(0, lambda: self.translated_editor.insert("1.0", translated_content))
+                    
                     # Also save a copy with original name for reference
                     base_name = os.path.splitext(os.path.basename(self.current_file))[0]
                     backup_path = os.path.join(PROJECT_DIR, f"{base_name}_translated.pml")
@@ -1087,11 +2057,6 @@ class FormalVerifierApp(ctk.CTk):
                 if compile_result['stderr'] and self.verbose_output.get():
                     self.console.insert("end", compile_result['stderr'])
                 
-                # Save verification state in project directory
-                state_path = os.path.join(PROJECT_DIR, "verification_state.json")
-                # (Note: VerificationState.save_result already writes to default path,
-                # but we keep state_path available for future use if needed.)
-
                 self.console.insert("end", "[4/5] 🔍 Running verification with LTL model checking...\n\n")
                 self.console.insert("end", "─" * 60 + "\n")
                 
@@ -1148,11 +2113,17 @@ class FormalVerifierApp(ctk.CTk):
                 
                 # Display output
                 output_lines = verify_result.stdout.split('\n')
+                
+                # Update Problems tab
+                self.after(0, lambda: self.problems_text.delete("1.0", "end"))
+                
                 for line in output_lines:
                     if 'error' in line.lower() and '0' not in line:
                         self.console.insert("end", f"❌ {line}\n")
+                        self.after(0, lambda l=line: self.problems_text.insert("end", f"❌ ERROR: {l}\n"))
                     elif 'warning' in line.lower():
                         self.console.insert("end", f"⚠️ {line}\n")
+                        self.after(0, lambda l=line: self.problems_text.insert("end", f"⚠️ WARNING: {l}\n"))
                     else:
                         self.console.insert("end", f"{line}\n")
                     
@@ -1248,13 +2219,22 @@ class FormalVerifierApp(ctk.CTk):
                 # Save results for dashboard
                 VerificationState.save_result(
                     success, 
-                    verify_result.stdout,  # FIXED: use verify_result.stdout instead of undefined 'output'
+                    verify_result.stdout,  
                     verify_result.stderr,
                     os.path.basename(self.current_file),
                     ltl_results
                 )
                 
                 self.console.insert("end", "\n[5/5] 💾 Verification results saved to verification_state.json\n")
+                
+                # Export state graph for 3D visualization
+                verify_result_dict = {
+                    'success': success,
+                    'output': verify_result.stdout,
+                    'errors': verify_result.stderr
+                }
+                self.export_state_graph(verify_result_dict)
+                self.console.insert("end", "\n[6/6] 🗺️ State graph exported for 3D visualization\n")
                 
             except subprocess.TimeoutExpired:
                 self.console.insert("end", "\n❌ Verification timed out after 120 seconds\n")
@@ -1397,11 +2377,11 @@ class FormalVerifierApp(ctk.CTk):
             with open(state_file, 'r') as f:
                 state = json.load(f)
             
-            # Update status label
+            # Update status label on main thread
             if state.get('success'):
-                self.status_label.configure(text=f"✅ Verified at {state.get('datetime', 'unknown')}")
+                self.after(0, lambda: self.status_label.configure(text=f"✅ Verified at {state.get('datetime', 'unknown')}"))
             else:
-                self.status_label.configure(text=f"❌ Verification failed at {state.get('datetime', 'unknown')}")
+                self.after(0, lambda: self.status_label.configure(text=f"❌ Verification failed at {state.get('datetime', 'unknown')}"))
 
     def verify_with_coq(self):
         """Run Coq verification"""
@@ -1656,9 +2636,7 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
                     f"📄 Annotated code saved to: {annotated_path}\n\n",
                 ))
 
-                # Must use skip_analyze=True: analyze_and_annotate already ran above; calling
-                # verify_with_prusti(annotated_code) alone would annotate again and duplicate
-                # headers, impl blocks, and attribute lines.
+                # Must use skip_analyze=True: analyze_and_annotate already ran above
                 result = verifier.verify_with_prusti(annotated_code, skip_analyze=True)
 
                 log_path = self.save_tool_log(
@@ -1774,8 +2752,7 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
                 with open(os.path.join(src_dir, 'lib.rs'), 'w') as f:
                     f.write(rust_code)
 
-                # Cargo.toml — reference creusot-std by its real package name,
-                # no extra features= needed
+                # Cargo.toml — reference creusot-std by its real package name
                 with open(os.path.join(project_dir, 'Cargo.toml'), 'w') as f:
                     f.write(
                         '[package]\nname = "creusot_verify"\nversion = "0.1.0"\n'
@@ -1954,6 +2931,83 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
 
         threading.Thread(target=run_kani, daemon=True).start()
 
+    def verify_with_verus(self):
+        """Run Verus verification on Rust code"""
+        if not self.current_file:
+            self.console.insert("end", "❌ No file selected\n")
+            return
+        ext = os.path.splitext(self.current_file)[1].lower()
+        if ext != '.rs':
+            self.console.insert("end", "❌ Verus only works with .rs files\n")
+            return
+
+        self.verus_btn.configure(state="disabled", text="⏳ Running Verus...")
+        self.set_tool_running("verus", True)
+
+        def run_verus():
+            try:
+                with open(self.current_file, 'r', encoding="utf-8") as f:
+                    rust_code = f.read()
+
+                self.after(0, lambda: self.console.insert(
+                    "end",
+                    "\n" + "=" * 60 + "\n✅ VERUS VERIFICATION\n" + "=" * 60 + "\n",
+                ))
+
+                verus = VerusIntegration()
+                if not verus.verus_available:
+                    self.after(0, lambda: self.console.insert(
+                        "end", "❌ Verus not installed (``verus`` not found)\n"
+                    ))
+                    self.after(0, lambda: self.verus_btn.configure(
+                        state="normal", text="🔧 VERUS VERIFICATION"
+                    ))
+                    self.after(0, lambda: self.set_tool_running("verus", False))
+                    return
+
+                # Annotate code for Verus
+                annotated_code = verus.annotate_for_verus(rust_code)
+                
+                # Save annotated version for inspection
+                annotated_file = self.current_file.replace('.rs', '_verus.rs')
+                with open(annotated_file, 'w', encoding="utf-8") as f:
+                    f.write(annotated_code)
+                
+                self.after(0, lambda: self.console.insert(
+                    "end", f"📝 Annotated code saved to: {annotated_file}\n"
+                ))
+
+                # Run Verus verification
+                result = verus.verify_with_verus(annotated_file)
+                
+                if result['success']:
+                    self.after(0, lambda: self.console.insert(
+                        "end", "✅ Verus verification successful!\n"
+                    ))
+                    self.after(0, lambda: self.console.insert(
+                        "end", f"📊 Output: {result['output']}\n"
+                    ))
+                else:
+                    self.after(0, lambda: self.console.insert(
+                        "end", f"❌ Verus verification failed\n"
+                    ))
+                    self.after(0, lambda: self.console.insert(
+                        "end", f"🚨 Errors: {result['errors']}\n"
+                    ))
+
+            except Exception as e:
+                self.after(0, lambda: self.console.insert(
+                    "end", f"❌ Verus error: {str(e)}\n"
+                ))
+            finally:
+                self.after(0, lambda: self.verus_btn.configure(
+                    state="normal", text="✅ VERUS VERIFICATION"
+                ))
+                self.after(0, lambda: self.set_tool_running("verus", False))
+                self.after(0, lambda: self.console.see("end"))
+
+        threading.Thread(target=run_verus, daemon=True).start()
+
     def check_elan(self):
         """Check Elan (Lean version manager) status"""
         self.console.insert("end", "\n" + "="*60 + "\n")
@@ -1978,52 +3032,8 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
         
         self.console.see("end")
 
-    def verify_with_rust_tools(self):
-        if not self.current_source:
-            self.console.insert("end", "❌ No file selected\n")
-            return
-        ext = os.path.splitext(self.current_source)[1].lower()
-        if ext != '.rs':
-            self.console.insert("end", "❌ Only works with .rs files\n")
-            return
-        self.rust_verify_btn.configure(state="disabled", text="⏳ Running...")
-        threading.Thread(target=self._rust_thread, daemon=True).start()
-
-    def _rust_thread(self):
-        try:
-            with open(self.current_source, 'r', encoding="utf-8") as f:
-                rust_code = f.read()
-            results, report = self.rust_verifier.triangulate_verification(
-                rust_code,
-                should_skip_tool=lambda tool, code: self._should_skip_tool(tool, code),
-            )
-            self.after(0, self._display_rust_results, results, report)
-        except Exception as e:
-            self.after(0, self.console.insert, "end", f"❌ Rust error: {e}\n")
-        finally:
-            self.after(0, lambda: self.rust_verify_btn.configure(
-                state="normal", text="🦀 VERIFY WITH PRUSTI/KANI"))
-
-    def _display_rust_results(self, results, report=None):
-        self.console.insert("end", "\n" + "="*70 + "\n")
-        self.console.insert("end", "TRIANGULATION RESULTS (PRUSTI/KANI/CREUSOT)\n")
-        self.console.insert("end", "="*70 + "\n")
-        for tool, result in results.items():
-            if result.get('skipped'):
-                status = "⏭️ SKIP"
-            else:
-                status = "✅ PASS" if result['success'] else "❌ FAIL"
-            self.console.insert("end", f"{tool.upper()}: {status}\n")
-            if result.get('errors'):
-                self.console.insert("end", f"  {result['errors']}\n")
-            elif result.get('failure_hint'):
-                self.console.insert("end", f"  {result['failure_hint']}\n")
-        if report:
-            self.console.insert("end", "\n" + report + "\n")
-        self.console.see("end")
-
     def open_translated_output(self):
-        """Open translated_output.pml for the active file in a popup viewer window"""
+        """Load translated_output.pml into the Translated Promela tab"""
         
         # Find the translated output file
         translated_path = os.path.join(PROJECT_DIR, "translated_output.pml")
@@ -2050,122 +3060,26 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
                 break
         
         if not display_file:
-            messagebox.showwarning(
-                "No Translated Output",
-                "No translated output found.\n\n"
-                "Please run SPIN Verification on a .sol or .rs file first.\n\n"
-                f"Expected: {translated_path}"
-            )
+            self.spin_terminal.insert("end", "No translated output found. Please run verification first.\n")
+            self.spin_terminal.see("end")
             return
         
         try:
-            with open(display_file, 'r') as f:
+            with open(display_file, 'r', encoding='utf-8') as f:
                 content = f.read()
+            
+            # Load into the Translated Promela tab
+            self.translated_editor.delete("1.0", "end")
+            self.translated_editor.insert("1.0", content)
+            
+            # Switch to the Translated Promela tab
+            self.editor_tabs.set("Translated Promela")
+            
+            self.spin_terminal.insert("end", f"Loaded translated output: {os.path.basename(display_file)}\n")
+            self.spin_terminal.see("end")
         except Exception as e:
-            messagebox.showerror("Read Error", f"Could not read file:\n{e}")
-            return
-        
-        # Create popup window
-        popup = ctk.CTkToplevel(self)
-        popup.title(f"Translated Output — {os.path.basename(self.current_file) if self.current_file else 'unknown'} → Promela")
-        popup.geometry("1000x750")
-        popup.resizable(True, True)
-        popup.minsize(760, 500)
-        popup.lift()
-        popup.focus_force()
-        # grab_set can fail if called before the window is viewable on some WMs.
-        try:
-            popup.wait_visibility()
-            popup.grab_set()
-        except tk.TclError:
-            # Non-fatal: keep popup usable without modal grab.
-            pass
-        
-        # Configure popup grid
-        popup.grid_columnconfigure(0, weight=1)
-        popup.grid_rowconfigure(3, weight=1)
-        
-        # Header frame
-        header = ctk.CTkFrame(popup, fg_color="transparent")
-        header.grid(row=0, column=0, sticky="ew", padx=15, pady=(12, 5))
-        header.grid_columnconfigure(0, weight=1)
-        
-        ctk.CTkLabel(
-            header,
-            text=f"📄 Translated Promela Model",
-            font=ctk.CTkFont(size=14, weight="bold"),
-            text_color="#00ffcc"
-        ).grid(row=0, column=0, sticky="w")
-        
-        # Info label
-        info_text = f"Source: {os.path.basename(self.current_file) if self.current_file else 'N/A'} | Lines: {content.count(chr(10)) + 1} | Size: {len(content):,} chars"
-        ctk.CTkLabel(
-            popup,
-            text=info_text,
-            font=ctk.CTkFont(size=11),
-            text_color="#666666"
-        ).grid(row=1, column=0, sticky="w", padx=15, pady=(0, 5))
-        
-        # Button frame
-        btn_frame = ctk.CTkFrame(popup, fg_color="transparent")
-        btn_frame.grid(row=2, column=0, sticky="ew", padx=15, pady=(0, 10))
-        btn_frame.grid_columnconfigure(2, weight=1)
-        
-        def copy_to_clipboard():
-            popup.clipboard_clear()
-            popup.clipboard_append(content)
-            popup.update()
-            copy_btn.configure(text="✅ Copied!")
-            popup.after(1500, lambda: copy_btn.configure(text="📋 Copy"))
-        
-        def save_to_file():
-            save_path = filedialog.asksaveasfilename(
-                parent=popup,
-                defaultextension=".pml",
-                initialfile=f"{os.path.splitext(os.path.basename(self.current_file))[0] if self.current_file else 'output'}_translated.pml",
-                filetypes=[("Promela files", "*.pml"), ("All files", "*.*")]
-            )
-            if save_path:
-                try:
-                    with open(save_path, 'w') as f:
-                        f.write(content)
-                    self.console.insert("end", f"\n💾 Translated output saved to: {save_path}\n")
-                    self.console.see("end")
-                except Exception as e:
-                    messagebox.showerror("Save Error", str(e), parent=popup)
-        
-        copy_btn = ctk.CTkButton(btn_frame, text="📋 Copy", width=80, command=copy_to_clipboard)
-        copy_btn.grid(row=0, column=0, padx=(0, 5))
-        
-        ctk.CTkButton(btn_frame, text="💾 Save As", width=80, command=save_to_file).grid(row=0, column=1, padx=(0, 5))
-        
-        # Text area with scrollbar
-        text_frame = ctk.CTkFrame(popup, fg_color="transparent")
-        text_frame.grid(row=3, column=0, sticky="nsew", padx=15, pady=(0, 15))
-        text_frame.grid_columnconfigure(0, weight=1)
-        text_frame.grid_rowconfigure(0, weight=1)
-        
-        textbox = ctk.CTkTextbox(
-            text_frame,
-            font=("Courier New", 11),
-            wrap="none",
-            fg_color="#101317",
-            text_color="#e6e6e6"
-        )
-        textbox.grid(row=0, column=0, sticky="nsew")
-        
-        # Insert content
-        textbox.insert("1.0", content)
-        textbox.configure(state="disabled")  # Make read-only
-        
-        # Status label at bottom
-        status_label = ctk.CTkLabel(
-            popup,
-            text=f"📁 File: {display_file}",
-            font=ctk.CTkFont(size=10),
-            text_color="#444444"
-        )
-        status_label.grid(row=4, column=0, sticky="w", padx=15, pady=(0, 10))
+            self.spin_terminal.insert("end", f"Error loading translated output: {str(e)}\n")
+            self.spin_terminal.see("end")
 
     def analyze_counterexample(self):
         """Analyze and display counterexample"""
@@ -2318,6 +3232,25 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
         self.status_label.configure(text="Dashboard stopped")
         if self.auto_scroll_enabled:
             self.console.see("end")
+
+    def debug_sidebar_visibility(self):
+        """Debug method to check sidebar visibility"""
+        print(f"Sidebar visible: {self.sidebar.winfo_ismapped()}")
+        print(f"Sidebar width: {self.sidebar.winfo_width()}")
+        print(f"Sidebar height: {self.sidebar.winfo_height()}")
+        print(f"Sidebar inner visible: {self.sidebar_inner.winfo_ismapped()}")
+        print(f"Sidebar inner width: {self.sidebar_inner.winfo_width()}")
+        print(f"Sidebar inner height: {self.sidebar_inner.winfo_height()}")
+        
+        # Check if scrollbar exists
+        if hasattr(self.sidebar_inner, '_scrollbar'):
+            print(f"Scrollbar visible: {self.sidebar_inner._scrollbar.winfo_ismapped()}")
+        
+        # Force update
+        self.update()
+        
+        # Schedule another check after a short delay
+        self.after(100, lambda: print(f"After update - Sidebar height: {self.sidebar.winfo_height()}"))
 
 if __name__ == "__main__":
     app = FormalVerifierApp()

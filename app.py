@@ -22,6 +22,428 @@ import json
 from PIL import Image
 import io
 import graphviz
+import networkx as nx
+import time
+
+def render_3d_state_graph_web3d(state_graph_data, height=500):
+    """
+    Render 3D state graph using Three.js through Streamlit components
+    
+    Args:
+        state_graph_data: dict with 'nodes' and 'edges' lists
+        height: height of visualization in pixels
+    """
+    
+    # Convert state graph data to JSON for JavaScript
+    nodes_json = json.dumps(state_graph_data.get('nodes', ['S0', 'S1', 'S2', 'S3']))
+    edges_json = json.dumps(state_graph_data.get('edges', [
+        {'from': 'S0', 'to': 'S1', 'label': 'deposit()'},
+        {'from': 'S1', 'to': 'S2', 'label': 'borrow()'},
+        {'from': 'S2', 'to': 'S3', 'label': 'repay()'},
+        {'from': 'S3', 'to': 'S0', 'label': 'withdraw()'}
+    ]))
+    
+    html_code = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{
+                margin: 0;
+                overflow: hidden;
+                background: transparent;
+                font-family: 'Arial', sans-serif;
+            }}
+            #info {{
+                position: absolute;
+                top: 20px;
+                left: 20px;
+                color: #00ffcc;
+                background: rgba(0,0,0,0.7);
+                padding: 10px 20px;
+                border-radius: 8px;
+                border-left: 3px solid #00ffcc;
+                pointer-events: none;
+                z-index: 100;
+            }}
+            #controls-hint {{
+                position: absolute;
+                bottom: 20px;
+                left: 20px;
+                color: #888;
+                background: rgba(0,0,0,0.5);
+                padding: 5px 15px;
+                border-radius: 20px;
+                font-size: 12px;
+                pointer-events: none;
+                z-index: 100;
+            }}
+            .tooltip {{
+                position: absolute;
+                background: rgba(26, 26, 46, 0.95);
+                color: #00ffcc;
+                padding: 10px;
+                border-radius: 8px;
+                border: 1px solid #00ffcc;
+                font-size: 14px;
+                pointer-events: none;
+                z-index: 200;
+                display: none;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            }}
+        </style>
+    </head>
+    <body>
+        <div id="info">
+            <strong>🔬 3D State Space</strong><br>
+            <span style="font-size: 12px; color: #aaa;">Interactive Visualization</span>
+        </div>
+        <div id="controls-hint">
+            🖱️ Drag to rotate · Scroll to zoom · Right-click to pan
+        </div>
+        <div id="tooltip" class="tooltip"></div>
+        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+        
+        <script>
+            // Data from Python
+            const nodesData = {nodes_json};
+            const edgesData = {edges_json};
+            
+            // Initialize scene
+            const scene = new THREE.Scene();
+            scene.background = null; // Transparent
+            
+            // Camera
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(8, 6, 12);
+            camera.lookAt(0, 0, 0);
+            
+            // Renderers
+            const renderer = new THREE.WebGLRenderer({{ antialias: true, alpha: true }});
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+            
+            const labelRenderer = new THREE.CSS2DRenderer();
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.domElement.style.position = 'absolute';
+            labelRenderer.domElement.style.top = '0px';
+            labelRenderer.domElement.style.left = '0px';
+            labelRenderer.domElement.style.pointerEvents = 'none';
+            document.body.appendChild(labelRenderer.domElement);
+            
+            // Controls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 1.0;
+            controls.enableZoom = true;
+            controls.enablePan = true;
+            controls.target.set(0, 0, 0);
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404060);
+            scene.add(ambientLight);
+            
+            const dirLight1 = new THREE.DirectionalLight(0x00ffcc, 1);
+            dirLight1.position.set(2, 5, 3);
+            dirLight1.castShadow = true;
+            dirLight1.shadow.mapSize.width = 1024;
+            dirLight1.shadow.mapSize.height = 1024;
+            scene.add(dirLight1);
+            
+            const dirLight2 = new THREE.DirectionalLight(0xff00cc, 0.5);
+            dirLight2.position.set(-3, 2, -2);
+            scene.add(dirLight2);
+            
+            const pointLight1 = new THREE.PointLight(0x00ffcc, 0.5, 20);
+            pointLight1.position.set(0, 3, 0);
+            scene.add(pointLight1);
+            
+            const pointLight2 = new THREE.PointLight(0xffa500, 0.3, 20);
+            pointLight2.position.set(5, 1, 5);
+            scene.add(pointLight2);
+            
+            // Background grid and sphere
+            const gridHelper = new THREE.GridHelper(20, 20, 0x00ffcc, 0x333366);
+            gridHelper.position.y = -2;
+            scene.add(gridHelper);
+            
+            // Add a transparent sphere for environment effect
+            const sphereGeo = new THREE.SphereGeometry(8, 32, 16);
+            const sphereMat = new THREE.MeshPhongMaterial({{
+                color: 0x1a1a2e,
+                transparent: true,
+                opacity: 0.1,
+                wireframe: true
+            }});
+            const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+            scene.add(sphere);
+            
+            // Add floating particles for ambiance
+            const particlesGeo = new THREE.BufferGeometry();
+            const particlesCount = 500;
+            const posArray = new Float32Array(particlesCount * 3);
+            for(let i = 0; i < particlesCount * 3; i += 3) {{
+                posArray[i] = (Math.random() - 0.5) * 30;
+                posArray[i+1] = (Math.random() - 0.5) * 30;
+                posArray[i+2] = (Math.random() - 0.5) * 30;
+            }}
+            particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particlesMat = new THREE.PointsMaterial({{
+                size: 0.03,
+                color: 0x00ffcc,
+                transparent: true,
+                opacity: 0.6
+            }});
+            const particles = new THREE.Points(particlesGeo, particlesMat);
+            scene.add(particles);
+            
+            // Store node objects for interaction
+            const nodeMeshes = [];
+            const nodePositions = {{}};
+            
+            // Calculate positions in a 3D circle/spiral
+            const nodeCount = nodesData.length;
+            nodesData.forEach((nodeName, index) => {{
+                // Use a larger, more visible distribution
+                const angle = (index / nodeCount) * Math.PI * 2;
+                const radius = 6;
+                const height = Math.sin(angle * 3) * 3;
+                
+                const x = Math.cos(angle) * radius;
+                const y = height;
+                const z = Math.sin(angle) * radius;
+                
+                nodePositions[nodeName] = {{ x, y, z }};
+                
+                // Create node sphere - larger and more emissive
+                const sphereGeo = new THREE.SphereGeometry(0.6, 32, 32);
+                const sphereMat = new THREE.MeshStandardMaterial({{
+                    color: 0x00ffcc,
+                    emissive: 0x00ffcc,
+                    emissiveIntensity: 0.8,
+                    roughness: 0.1,
+                    metalness: 0.8,
+                    transparent: true,
+                    opacity: 1.0
+                }});
+                const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+                sphere.castShadow = true;
+                sphere.receiveShadow = true;
+                sphere.position.set(x, y, z);
+                sphere.userData = {{ name: nodeName, type: 'node' }};
+                scene.add(sphere);
+                nodeMeshes.push(sphere);
+                
+                // Add glow effect - larger and brighter
+                const glowGeo = new THREE.SphereGeometry(0.9, 16, 16);
+                const glowMat = new THREE.MeshBasicMaterial({{
+                    color: 0x00ffcc,
+                    transparent: true,
+                    opacity: 0.3
+                }});
+                const glow = new THREE.Mesh(glowGeo, glowMat);
+                glow.position.set(x, y, z);
+                scene.add(glow);
+                
+                // Add PERMANENT label
+                const div = document.createElement('div');
+                div.textContent = nodeName;
+                div.style.color = '#ffffff';
+                div.style.fontSize = '14px';
+                div.style.fontWeight = 'bold';
+                div.style.textShadow = '0 0 10px #00ffcc, 0 0 20px #00ffcc';
+                div.style.background = 'rgba(0, 255, 204, 0.3)';
+                div.style.padding = '5px 15px';
+                div.style.borderRadius = '20px';
+                div.style.border = '2px solid #00ffcc';
+                div.style.pointerEvents = 'none';
+                div.style.whiteSpace = 'nowrap';
+                
+                const label = new THREE.CSS2DObject(div);
+                label.position.set(x, y + 1.2, z);
+                scene.add(label);
+            }});
+            
+            // Create edges
+            edgesData.forEach((edge, index) => {{
+                const fromPos = nodePositions[edge.from];
+                const toPos = nodePositions[edge.to];
+                
+                if (fromPos && toPos) {{
+                    // Create curved line
+                    const points = [];
+                    const midX = (fromPos.x + toPos.x) / 2;
+                    const midY = (fromPos.y + toPos.y) / 2 + 0.5;
+                    const midZ = (fromPos.z + toPos.z) / 2;
+                    
+                    points.push(new THREE.Vector3(fromPos.x, fromPos.y, fromPos.z));
+                    points.push(new THREE.Vector3(midX, midY, midZ));
+                    points.push(new THREE.Vector3(toPos.x, toPos.y, toPos.z));
+                    
+                    const curve = new THREE.CatmullRomCurve3(points);
+                    const tubeGeo = new THREE.TubeGeometry(curve, 20, 0.08, 8, false);
+                    const tubeMat = new THREE.MeshStandardMaterial({{
+                        color: 0x00ffcc,
+                        emissive: 0x00ffcc,
+                        emissiveIntensity: 0.5,
+                        transparent: true,
+                        opacity: 0.9
+                    }});
+                    const tube = new THREE.Mesh(tubeGeo, tubeMat);
+                    tube.castShadow = true;
+                    tube.receiveShadow = true;
+                    scene.add(tube);
+                    
+                    // Add arrow at the end
+                    const direction = new THREE.Vector3().subVectors(
+                        new THREE.Vector3(toPos.x, toPos.y, toPos.z),
+                        new THREE.Vector3(midX, midY, midZ)
+                    ).normalize();
+                    
+                    const arrowHelper = new THREE.ArrowHelper(
+                        direction,
+                        new THREE.Vector3(toPos.x - direction.x * 0.5, 
+                                        toPos.y - direction.y * 0.5, 
+                                        toPos.z - direction.z * 0.5),
+                        0.3,
+                        0x00ffcc,
+                        0.15,
+                        0.1
+                    );
+                    scene.add(arrowHelper);
+                    
+                    // Add edge label if exists
+                    if (edge.label) {{
+                        const div = document.createElement('div');
+                        div.textContent = edge.label;
+                        div.style.color = '#ffa500';
+                        div.style.fontSize = '11px';
+                        div.style.background = 'rgba(0,0,0,0.6)';
+                        div.style.padding = '2px 8px';
+                        div.style.borderRadius = '12px';
+                        div.style.border = '1px solid #ffa500';
+                        
+                        const label = new THREE.CSS2DObject(div);
+                        label.position.set(midX, midY + 0.3, midZ);
+                        scene.add(label);
+                    }}
+                }}
+            }});
+            
+            // Add central glowing core
+            const coreGeo = new THREE.IcosahedronGeometry(0.3, 2);
+            const coreMat = new THREE.MeshStandardMaterial({{
+                color: 0x00ffcc,
+                emissive: 0x004433,
+                roughness: 0.2,
+                metalness: 0.3
+            }});
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            core.position.set(0, 0, 0);
+            core.castShadow = true;
+            scene.add(core);
+            
+            // Add rotating rings around center
+            const ringGeo = new THREE.TorusGeometry(1.5, 0.02, 16, 100);
+            const ringMat = new THREE.MeshStandardMaterial({{
+                color: 0x00ffcc,
+                emissive: 0x004433,
+                transparent: true,
+                opacity: 0.4
+            }});
+            const ring1 = new THREE.Mesh(ringGeo, ringMat);
+            ring1.rotation.x = Math.PI / 2;
+            ring1.rotation.z = 0.3;
+            scene.add(ring1);
+            
+            const ring2 = new THREE.Mesh(ringGeo, ringMat);
+            ring2.rotation.y = 0.8;
+            ring2.rotation.x = 0.5;
+            ring2.scale.setScalar(1.2);
+            scene.add(ring2);
+            
+            // Raycaster for interaction
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            const tooltip = document.getElementById('tooltip');
+            
+            renderer.domElement.addEventListener('mousemove', (event) => {{
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(nodeMeshes);
+                
+                if (intersects.length > 0) {{
+                    const node = intersects[0].object;
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = event.clientX + 15 + 'px';
+                    tooltip.style.top = event.clientY - 30 + 'px';
+                    tooltip.innerHTML = `
+                        <strong>⚡ ${{node.userData.name}}</strong><br>
+                        <span style="color: #aaa;">State Node</span>
+                    `;
+                }} else {{
+                    tooltip.style.display = 'none';
+                }}
+            }});
+            
+            // Animation loop
+            function animate() {{
+                requestAnimationFrame(animate);
+                
+                controls.update();
+                
+                // Animate particles
+                particles.rotation.y += 0.0005;
+                particles.rotation.x += 0.0002;
+                
+                // Animate rings
+                ring1.rotation.z += 0.005;
+                ring2.rotation.x += 0.003;
+                ring2.rotation.y += 0.002;
+                
+                // Pulse core
+                const time = Date.now() * 0.001;
+                core.scale.setScalar(1 + Math.sin(time * 3) * 0.1);
+                
+                renderer.render(scene, camera);
+                labelRenderer.render(scene, camera);
+            }}
+            
+            animate();
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {{
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                labelRenderer.setSize(window.innerWidth, window.innerHeight);
+            }});
+            
+            // Auto-rotate toggle on user interaction
+            renderer.domElement.addEventListener('mousedown', () => {{
+                controls.autoRotate = false;
+            }});
+            renderer.domElement.addEventListener('mouseup', () => {{
+                setTimeout(() => {{ controls.autoRotate = true; }}, 3000);
+            }});
+        </script>
+    </body>
+    </html>
+    """
+    
+    # Render component
+    components.html(html_code, height=height, scrolling=False)
 
 # Always run from project directory
 
@@ -450,6 +872,71 @@ def generate_proof_obligations(state_machine):
     
     return "\n".join(report)
 
+def render_3d_state_space(state_graph_data):
+    # state_graph_data = {"nodes": ["S0", "S1"], "edges": [{"from": "S0", "to": "S1", "label": "borrow()"}]}
+    
+    G = nx.DiGraph()
+    for edge in state_graph_data['edges']:
+        G.add_edge(edge['from'], edge['to'])
+    
+    # Use spring layout for 3D positioning
+    pos = nx.spring_layout(G, dim=3, seed=42, k=0.5)
+    
+    # Extract coordinates
+    x_nodes = [pos[node][0] for node in G.nodes()]
+    y_nodes = [pos[node][1] for node in G.nodes()]
+    z_nodes = [pos[node][2] for node in G.nodes()]
+    
+    # Create Edges (Lines)
+    edge_traces = []
+    for edge in G.edges():
+        x0, y0, z0 = pos[edge[0]]
+        x1, y1, z1 = pos[edge[1]]
+        edge_traces.append(go.Scatter3d(
+            x=[x0, x1, None], y=[y0, y1, None], z=[z0, z1, None],
+            mode='lines',
+            line=dict(color='#00ffcc', width=2),
+            hoverinfo='none'
+        ))
+        
+    # Create Nodes (Spheres)
+    node_trace = go.Scatter3d(
+        x=x_nodes, y=y_nodes, z=z_nodes,
+        mode='markers+text',
+        marker=dict(size=12, color='#ff00cc', line=dict(color='#00ffcc', width=1)),
+        text=list(G.nodes()),
+        textposition="top center",
+        hoverinfo='text'
+    )
+    
+    fig = go.Figure(data=edge_traces + [node_trace])
+    fig.update_layout(
+        title="🔬 3D State Space Exploration",
+        scene=dict(
+            xaxis=dict(showbackground=False, showticklabels=False, title=''),
+            yaxis=dict(showbackground=False, showticklabels=False, title=''),
+            zaxis=dict(showbackground=False, showticklabels=False, title=''),
+            bgcolor='rgba(0,0,0,0)'
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white')
+    )
+    return fig
+
+def file_watcher():
+    """Watch for changes in verification_state.json and trigger rerun"""
+    last_mtime = 0
+    while True:
+        try:
+            mtime = os.path.getmtime("verification_state.json")
+            if mtime > last_mtime:
+                last_mtime = mtime
+                # Trigger a rerun of the script (Streamlit specific)
+                st.rerun()
+        except:
+            pass
+        time.sleep(3)
+
 # ==================== CUSTOM CSS ====================
 
 st.markdown("""
@@ -708,6 +1195,49 @@ st.markdown("""
         color: #00ffcc;
         border: 1px solid rgba(0, 255, 204, 0.3);
     }
+    
+    /* Fix risk appetite slider styling */
+    .stSelectSlider > div[data-baseweb="select-slider"] > div {
+        background: linear-gradient(90deg, #00ffcc, #00ccaa) !important;
+    }
+    
+    .stSelectSlider > div[data-baseweb="select-slider"] > div > div[role="slider"] {
+        background: #00ffcc !important;
+        border: 2px solid #ffffff !important;
+    }
+    
+    .stSelectSlider > div[data-baseweb="select-slider"] > div > div[role="slider"]:hover {
+        background: #ffffff !important;
+        border-color: #00ffcc !important;
+    }
+    
+    /* Fix slider track color */
+    .stSelectSlider > div[data-baseweb="select-slider"] > div > div:nth-child(2) {
+        background: rgba(0, 255, 204, 0.3) !important;
+    }
+    
+    .web3d-container {
+        background: radial-gradient(circle at center, #1a1a2e 0%, #0a0a0f 100%);
+        border-radius: 16px;
+        padding: 0;
+        margin: 1rem 0;
+        border: 2px solid rgba(0, 255, 204, 0.3);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 60px rgba(0, 255, 204, 0.1);
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .web3d-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, transparent 0%, rgba(0, 255, 204, 0.05) 100%);
+        pointer-events: none;
+        z-index: 1;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -725,6 +1255,11 @@ if 'diagram_path' not in st.session_state:
     st.session_state.diagram_path = None
 if 'state_machine' not in st.session_state:
     st.session_state.state_machine = None
+
+# Start file watcher in session state
+if 'watcher_started' not in st.session_state:
+    threading.Thread(target=file_watcher, daemon=True).start()
+    st.session_state.watcher_started = True
 
 # ==================== GET ACTIVE MODEL ====================
 
@@ -1063,10 +1598,15 @@ verification_results = load_active_verification_results()
 if verification_results['ltl_properties']:
     st.markdown(f"### Active Model: `{verification_results['model_name']}`")
     
-    if verification_results['verification_success']:
+    # Check if verification has actually been run
+    verification_run = verification_results['states_explored'] > 0 or verification_results['verification_success']
+    
+    if verification_run and verification_results['verification_success']:
         st.success(f"✅ Verification Successful - {verification_results['states_explored']} states explored, {verification_results['transitions']} transitions")
+    elif verification_run and not verification_results['verification_success']:
+        st.error(f"❌ Verification Failed - {verification_results['states_explored']} states explored, {verification_results['transitions']} transitions")
     else:
-        st.warning("⚠️ Run verification to see results")
+        st.info("ℹ️ Run verification to see results")
     
     st.markdown("#### Verified LTL Properties:")
     for prop in verification_results['ltl_properties']:
@@ -1103,13 +1643,19 @@ if os.path.exists("verification_state.json"):
         verify_time = datetime.fromtimestamp(last_verify.get('timestamp', 0))
         time_diff = (datetime.now() - verify_time).seconds
 
-    if time_diff < 300:  # Within last 5 minutes
-        if last_verify.get('success'):
+    # Check if any tool actually ran verification
+    has_results = any(tool in last_verify for tool in ['spin', 'coq', 'lean', 'kani'])
+    
+    if has_results and time_diff < 300:  # Within last 5 minutes and has results
+        spin_result = last_verify.get('spin', {})
+        if spin_result.get('success'):
             st.success(f"✅ Last verification successful - {verify_time.strftime('%H:%M:%S')}")
         else:
             st.error(f"❌ Last verification failed - {verify_time.strftime('%H:%M:%S')}")
+    elif has_results:
+        st.info(f"ℹ️ Verification completed - {verify_time.strftime('%H:%M:%S')}")
     else:
-        st.info("ℹ️ No recent verification - run verification in desktop app")
+        st.info("ℹ️ No verification results yet. Run verifications from the desktop app.")
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -1219,6 +1765,106 @@ fig_sensitivity.update_layout(
 st.plotly_chart(fig_sensitivity, use_container_width=True, config={'displayModeBar': False})
 st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+# ==================== 3D STATE SPACE VISUALIZATION ====================
+
+st.markdown('<div class="state-diagram-container">', unsafe_allow_html=True)
+st.markdown("""
+<div class="state-diagram-header">
+    <div class="state-diagram-title">🔬 3D STATE SPACE EXPLORATION</div>
+    <div class="state-diagram-badge">Interactive Three.js</div>
+</div>
+""", unsafe_allow_html=True)
+
+# Prepare state graph data from your PML parsing
+if st.session_state.get('state_machine'):
+    sm = st.session_state.state_machine
+    
+    # Extract states and transitions
+    raw_nodes = sm.get('states', [])
+    edges = []
+    
+    # Track all nodes seen in edges to ensure they exist
+    nodes_seen = set(raw_nodes)
+    
+    for trans in sm.get('transitions', [])[:20]: # Show more transitions
+        from_node = trans.get('from', 'S0')
+        to_node = trans.get('to', 'S1')
+        
+        nodes_seen.add(from_node)
+        nodes_seen.add(to_node)
+        
+        edges.append({
+            'from': from_node,
+            'to': to_node,
+            'label': trans.get('condition', 'transition')[:25]
+        })
+    
+    # Final nodes list
+    nodes = list(nodes_seen)
+    
+    # If still no nodes/edges, use demo data but ensure consistency
+    if not nodes or len(nodes) < 2:
+        nodes = ['Init', 'Deposited', 'Borrowed', 'Liquidated', 'Repaid']
+        edges = [
+            {'from': 'Init', 'to': 'Deposited', 'label': 'deposit()'},
+            {'from': 'Deposited', 'to': 'Borrowed', 'label': 'borrow()'},
+            {'from': 'Borrowed', 'to': 'Liquidated', 'label': 'health < 1'},
+            {'from': 'Borrowed', 'to': 'Repaid', 'label': 'repay()'},
+            {'from': 'Repaid', 'to': 'Deposited', 'label': 'withdraw()'}
+        ]
+    
+    state_graph = {'nodes': nodes, 'edges': edges}
+    
+    # Render the 3D visualization
+    render_3d_state_graph_web3d(state_graph, height=500)
+    
+    # Add download option for state graph data
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button(
+            "📥 Download State Graph (JSON)",
+            json.dumps(state_graph, indent=2),
+            "state_graph.json",
+            "application/json",
+            use_container_width=True
+        )
+    with col2:
+        st.metric("States", len(nodes), delta=f"{len(edges)} transitions")
+else:
+    # Show demo visualization
+    demo_nodes = ['Init', 'Deposited', 'Borrowed', 'Liquidated', 'Repaid']
+    demo_edges = [
+        {'from': 'Init', 'to': 'Deposited', 'label': 'deposit()'},
+        {'from': 'Deposited', 'to': 'Borrowed', 'label': 'borrow()'},
+        {'from': 'Borrowed', 'to': 'Liquidated', 'label': 'health < 1'},
+        {'from': 'Borrowed', 'to': 'Repaid', 'label': 'repay()'},
+        {'from': 'Repaid', 'to': 'Deposited', 'label': 'withdraw()'}
+    ]
+    
+    render_3d_state_graph_web3d({'nodes': demo_nodes, 'edges': demo_edges}, height=500)
+    st.caption("👆 Demo visualization - Run verification to see your model's state space")
+
+st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+# ==================== INTERACTIVE 3D STATE SPACE ====================
+
+with st.expander("🎮 Interactive 3D State Space", expanded=False):
+    st.markdown("### Three.js 3D Visualization")
+    st.markdown("*Drag to rotate • Scroll to zoom • Hover for details*")
+    
+    if st.session_state.get('state_machine'):
+        sm = st.session_state.state_machine
+        nodes = sm.get('states', ['State_' + str(i) for i in range(5)])
+        edges = [{'from': t.get('from', 'S0'), 
+                  'to': t.get('to', 'S1'), 
+                  'label': t.get('condition', '')[:15]} 
+                 for t in sm.get('transitions', [])[:12]]
+        
+        render_3d_state_graph_web3d({'nodes': nodes, 'edges': edges}, height=600)
+    else:
+        st.info("No state machine data available. Load a model to see 3D visualization.")
 
 # ==================== RISK ASSESSMENT ====================
 
