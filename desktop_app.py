@@ -20,6 +20,33 @@ from pathlib import Path
 import tkinter as tk
 import socket
 
+# PyQt6 version - more native look, better performance 
+# Requirements: PyQt6, PyQt6-WebEngine (for embedded dashboard) 
+try:
+    from PyQt6.QtWidgets import ( 
+        QMainWindow, QSplitter, QTabWidget, QTextEdit, 
+        QTreeView, QToolBar, QStatusBar, QDockWidget 
+    ) 
+    from PyQt6.QtCore import Qt, QThread, pyqtSignal 
+    from PyQt6.QtGui import QFont, QPalette, QColor, QSyntaxHighlighter
+    HAS_PYQT6 = True
+except ImportError:
+    HAS_PYQT6 = False
+
+# NiceGUI example - web UI in desktop wrapper 
+try:
+    from nicegui import ui, app as nicegui_app
+    HAS_NICEGUI = True
+except ImportError:
+    HAS_NICEGUI = False
+
+# Gradio version - modern AI-focused interface
+try:
+    import gradio as gr
+    HAS_GRADIO = True
+except ImportError:
+    HAS_GRADIO = False
+
 # Project directory for file I/O
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 # First Lean check after boot can take minutes (Elan/toolchain + stdlib); override with DG_LEAN_TIMEOUT.
@@ -251,6 +278,226 @@ class ThemeManager:
         return "Dark+ (Default)"
 
 
+class EnhancedThemeManager(ThemeManager):
+    """Extended theme manager with glassmorphism and animations"""
+
+    THEMES = {
+        **ThemeManager.THEMES,
+        "DeFi Dark": {
+            "bg": "#0a0e17",
+            "fg": "#e0e0e0",
+            "accent": "#00d4aa",
+            "accent_secondary": "#7c3aed",
+            "success": "#10b981",
+            "error": "#ef4444",
+            "warning": "#f59e0b",
+            "editor_bg": "#0f141e",
+            "editor_fg": "#e2e8f0",
+            "terminal_bg": "#080c14",
+            "terminal_fg": "#00ffcc",
+            "sidebar_bg": "#0c111a",
+            "button_bg": "#00d4aa",
+            "button_hover": "#00bf9a",
+            "card_bg": "#131a26",
+            "border": "#1e2a3a",
+        },
+        "Cyberpunk": {
+            "bg": "#0d0221",
+            "fg": "#ff00ff",
+            "accent": "#00ffff",
+            "accent_secondary": "#ff00ff",
+            "success": "#00ff88",
+            "error": "#ff0055",
+            "warning": "#ffaa00",
+            "editor_bg": "#12022b",
+            "editor_fg": "#00ffff",
+            "terminal_bg": "#0a001a",
+            "terminal_fg": "#00ff88",
+            "sidebar_bg": "#0f0225",
+            "button_bg": "#ff00ff",
+            "button_hover": "#cc00cc",
+            "card_bg": "#150530",
+            "border": "#3d0a5c",
+        },
+        "Nord Frost": {
+            "bg": "#2e3440",
+            "fg": "#eceff4",
+            "accent": "#88c0d0",
+            "accent_secondary": "#81a1c1",
+            "success": "#a3be8c",
+            "error": "#bf616a",
+            "warning": "#ebcb8b",
+            "editor_bg": "#3b4252",
+            "editor_fg": "#e5e9f0",
+            "terminal_bg": "#242933",
+            "terminal_fg": "#8fbcbb",
+            "sidebar_bg": "#2e3440",
+            "button_bg": "#5e81ac",
+            "button_hover": "#81a1c1",
+            "card_bg": "#3b4252",
+            "border": "#4c566a",
+        },
+        "Matrix": {
+            "bg": "#0a0f0a",
+            "fg": "#00ff41",
+            "accent": "#00ff41",
+            "accent_secondary": "#008f11",
+            "success": "#00ff41",
+            "error": "#ff3333",
+            "warning": "#ffff00",
+            "editor_bg": "#0d140d",
+            "editor_fg": "#00ff41",
+            "terminal_bg": "#050805",
+            "terminal_fg": "#00ff41",
+            "sidebar_bg": "#0a0f0a",
+            "button_bg": "#008f11",
+            "button_hover": "#00cc1a",
+            "card_bg": "#111a11",
+            "border": "#1a3a1a",
+        }
+    }
+
+
+class StyledButton(ctk.CTkButton):
+    """Enhanced button with gradient, animation, and state effects"""
+
+    def __init__(self, master, **kwargs):
+        self.gradient = kwargs.pop('gradient', False)
+        self.pulse = kwargs.pop('pulse', False)
+        self.tool_name = kwargs.pop('tool_name', None)
+
+        super().__init__(master, **kwargs)
+
+        if self.gradient:
+            self.configure(
+                fg_color="transparent",
+                bg_color="transparent"
+            )
+            self._create_gradient()
+
+        self.bind("<Enter>", self.on_hover)
+        self.bind("<Leave>", self.on_leave)
+
+    def _create_gradient(self):
+        """Create linear gradient background"""
+        self.canvas = tk.Canvas(
+            self,
+            highlightthickness=0,
+            bg=self.cget("bg_color")
+        )
+        self.canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
+
+        # Gradient from accent to accent_secondary 
+        self.canvas.create_rectangle(
+            0, 0, self.winfo_width(), self.winfo_height(),
+            fill=self.cget("fg_color"),
+            outline="",
+            tags="gradient"
+        )
+
+    def on_hover(self, event):
+        """Smooth hover animation"""
+        self.animate_color(
+            self.cget("fg_color"),
+            self.cget("hover_color"),
+            duration=150
+        )
+
+    def on_leave(self, event):
+        self.animate_color(
+            self.cget("hover_color"),
+            self.cget("fg_color"),
+            duration=150
+        )
+
+    def hex_to_rgb(self, hex_color):
+        """Convert hex color to RGB tuple"""
+        hex_color = hex_color.lstrip('#')
+        if len(hex_color) == 3:
+            hex_color = ''.join([c*2 for c in hex_color])
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+    def rgb_to_hex(self, r, g, b):
+        """Convert RGB tuple to hex color"""
+        return f'#{r:02x}{g:02x}{b:02x}'
+
+    def animate_color(self, from_color, to_color, duration):
+        """Color transition animation"""
+        steps = 10
+        delay = duration // steps
+
+        def interpolate_color(step):
+            try:
+                r1, g1, b1 = self.hex_to_rgb(from_color)
+                r2, g2, b2 = self.hex_to_rgb(to_color)
+
+                t = step / steps
+                r = int(r1 + (r2 - r1) * t)
+                g = int(g1 + (g2 - g1) * t)
+                b = int(b1 + (b2 - b1) * t)
+
+                self.configure(fg_color=self.rgb_to_hex(r, g, b))
+
+                if step < steps:
+                    self.after(delay, lambda: interpolate_color(step + 1))
+            except:
+                pass
+
+        interpolate_color(0)
+
+
+class ToolButton(StyledButton):
+    """Specialized button for verification tools with status indicator"""
+
+    def __init__(self, master, tool_name, **kwargs):
+        super().__init__(master, **kwargs)
+        self.tool_name = tool_name
+        self.status = "idle"  # idle, running, success, error 
+
+        # Add status indicator dot 
+        self.status_canvas = tk.Canvas(
+            self,
+            width=12,
+            height=12,
+            highlightthickness=0,
+            bg=self.cget("fg_color")
+        )
+        self.status_canvas.place(relx=0.05, rely=0.5, anchor="w")
+        self.update_status_indicator()
+
+    def update_status_indicator(self):
+        colors = {
+            "idle": "#6b7280",
+            "running": "#f59e0b",
+            "success": "#10b981",
+            "error": "#ef4444"
+        }
+        self.status_canvas.delete("all")
+        self.status_canvas.create_oval(
+            2, 2, 10, 10,
+            fill=colors.get(self.status, "#6b7280"),
+            outline=""
+        )
+        if self.status == "running":
+            self.animate_pulse()
+
+    def animate_pulse(self):
+        """Pulse animation for running state"""
+        def pulse(opacity=1.0, direction=-1):
+            if self.status != "running":
+                return
+            opacity += direction * 0.1
+            if opacity <= 0.5 or opacity >= 1.0:
+                direction *= -1
+
+            color = f"#{int(245 * opacity):02x}{int(158 * opacity):02x}{int(11 * opacity):02x}"
+            self.status_canvas.itemconfig("all", fill=color)
+
+            self.after(50, lambda: pulse(opacity, direction))
+
+        pulse()
+
+
 class ScrollableSidebar(ctk.CTkFrame):
     """Custom scrollable sidebar with improved behavior"""
     
@@ -352,7 +599,7 @@ class ThemeSettingsPanel(ctk.CTkFrame):
         self.theme_var = ctk.StringVar(value=theme_manager.current_theme)
         self.theme_dropdown = ctk.CTkOptionMenu(
             self,
-            values=list(ThemeManager.THEMES.keys()),
+            values=list(self.theme_manager.THEMES.keys()),
             variable=self.theme_var,
             command=self.on_theme_change,
             dynamic_resizing=False,
@@ -634,7 +881,7 @@ class FormalVerifierApp(ctk.CTk):
         self.setup_resizable_panels()
         
         # Initialize theme manager
-        self.theme_manager = ThemeManager(self)
+        self.theme_manager = EnhancedThemeManager(self)
         loaded_theme = self.theme_manager.load_theme_preference()
         self.theme_manager.apply_theme(loaded_theme)
         
@@ -1270,13 +1517,13 @@ class FormalVerifierApp(ctk.CTk):
             
             # Create temporary theme
             custom_theme_name = f"{self.theme_manager.current_theme} (Custom)"
-            ThemeManager.THEMES[custom_theme_name] = theme
+            self.theme_manager.THEMES[custom_theme_name] = theme
             
             # Apply custom theme
             self.theme_manager.apply_theme(custom_theme_name)
             
             # Update dropdown
-            self.theme_settings.theme_dropdown.configure(values=list(ThemeManager.THEMES.keys()))
+            self.theme_settings.theme_dropdown.configure(values=list(self.theme_manager.THEMES.keys()))
             self.theme_settings.theme_var.set(custom_theme_name)
     
     def setup_keyboard_shortcuts(self):
@@ -1866,6 +2113,20 @@ class FormalVerifierApp(ctk.CTk):
     def clear_console(self):
         self.console.delete("1.0", "end")
         self.show_welcome()
+
+    def update_verification_status(self, tool, status, message=""): 
+        """Send real-time update to dashboard""" 
+        data = { 
+            "type": "verification_update", 
+            "tool": tool, 
+            "status": status, 
+            "message": message, 
+            "timestamp": datetime.now().isoformat() 
+        } 
+        
+        # Save to file for dashboard polling 
+        with open("live_status.json", "w") as f: 
+            json.dump(data, f)
     
     def export_console(self):
         """Export console content to file"""
@@ -3251,6 +3512,68 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
         
         # Schedule another check after a short delay
         self.after(100, lambda: print(f"After update - Sidebar height: {self.sidebar.winfo_height()}"))
+
+
+def create_gradio_interface():
+    """
+    Gradio version - modern AI-focused interface
+    To run this, call create_gradio_interface().launch()
+    """
+    if not HAS_GRADIO:
+        return None
+
+    with gr.Blocks(theme=gr.themes.Soft( 
+        primary_hue="emerald", 
+        secondary_hue="purple", 
+        neutral_hue="slate", 
+    )) as demo: 
+        gr.Markdown("# 🛡️ DeFi Guardian") 
+        
+        with gr.Tab("Verification"): 
+            with gr.Row(): 
+                file_input = gr.File(label="Upload Contract") 
+                verify_btn = gr.Button("Run Verification", variant="primary") 
+            output = gr.Code(label="Verification Output", language="text") 
+        
+        with gr.Tab("State Machine"): 
+            graph = gr.Plot(label="State Diagram") 
+        
+        with gr.Tab("Analytics"): 
+            metrics = gr.JSON(label="Verification Metrics") 
+    
+    return demo
+
+
+def run_nicegui_interface():
+    """
+    NiceGUI version - web UI in desktop wrapper
+    To run this, call run_nicegui_interface() instead of the mainloop
+    """
+    if not HAS_NICEGUI:
+        return
+        
+    # Example stubs for NiceGUI interface
+    def load_file():
+        ui.notify("Loading file...")
+        
+    def run_verification():
+        ui.notify("Running verification...")
+
+    @ui.page('/') 
+    def main_page(): 
+        with ui.header(elevated=True).classes('bg-primary'): 
+            ui.label('🛡️ DeFi Guardian').classes('text-h4 text-white') 
+        
+        with ui.left_drawer().classes('bg-dark'): 
+            ui.button('Open File', on_click=load_file) 
+            ui.button('Run Verification', on_click=run_verification) 
+        
+        with ui.column().classes('w-full'): 
+            ui.editor().classes('w-full h-96') 
+            ui.terminal().classes('w-full h-64') 
+    
+    ui.run(native=True, window_size=(1400, 900), title="DeFi Guardian - NiceGUI")
+
 
 if __name__ == "__main__":
     app = FormalVerifierApp()

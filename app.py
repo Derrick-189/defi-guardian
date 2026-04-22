@@ -23,9 +23,286 @@ import io
 import graphviz
 import networkx as nx
 import time
+try:
+    from streamlit_extras.stylable_container import stylable_container 
+except ImportError:
+    # Fallback if streamlit-extras is not installed
+    def stylable_container(key, css_styles):
+        return st.container()
 
 # Ensure we're in the right directory
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+def styled_button(label, key=None, variant="primary", size="medium"): 
+     """Generate styled HTML button for Streamlit""" 
+     
+     variants = { 
+         "primary": { 
+             "bg": "linear-gradient(135deg, #00ffcc 0%, #00ccff 100%)", 
+             "color": "#0a0e17", 
+             "hover": "linear-gradient(135deg, #00e6b8 0%, #00b8e6 100%)" 
+         }, 
+         "secondary": { 
+             "bg": "linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%)", 
+             "color": "white", 
+             "hover": "linear-gradient(135deg, #a86bc9 0%, #9b59b6 100%)" 
+         }, 
+         "danger": { 
+             "bg": "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)", 
+             "color": "white", 
+             "hover": "linear-gradient(135deg, #f56565 0%, #e53e3e 100%)" 
+         }, 
+         "success": { 
+             "bg": "linear-gradient(135deg, #10b981 0%, #059669 100%)", 
+             "color": "white", 
+             "hover": "linear-gradient(135deg, #34d399 0%, #10b981 100%)" 
+         } 
+     } 
+     
+     sizes = { 
+         "small": {"padding": "8px 16px", "font-size": "12px"}, 
+         "medium": {"padding": "12px 24px", "font-size": "14px"}, 
+         "large": {"padding": "16px 32px", "font-size": "16px"} 
+     } 
+     
+     v = variants.get(variant, variants["primary"]) 
+     s = sizes.get(size, sizes["medium"]) 
+     
+     button_html = f""" 
+     <style> 
+         .styled-btn-{key} {{ 
+             background: {v['bg']}; 
+             color: {v['color']}; 
+             border: none; 
+             border-radius: 12px; 
+             padding: {s['padding']}; 
+             font-size: {s['font-size']}; 
+             font-weight: 600; 
+             cursor: pointer; 
+             transition: all 0.3s ease; 
+             position: relative; 
+             overflow: hidden; 
+             width: 100%; 
+             text-align: center; 
+             display: inline-block; 
+             text-decoration: none; 
+         }} 
+         
+         .styled-btn-{key}:hover {{ 
+             background: {v['hover']}; 
+             transform: translateY(-2px); 
+             box-shadow: 0 8px 20px rgba(0, 255, 204, 0.2); 
+         }} 
+         
+         .styled-btn-{key}::after {{ 
+             content: ''; 
+             position: absolute; 
+             top: 50%; 
+             left: 50%; 
+             width: 0; 
+             height: 0; 
+             border-radius: 50%; 
+             background: rgba(255, 255, 255, 0.3); 
+             transform: translate(-50%, -50%); 
+             transition: width 0.3s, height 0.3s; 
+         }} 
+         
+         .styled-btn-{key}:active::after {{ 
+             width: 200px; 
+             height: 200px; 
+         }} 
+     </style> 
+     <button class="styled-btn-{key}" onclick="this.disabled=true; this.style.opacity='0.7';">{label}</button> 
+     """ 
+     
+     return st.markdown(button_html, unsafe_allow_html=True)
+
+def verification_progress_card(): 
+     """Animated verification progress card""" 
+     
+     with stylable_container( 
+         key="progress_card", 
+         css_styles=""" 
+             { 
+                 background: linear-gradient(135deg, #1a1a2e, #16213e); 
+                 border-radius: 16px; 
+                 padding: 24px; 
+                 border: 1px solid rgba(0, 255, 204, 0.2); 
+                 margin: 16px 0; 
+             } 
+         """ 
+     ): 
+         col1, col2 = st.columns([3, 1]) 
+         
+         with col1: 
+             st.markdown("### 🔄 Verification Progress") 
+             
+             # Animated progress bar 
+             st.markdown(""" 
+             <div class="progress-container"> 
+                 <div class="progress-fill" style="width: 75%; animation: pulse 2s infinite;"> 
+                     <span class="progress-text">75%</span> 
+                 </div> 
+             </div> 
+             <style> 
+                 .progress-container { 
+                     background: rgba(0,0,0,0.3); 
+                     border-radius: 20px; 
+                     height: 24px; 
+                     overflow: hidden; 
+                 } 
+                 .progress-fill { 
+                     background: linear-gradient(90deg, #00ffcc, #00ccaa); 
+                     height: 100%; 
+                     border-radius: 20px; 
+                     display: flex; 
+                     align-items: center; 
+                     justify-content: center; 
+                     transition: width 0.5s ease; 
+                 } 
+                 .progress-text { 
+                     color: #0a0e17; 
+                     font-weight: bold; 
+                     font-size: 12px; 
+                 } 
+                 @keyframes pulse { 
+                     0%, 100% { opacity: 1; } 
+                     50% { opacity: 0.8; } 
+                 } 
+             </style> 
+             """, unsafe_allow_html=True) 
+             
+             # Step indicators 
+             steps = [ 
+                 ("📄 Parse Contract", "completed"), 
+                 ("🔄 Generate Model", "active"), 
+                 ("🔍 Run SPIN", "pending"), 
+                 ("📜 Coq Verification", "pending"), 
+                 ("⚡ Lean Verification", "pending") 
+             ] 
+             
+             for step, status in steps: 
+                 icons = { 
+                     "completed": "✅", 
+                     "active": "🔄", 
+                     "pending": "⏳" 
+                 } 
+                 st.markdown(f"{icons[status]} {step}") 
+         
+         with col2: 
+             st.metric("Time Elapsed", "12.3s") 
+             st.metric("States Explored", "1,234")
+
+def theme_toggle(): 
+     """Theme toggle switch for dashboard""" 
+     
+     if "theme" not in st.session_state: 
+         st.session_state.theme = "dark" 
+     
+     col1, col2 = st.columns([1, 5]) 
+     
+     with col1: 
+         if st.button("🌙" if st.session_state.theme == "dark" else "☀️"): 
+             st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark" 
+             st.rerun() 
+     
+     # Apply theme CSS 
+     if st.session_state.theme == "dark": 
+         st.markdown(""" 
+         <style> 
+             .stApp { background: linear-gradient(135deg, #0a0a0a, #1a1a2e); } 
+             .metric-card { background: rgba(26, 26, 46, 0.95); } 
+         </style> 
+         """, unsafe_allow_html=True) 
+     else: 
+         st.markdown(""" 
+         <style> 
+             .stApp { background: linear-gradient(135deg, #f5f5f5, #e8e8e8); } 
+             .metric-card { background: white; color: #333; } 
+             .metric-value { color: #0066cc; } 
+         </style> 
+         """, unsafe_allow_html=True)
+
+def landing_page(): 
+     """Professional landing page with feature showcase""" 
+     
+     # Hero section 
+     st.markdown(""" 
+     <div style="text-align: center; padding: 4rem 2rem;"> 
+         <h1 style="font-size: 3.5rem; background: linear-gradient(135deg, #00ffcc, #00ccff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"> 
+             🛡️ DeFi Guardian 
+         </h1> 
+         <p style="font-size: 1.25rem; color: #888; margin: 1rem 0;"> 
+             Formal Verification Suite for Smart Contracts 
+         </p> 
+         <div style="display: flex; gap: 1rem; justify-content: center; margin: 2rem 0;"> 
+             <button class="gradient-btn">Get Started →</button> 
+             <button class="glass-btn">View Demo</button> 
+         </div> 
+     </div> 
+     """, unsafe_allow_html=True) 
+     
+     # Feature grid 
+     col1, col2, col3, col4 = st.columns(4) 
+     
+     features = [ 
+         ("🔬", "Multi-Tool Verification", "SPIN, Coq, Lean, Prusti, Kani, Creusot"), 
+         ("📐", "State Machine Analysis", "Interactive 3D state space exploration"), 
+         ("📊", "Risk Analytics", "Monte Carlo simulations & health factors"), 
+         ("📜", "Proof Generation", "Formal proof obligations & LTL properties") 
+     ] 
+     
+     for col, (icon, title, desc) in zip([col1, col2, col3, col4], features): 
+         with col: 
+             st.markdown(f""" 
+             <div class="glass-card" style="text-align: center;"> 
+                 <div style="font-size: 2.5rem;">{icon}</div> 
+                 <h4>{title}</h4> 
+                 <p style="color: #888; font-size: 0.85rem;">{desc}</p> 
+             </div> 
+             """, unsafe_allow_html=True)
+
+def notification_system(): 
+     """Toast-style notifications for verification events""" 
+     
+     if "notifications" not in st.session_state: 
+         st.session_state.notifications = [] 
+     
+     def add_notification(message, type="info", duration=5000): 
+         st.session_state.notifications.append({ 
+             "message": message, 
+             "type": type, 
+             "id": datetime.now().timestamp() 
+         }) 
+     
+     # Display notifications 
+     for notification in st.session_state.notifications[:3]: 
+         colors = { 
+             "success": ("#10b981", "#059669"), 
+             "error": ("#ef4444", "#dc2626"), 
+             "warning": ("#f59e0b", "#d97706"), 
+             "info": ("#00ffcc", "#00ccaa") 
+         } 
+         bg, border = colors.get(notification["type"], colors["info"]) 
+         
+         st.markdown(f""" 
+         <div class="notification" style=" 
+             background: {bg}20; 
+             border-left: 4px solid {border}; 
+             padding: 1rem; 
+             margin: 0.5rem 0; 
+             border-radius: 8px; 
+             animation: slideIn 0.3s ease; 
+         "> 
+             {notification["message"]} 
+         </div> 
+         <style> 
+             @keyframes slideIn {{ 
+                 from {{ transform: translateX(-100%); opacity: 0; }} 
+                 to {{ transform: translateX(0); opacity: 1; }} 
+             }} 
+         </style> 
+         """, unsafe_allow_html=True)
 
 def render_3d_state_graph_web3d(state_graph_data, height=500):
     """
@@ -37,13 +314,8 @@ def render_3d_state_graph_web3d(state_graph_data, height=500):
     """
     
     # Convert state graph data to JSON for JavaScript
-    nodes_json = json.dumps(state_graph_data.get('nodes', ['S0', 'S1', 'S2', 'S3']))
-    edges_json = json.dumps(state_graph_data.get('edges', [
-        {'from': 'S0', 'to': 'S1', 'label': 'deposit()'},
-        {'from': 'S1', 'to': 'S2', 'label': 'borrow()'},
-        {'from': 'S2', 'to': 'S3', 'label': 'repay()'},
-        {'from': 'S3', 'to': 'S0', 'label': 'withdraw()'}
-    ]))
+    nodes_json = json.dumps(state_graph_data.get('nodes', []))
+    edges_json = json.dumps(state_graph_data.get('edges', []))
     
     html_code = f"""
     <!DOCTYPE html>
@@ -55,390 +327,323 @@ def render_3d_state_graph_web3d(state_graph_data, height=500):
                 margin: 0;
                 overflow: hidden;
                 background: transparent;
-                font-family: 'Arial', sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            }}
+            #container {{
+                width: 100vw;
+                height: 100vh;
             }}
             #info {{
                 position: absolute;
                 top: 20px;
                 left: 20px;
                 color: #00ffcc;
-                background: rgba(0,0,0,0.7);
-                padding: 10px 20px;
-                border-radius: 8px;
-                border-left: 3px solid #00ffcc;
+                background: rgba(10, 14, 23, 0.8);
+                padding: 12px 20px;
+                border-radius: 12px;
+                border: 1px solid rgba(0, 255, 204, 0.3);
+                backdrop-filter: blur(8px);
                 pointer-events: none;
                 z-index: 100;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             }}
             #controls-hint {{
                 position: absolute;
                 bottom: 20px;
                 left: 20px;
                 color: #888;
-                background: rgba(0,0,0,0.5);
-                padding: 5px 15px;
+                background: rgba(10, 14, 23, 0.6);
+                padding: 6px 16px;
                 border-radius: 20px;
-                font-size: 12px;
+                font-size: 11px;
+                backdrop-filter: blur(4px);
                 pointer-events: none;
                 z-index: 100;
+                letter-spacing: 0.5px;
             }}
             .tooltip {{
                 position: absolute;
                 background: rgba(26, 26, 46, 0.95);
                 color: #00ffcc;
-                padding: 10px;
+                padding: 10px 15px;
                 border-radius: 8px;
-                border: 1px solid #00ffcc;
-                font-size: 14px;
+                border: 1px solid rgba(0, 255, 204, 0.5);
+                font-size: 13px;
                 pointer-events: none;
                 z-index: 200;
                 display: none;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+                box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+                backdrop-filter: blur(10px);
+            }}
+            #error-log {{
+                position: absolute;
+                top: 0;
+                left: 0;
+                color: #ff4444;
+                font-size: 10px;
+                z-index: 1000;
+                background: rgba(0,0,0,0.7);
+                display: none;
             }}
         </style>
     </head>
     <body>
+        <div id="error-log"></div>
         <div id="info">
-            <strong>🔬 3D State Space</strong><br>
-            <span style="font-size: 12px; color: #aaa;">Interactive Visualization</span>
+            <strong style="font-size: 16px; letter-spacing: 1px;">🔬 3D STATE SPACE</strong><br>
+            <span style="font-size: 11px; color: #00ffcc88; text-transform: uppercase;">Real-time Model Visualization</span>
         </div>
         <div id="controls-hint">
-            🖱️ Drag to rotate · Scroll to zoom · Right-click to pan
+            🖱️ DRAG TO ROTATE · SCROLL TO ZOOM · RIGHT-CLICK TO PAN
         </div>
         <div id="tooltip" class="tooltip"></div>
+        <div id="container"></div>
         
+        <!-- Use specific CDN versions and handle loading order -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
         
         <script>
+            // Helper to log errors to a hidden div for debugging if needed
+            function logError(msg) {{
+                const errDiv = document.getElementById('error-log');
+                errDiv.style.display = 'block';
+                errDiv.innerHTML += msg + '<br>';
+                console.error(msg);
+            }}
+
             // Data from Python
             const nodesData = {nodes_json};
             const edgesData = {edges_json};
             
-            // Initialize scene
-            const scene = new THREE.Scene();
-            scene.background = null; // Transparent
-            
-            // Camera
-            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(8, 6, 12);
-            camera.lookAt(0, 0, 0);
-            
-            // Renderers
-            const renderer = new THREE.WebGLRenderer({{ antialias: true, alpha: true }});
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            document.body.appendChild(renderer.domElement);
-            
-            const labelRenderer = new THREE.CSS2DRenderer();
-            labelRenderer.setSize(window.innerWidth, window.innerHeight);
-            labelRenderer.domElement.style.position = 'absolute';
-            labelRenderer.domElement.style.top = '0px';
-            labelRenderer.domElement.style.left = '0px';
-            labelRenderer.domElement.style.pointerEvents = 'none';
-            document.body.appendChild(labelRenderer.domElement);
-            
-            // Controls
-            const controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            controls.autoRotate = true;
-            controls.autoRotateSpeed = 1.0;
-            controls.enableZoom = true;
-            controls.enablePan = true;
-            controls.target.set(0, 0, 0);
-            
-            // Lighting
-            const ambientLight = new THREE.AmbientLight(0x404060);
-            scene.add(ambientLight);
-            
-            const dirLight1 = new THREE.DirectionalLight(0x00ffcc, 1);
-            dirLight1.position.set(2, 5, 3);
-            dirLight1.castShadow = true;
-            dirLight1.shadow.mapSize.width = 1024;
-            dirLight1.shadow.mapSize.height = 1024;
-            scene.add(dirLight1);
-            
-            const dirLight2 = new THREE.DirectionalLight(0xff00cc, 0.5);
-            dirLight2.position.set(-3, 2, -2);
-            scene.add(dirLight2);
-            
-            const pointLight1 = new THREE.PointLight(0x00ffcc, 0.5, 20);
-            pointLight1.position.set(0, 3, 0);
-            scene.add(pointLight1);
-            
-            const pointLight2 = new THREE.PointLight(0xffa500, 0.3, 20);
-            pointLight2.position.set(5, 1, 5);
-            scene.add(pointLight2);
-            
-            // Background grid and sphere
-            const gridHelper = new THREE.GridHelper(20, 20, 0x00ffcc, 0x333366);
-            gridHelper.position.y = -2;
-            scene.add(gridHelper);
-            
-            // Add a transparent sphere for environment effect
-            const sphereGeo = new THREE.SphereGeometry(8, 32, 16);
-            const sphereMat = new THREE.MeshPhongMaterial({{
-                color: 0x1a1a2e,
-                transparent: true,
-                opacity: 0.1,
-                wireframe: true
-            }});
-            const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-            scene.add(sphere);
-            
-            // Add floating particles for ambiance
-            const particlesGeo = new THREE.BufferGeometry();
-            const particlesCount = 500;
-            const posArray = new Float32Array(particlesCount * 3);
-            for(let i = 0; i < particlesCount * 3; i += 3) {{
-                posArray[i] = (Math.random() - 0.5) * 30;
-                posArray[i+1] = (Math.random() - 0.5) * 30;
-                posArray[i+2] = (Math.random() - 0.5) * 30;
-            }}
-            particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-            const particlesMat = new THREE.PointsMaterial({{
-                size: 0.03,
-                color: 0x00ffcc,
-                transparent: true,
-                opacity: 0.6
-            }});
-            const particles = new THREE.Points(particlesGeo, particlesMat);
-            scene.add(particles);
-            
-            // Store node objects for interaction
-            const nodeMeshes = [];
-            const nodePositions = {{}};
-            
-            // Calculate positions in a 3D circle/spiral
-            const nodeCount = nodesData.length;
-            nodesData.forEach((nodeName, index) => {{
-                // Use a larger, more visible distribution
-                const angle = (index / nodeCount) * Math.PI * 2;
-                const radius = 6;
-                const height = Math.sin(angle * 3) * 3;
-                
-                const x = Math.cos(angle) * radius;
-                const y = height;
-                const z = Math.sin(angle) * radius;
-                
-                nodePositions[nodeName] = {{ x, y, z }};
-                
-                // Create node sphere - larger and more emissive
-                const sphereGeo = new THREE.SphereGeometry(0.6, 32, 32);
-                const sphereMat = new THREE.MeshStandardMaterial({{
-                    color: 0x00ffcc,
-                    emissive: 0x00ffcc,
-                    emissiveIntensity: 0.8,
-                    roughness: 0.1,
-                    metalness: 0.8,
-                    transparent: true,
-                    opacity: 1.0
-                }});
-                const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-                sphere.castShadow = true;
-                sphere.receiveShadow = true;
-                sphere.position.set(x, y, z);
-                sphere.userData = {{ name: nodeName, type: 'node' }};
-                scene.add(sphere);
-                nodeMeshes.push(sphere);
-                
-                // Add glow effect - larger and brighter
-                const glowGeo = new THREE.SphereGeometry(0.9, 16, 16);
-                const glowMat = new THREE.MeshBasicMaterial({{
-                    color: 0x00ffcc,
-                    transparent: true,
-                    opacity: 0.3
-                }});
-                const glow = new THREE.Mesh(glowGeo, glowMat);
-                glow.position.set(x, y, z);
-                scene.add(glow);
-                
-                // Add PERMANENT label
-                const div = document.createElement('div');
-                div.textContent = nodeName;
-                div.style.color = '#ffffff';
-                div.style.fontSize = '14px';
-                div.style.fontWeight = 'bold';
-                div.style.textShadow = '0 0 10px #00ffcc, 0 0 20px #00ffcc';
-                div.style.background = 'rgba(0, 255, 204, 0.3)';
-                div.style.padding = '5px 15px';
-                div.style.borderRadius = '20px';
-                div.style.border = '2px solid #00ffcc';
-                div.style.pointerEvents = 'none';
-                div.style.whiteSpace = 'nowrap';
-                
-                const label = new THREE.CSS2DObject(div);
-                label.position.set(x, y + 1.2, z);
-                scene.add(label);
-            }});
-            
-            // Create edges
-            edgesData.forEach((edge, index) => {{
-                const fromPos = nodePositions[edge.from];
-                const toPos = nodePositions[edge.to];
-                
-                if (fromPos && toPos) {{
-                    // Create curved line
-                    const points = [];
-                    const midX = (fromPos.x + toPos.x) / 2;
-                    const midY = (fromPos.y + toPos.y) / 2 + 0.5;
-                    const midZ = (fromPos.z + toPos.z) / 2;
-                    
-                    points.push(new THREE.Vector3(fromPos.x, fromPos.y, fromPos.z));
-                    points.push(new THREE.Vector3(midX, midY, midZ));
-                    points.push(new THREE.Vector3(toPos.x, toPos.y, toPos.z));
-                    
-                    const curve = new THREE.CatmullRomCurve3(points);
-                    const tubeGeo = new THREE.TubeGeometry(curve, 20, 0.08, 8, false);
-                    const tubeMat = new THREE.MeshStandardMaterial({{
-                        color: 0x00ffcc,
-                        emissive: 0x00ffcc,
-                        emissiveIntensity: 0.5,
-                        transparent: true,
-                        opacity: 0.9
+            // Wait for THREE to be loaded
+            function init() {{
+                if (typeof THREE === 'undefined') {{
+                    setTimeout(init, 100);
+                    return;
+                }}
+
+                // Load dependent scripts
+                const loadScript = (url) => {{
+                    return new Promise((resolve, reject) => {{
+                        const script = document.createElement('script');
+                        script.src = url;
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
                     }});
-                    const tube = new THREE.Mesh(tubeGeo, tubeMat);
-                    tube.castShadow = true;
-                    tube.receiveShadow = true;
-                    scene.add(tube);
+                }};
+
+                Promise.all([
+                    loadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'),
+                    loadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js')
+                ]).then(() => {{
+                    startVisualization();
+                }}).catch(err => {{
+                    logError('Failed to load Three.js extensions: ' + err);
+                }});
+            }}
+
+            function startVisualization() {{
+                try {{
+                    // Initialize scene
+                    const scene = new THREE.Scene();
+                    scene.background = null; 
                     
-                    // Add arrow at the end
-                    const direction = new THREE.Vector3().subVectors(
-                        new THREE.Vector3(toPos.x, toPos.y, toPos.z),
-                        new THREE.Vector3(midX, midY, midZ)
-                    ).normalize();
+                    const container = document.getElementById('container');
+                    const width = container.clientWidth;
+                    const height = container.clientHeight;
+
+                    // Camera
+                    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+                    camera.position.set(10, 8, 15);
                     
-                    const arrowHelper = new THREE.ArrowHelper(
-                        direction,
-                        new THREE.Vector3(toPos.x - direction.x * 0.5, 
-                                        toPos.y - direction.y * 0.5, 
-                                        toPos.z - direction.z * 0.5),
-                        0.3,
-                        0x00ffcc,
-                        0.15,
-                        0.1
-                    );
-                    scene.add(arrowHelper);
+                    // Renderers
+                    const renderer = new THREE.WebGLRenderer({{ antialias: true, alpha: true }});
+                    renderer.setSize(width, height);
+                    renderer.setPixelRatio(window.devicePixelRatio);
+                    renderer.shadowMap.enabled = true;
+                    container.appendChild(renderer.domElement);
                     
-                    // Add edge label if exists
-                    if (edge.label) {{
+                    const labelRenderer = new THREE.CSS2DRenderer();
+                    labelRenderer.setSize(width, height);
+                    labelRenderer.domElement.style.position = 'absolute';
+                    labelRenderer.domElement.style.top = '0px';
+                    labelRenderer.domElement.style.pointerEvents = 'none';
+                    container.appendChild(labelRenderer.domElement);
+                    
+                    // Controls
+                    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+                    controls.enableDamping = true;
+                    controls.dampingFactor = 0.05;
+                    controls.autoRotate = true;
+                    controls.autoRotateSpeed = 0.5;
+                    
+                    // Lighting
+                    scene.add(new THREE.AmbientLight(0x404060));
+                    
+                    const dirLight = new THREE.DirectionalLight(0x00ffcc, 1);
+                    dirLight.position.set(5, 10, 7);
+                    dirLight.castShadow = true;
+                    scene.add(dirLight);
+                    
+                    const pointLight = new THREE.PointLight(0xff00cc, 1, 20);
+                    pointLight.position.set(-5, 5, -5);
+                    scene.add(pointLight);
+                    
+                    // Background grid
+                    const gridHelper = new THREE.GridHelper(30, 30, 0x00ffcc, 0x1a1a2e);
+                    gridHelper.position.y = -5;
+                    gridHelper.material.opacity = 0.2;
+                    gridHelper.material.transparent = true;
+                    scene.add(gridHelper);
+                    
+                    // Particles
+                    const particlesGeo = new THREE.BufferGeometry();
+                    const particlesCount = 800;
+                    const posArray = new Float32Array(particlesCount * 3);
+                    for(let i = 0; i < particlesCount * 3; i++) {{
+                        posArray[i] = (Math.random() - 0.5) * 40;
+                    }}
+                    particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+                    const particlesMat = new THREE.PointsMaterial({{ size: 0.05, color: 0x00ffcc, transparent: true, opacity: 0.4 }});
+                    const particles = new THREE.Points(particlesGeo, particlesMat);
+                    scene.add(particles);
+                    
+                    // Store objects
+                    const nodeMeshes = [];
+                    const nodePositions = {{}};
+                    
+                    // Calculate positions
+                    const actualNodes = nodesData.length > 0 ? nodesData : ['S0', 'S1', 'S2', 'S3'];
+                    actualNodes.forEach((nodeName, index) => {{
+                        const angle = (index / actualNodes.length) * Math.PI * 2;
+                        const radius = 8;
+                        const y = Math.sin(index * 0.5) * 4;
+                        const x = Math.cos(angle) * radius;
+                        const z = Math.sin(angle) * radius;
+                        
+                        nodePositions[nodeName] = new THREE.Vector3(x, y, z);
+                        
+                        // Node Sphere with color coding
+                        let color = 0x00ffcc; // Default (States)
+                        let emissive = 0x00ffcc;
+                        
+                        if (nodeName.startsWith('ltl_')) {{
+                            color = 0xff00cc; // Pink for LTL
+                            emissive = 0xff00cc;
+                        }} else if (nodeName.startsWith('var_')) {{
+                            color = 0xffa500; // Orange for Variables
+                            emissive = 0xffa500;
+                        }} else if (nodeName === 'pass' || nodeName.endsWith('_init')) {{
+                            color = 0x00ff00; // Green for Start/Pass
+                            emissive = 0x00ff00;
+                        }} else if (nodeName === 'fail') {{
+                            color = 0xff4444; // Red for Fail
+                            emissive = 0xff4444;
+                        }} else if (['start', 'verify', 'check'].includes(nodeName)) {{
+                            color = 0x8888ff; // Blue for Flow
+                            emissive = 0x8888ff;
+                        }}
+
+                        const sphere = new THREE.Mesh(
+                            new THREE.SphereGeometry(0.5, 32, 32),
+                            new THREE.MeshStandardMaterial({{ 
+                                color: color, 
+                                emissive: emissive, 
+                                emissiveIntensity: 0.5,
+                                metalness: 0.8,
+                                roughness: 0.2
+                            }})
+                        );
+                        sphere.position.set(x, y, z);
+                        sphere.userData = {{ name: nodeName }};
+                        scene.add(sphere);
+                        nodeMeshes.push(sphere);
+                        
+                        // Label
                         const div = document.createElement('div');
-                        div.textContent = edge.label;
-                        div.style.color = '#ffa500';
-                        div.style.fontSize = '11px';
-                        div.style.background = 'rgba(0,0,0,0.6)';
+                        div.textContent = nodeName;
+                        div.style.color = '#ffffff';
+                        div.style.fontSize = '12px';
+                        div.style.background = 'rgba(0, 255, 204, 0.2)';
                         div.style.padding = '2px 8px';
-                        div.style.borderRadius = '12px';
-                        div.style.border = '1px solid #ffa500';
+                        div.style.borderRadius = '10px';
+                        div.style.border = '1px solid #00ffcc';
+                        div.style.backdropFilter = 'blur(4px)';
                         
                         const label = new THREE.CSS2DObject(div);
-                        label.position.set(midX, midY + 0.3, midZ);
+                        label.position.set(x, y + 0.8, z);
                         scene.add(label);
+                    }});
+                    
+                    // Edges
+                    edgesData.forEach(edge => {{
+                        const fromPos = nodePositions[edge.from];
+                        const toPos = nodePositions[edge.to];
+                        
+                        if (fromPos && toPos) {{
+                            const curve = new THREE.CatmullRomCurve3([
+                                fromPos,
+                                new THREE.Vector3().addVectors(fromPos, toPos).multiplyScalar(0.5).add(new THREE.Vector3(0, 1, 0)),
+                                toPos
+                            ]);
+                            
+                            const tube = new THREE.Mesh(
+                                new THREE.TubeGeometry(curve, 20, 0.05, 8, false),
+                                new THREE.MeshStandardMaterial({{ color: 0x00ffcc, transparent: true, opacity: 0.6 }})
+                            );
+                            scene.add(tube);
+                        }}
+                    }});
+                    
+                    // Raycaster
+                    const raycaster = new THREE.Raycaster();
+                    const mouse = new THREE.Vector2();
+                    const tooltip = document.getElementById('tooltip');
+                    
+                    window.addEventListener('mousemove', (event) => {{
+                        const rect = container.getBoundingClientRect();
+                        mouse.x = ((event.clientX - rect.left) / width) * 2 - 1;
+                        mouse.y = -((event.clientY - rect.top) / height) * 2 + 1;
+                        
+                        raycaster.setFromCamera(mouse, camera);
+                        const intersects = raycaster.intersectObjects(nodeMeshes);
+                        
+                        if (intersects.length > 0) {{
+                            const node = intersects[0].object;
+                            tooltip.style.display = 'block';
+                            tooltip.style.left = event.clientX + 10 + 'px';
+                            tooltip.style.top = event.clientY - 10 + 'px';
+                            tooltip.innerHTML = `<strong>${{node.userData.name}}</strong>`;
+                        }} else {{
+                            tooltip.style.display = 'none';
+                        }}
+                    }});
+                    
+                    function animate() {{
+                        requestAnimationFrame(animate);
+                        controls.update();
+                        particles.rotation.y += 0.001;
+                        renderer.render(scene, camera);
+                        labelRenderer.render(scene, camera);
                     }}
+                    animate();
+                    
+                    window.addEventListener('resize', () => {{
+                        const w = container.clientWidth;
+                        const h = container.clientHeight;
+                        camera.aspect = w / h;
+                        camera.updateProjectionMatrix();
+                        renderer.setSize(w, h);
+                        labelRenderer.setSize(w, h);
+                    }});
+
+                }} catch (e) {{
+                    logError('Runtime error: ' + e.message);
                 }}
-            }});
-            
-            // Add central glowing core
-            const coreGeo = new THREE.IcosahedronGeometry(0.3, 2);
-            const coreMat = new THREE.MeshStandardMaterial({{
-                color: 0x00ffcc,
-                emissive: 0x004433,
-                roughness: 0.2,
-                metalness: 0.3
-            }});
-            const core = new THREE.Mesh(coreGeo, coreMat);
-            core.position.set(0, 0, 0);
-            core.castShadow = true;
-            scene.add(core);
-            
-            // Add rotating rings around center
-            const ringGeo = new THREE.TorusGeometry(1.5, 0.02, 16, 100);
-            const ringMat = new THREE.MeshStandardMaterial({{
-                color: 0x00ffcc,
-                emissive: 0x004433,
-                transparent: true,
-                opacity: 0.4
-            }});
-            const ring1 = new THREE.Mesh(ringGeo, ringMat);
-            ring1.rotation.x = Math.PI / 2;
-            ring1.rotation.z = 0.3;
-            scene.add(ring1);
-            
-            const ring2 = new THREE.Mesh(ringGeo, ringMat);
-            ring2.rotation.y = 0.8;
-            ring2.rotation.x = 0.5;
-            ring2.scale.setScalar(1.2);
-            scene.add(ring2);
-            
-            // Raycaster for interaction
-            const raycaster = new THREE.Raycaster();
-            const mouse = new THREE.Vector2();
-            const tooltip = document.getElementById('tooltip');
-            
-            renderer.domElement.addEventListener('mousemove', (event) => {{
-                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-                
-                raycaster.setFromCamera(mouse, camera);
-                const intersects = raycaster.intersectObjects(nodeMeshes);
-                
-                if (intersects.length > 0) {{
-                    const node = intersects[0].object;
-                    tooltip.style.display = 'block';
-                    tooltip.style.left = event.clientX + 15 + 'px';
-                    tooltip.style.top = event.clientY - 30 + 'px';
-                    tooltip.innerHTML = `
-                        <strong>⚡ ${{node.userData.name}}</strong><br>
-                        <span style="color: #aaa;">State Node</span>
-                    `;
-                }} else {{
-                    tooltip.style.display = 'none';
-                }}
-            }});
-            
-            // Animation loop
-            function animate() {{
-                requestAnimationFrame(animate);
-                
-                controls.update();
-                
-                // Animate particles
-                particles.rotation.y += 0.0005;
-                particles.rotation.x += 0.0002;
-                
-                // Animate rings
-                ring1.rotation.z += 0.005;
-                ring2.rotation.x += 0.003;
-                ring2.rotation.y += 0.002;
-                
-                // Pulse core
-                const time = Date.now() * 0.001;
-                core.scale.setScalar(1 + Math.sin(time * 3) * 0.1);
-                
-                renderer.render(scene, camera);
-                labelRenderer.render(scene, camera);
             }}
-            
-            animate();
-            
-            // Handle window resize
-            window.addEventListener('resize', () => {{
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                labelRenderer.setSize(window.innerWidth, window.innerHeight);
-            }});
-            
-            // Auto-rotate toggle on user interaction
-            renderer.domElement.addEventListener('mousedown', () => {{
-                controls.autoRotate = false;
-            }});
-            renderer.domElement.addEventListener('mouseup', () => {{
-                setTimeout(() => {{ controls.autoRotate = true; }}, 3000);
-            }});
+
+            init();
         </script>
     </body>
     </html>
@@ -467,12 +672,131 @@ except ImportError:
             return None
 
 # Page config
-st.set_page_config(
-    page_title="DeFi Guardian | Formal Verification Platform", 
+st.set_page_config( 
+    page_title="DeFi Guardian", 
     page_icon="🛡️", 
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+    layout="wide", 
+    initial_sidebar_state="expanded" 
+) 
+ 
+# Modern glassmorphism styling 
+st.markdown(""" 
+<style> 
+    /* Glassmorphism cards */ 
+    .glass-card { 
+        background: rgba(26, 26, 46, 0.7); 
+        backdrop-filter: blur(10px); 
+        border: 1px solid rgba(0, 255, 204, 0.2); 
+        border-radius: 16px; 
+        padding: 1.5rem; 
+        transition: all 0.3s ease; 
+    } 
+     
+    .glass-card:hover { 
+        transform: translateY(-4px); 
+        border-color: rgba(0, 255, 204, 0.5); 
+        box-shadow: 0 8px 32px rgba(0, 255, 204, 0.1); 
+    } 
+     
+    /* Animated gradient buttons */ 
+    .gradient-btn { 
+        background: linear-gradient(135deg, #00ffcc 0%, #00ccff 100%); 
+        border: none; 
+        border-radius: 12px; 
+        padding: 12px 24px; 
+        font-weight: 600; 
+        color: #0a0e17; 
+        transition: all 0.3s ease; 
+        position: relative; 
+        overflow: hidden; 
+    } 
+     
+    .gradient-btn::before { 
+        content: ''; 
+        position: absolute; 
+        top: 0; 
+        left: -100%; 
+        width: 100%; 
+        height: 100%; 
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); 
+        transition: left 0.5s ease; 
+    } 
+     
+    .gradient-btn:hover::before { 
+        left: 100%; 
+    } 
+     
+    /* Pulse animation for critical alerts */ 
+    @keyframes pulse-glow { 
+        0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); } 
+        50% { box-shadow: 0 0 40px rgba(239, 68, 68, 0.6); } 
+    } 
+     
+    .critical-alert { 
+        animation: pulse-glow 2s ease-in-out infinite; 
+    } 
+     
+    /* Status indicator dots */ 
+    .status-dot { 
+        display: inline-block; 
+        width: 10px; 
+        height: 10px; 
+        border-radius: 50%; 
+        margin-right: 8px; 
+    } 
+     
+    .status-dot.success { background: #10b981; box-shadow: 0 0 10px #10b981; } 
+    .status-dot.warning { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; } 
+    .status-dot.error { background: #ef4444; box-shadow: 0 0 10px #ef4444; } 
+    .status-dot.idle { background: #6b7280; } 
+     
+    /* Tool status cards */ 
+    .tool-card { 
+        background: linear-gradient(135deg, rgba(26, 26, 46, 0.9), rgba(20, 20, 40, 0.9)); 
+        border-radius: 12px; 
+        padding: 1rem; 
+        border-left: 3px solid; 
+        transition: all 0.2s ease; 
+    } 
+     
+    .tool-card.spin { border-color: #00ffcc; } 
+    .tool-card.coq { border-color: #9b59b6; } 
+    .tool-card.lean { border-color: #e67e22; } 
+    .tool-card.prusti { border-color: #e74c3c; } 
+    .tool-card.creusot { border-color: #16a085; } 
+    .tool-card.kani { border-color: #8e44ad; } 
+</style> 
+""", unsafe_allow_html=True) 
+ 
+# Navigation cards 
+col1, col2, col3 = st.columns(3) 
+ 
+with col1: 
+    st.markdown(""" 
+    <div class="glass-card" style="cursor: pointer;" onclick="window.location.href='/Verification'"> 
+        <h3>🔬 Verification Suite</h3> 
+        <p>Run SPIN, Coq, Lean, Prusti, Kani, and Creusot verifications</p> 
+        <span style="color: #00ffcc;">→ Launch</span> 
+    </div> 
+    """, unsafe_allow_html=True) 
+ 
+with col2: 
+    st.markdown(""" 
+    <div class="glass-card"> 
+        <h3>📐 State Machine Explorer</h3> 
+        <p>Interactive 3D visualization of state spaces and transitions</p> 
+        <span style="color: #00ffcc;">→ Launch</span> 
+    </div> 
+    """, unsafe_allow_html=True) 
+ 
+with col3: 
+    st.markdown(""" 
+    <div class="glass-card"> 
+        <h3>📊 Analytics Dashboard</h3> 
+        <p>Monte Carlo simulations, risk metrics, and verification scoring</p> 
+        <span style="color: #00ffcc;">→ Launch</span> 
+    </div> 
+    """, unsafe_allow_html=True)
 
 def load_live_verification():
     """Load verification status with timestamp"""
@@ -1495,11 +1819,100 @@ if pml_file and os.path.exists(pml_file):
                 st.warning(f"Could not generate diagram: {state_machine.get('error', 'Check PML format')}")
     
     if st.session_state.get('diagram_generated', False) and st.session_state.diagram_path and os.path.exists(st.session_state.diagram_path):
-        st.markdown('<div class="diagram-container">', unsafe_allow_html=True)
-        image = Image.open(st.session_state.diagram_path)
-        st.image(image, use_container_width=True)
-        st.markdown(f'<div style="text-align: center; color: #666; margin-top: 0.5rem;">Model: {os.path.basename(pml_file)} | Layout: {layout_engine} | Direction: {"Top-Down" if rank_dir == "TB" else "Left-Right"} | Type: {state_type}</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        # 2D Visualization
+        if viz_mode in ["2D (Static)", "Hybrid View"]:
+            st.markdown('<div class="diagram-container">', unsafe_allow_html=True)
+            image = Image.open(st.session_state.diagram_path)
+            st.image(image, use_container_width=True)
+            st.markdown(f'<div style="text-align: center; color: #666; margin-top: 0.5rem;">Model: {os.path.basename(pml_file)} | Layout: {layout_engine} | Direction: {"Top-Down" if rank_dir == "TB" else "Left-Right"} | Type: {state_type}</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        # 3D Visualization
+        if viz_mode in ["3D (Interactive)", "Hybrid View"]:
+            if st.session_state.state_machine:
+                sm = st.session_state.state_machine
+                
+                # Prepare data for 3D visualization mirroring the 2D diagram
+                nodes = []
+                edges = []
+                
+                # 1. Add processes and their virtual states (Initial, Running, End)
+                for proc in sm.get('processes', []):
+                    if state_type == 'full':
+                        p_init, p_run, p_end = f"{proc}_init", f"{proc}_run", f"{proc}_end"
+                        nodes.extend([p_init, p_run, p_end])
+                        edges.append({'from': p_init, 'to': p_run, 'label': 'start'})
+                        edges.append({'from': p_run, 'to': p_end, 'label': 'complete'})
+                    elif state_type == 'minimal':
+                        nodes.append(f"{proc}_main")
+                    else: # detailed
+                        nodes.append(f"{proc}_init")
+                        nodes.append(f"{proc}_run")
+                        nodes.append(f"{proc}_end")
+                
+                # 2. Add raw states from PML labels
+                pml_states = sm.get('states', [])
+                for s in pml_states:
+                    if s not in nodes: nodes.append(s)
+                
+                # 3. Add LTL properties
+                for prop in sm.get('ltl_properties', [])[:5]:
+                    prop_id = f"ltl_{prop['name']}"
+                    nodes.append(prop_id)
+                
+                # 4. Add state variables
+                for var in sm.get('state_vars', [])[:8]:
+                    var_id = f"var_{var['name']}"
+                    nodes.append(var_id)
+                
+                # 5. Add verification flow
+                flow = ['start', 'verify', 'check', 'pass', 'fail']
+                nodes.extend(flow)
+                edges.append({'from': 'start', 'to': 'verify', 'label': ''})
+                edges.append({'from': 'verify', 'to': 'check', 'label': ''})
+                edges.append({'from': 'check', 'to': 'pass', 'label': 'Verified'})
+                edges.append({'from': 'check', 'to': 'fail', 'label': 'Counterexample'})
+                
+                # 6. Add transitions
+                for t in sm.get('transitions', [])[:15]:
+                    f_node = t.get('from', 'S0')
+                    t_node = t.get('to', 'S1')
+                    edges.append({
+                        'from': f_node, 
+                        'to': t_node, 
+                        'label': t.get('condition', '')[:15]
+                    })
+                    if f_node not in nodes: nodes.append(f_node)
+                    if t_node not in nodes: nodes.append(t_node)
+                
+                # Dedup nodes while preserving order
+                unique_nodes = []
+                for n in nodes:
+                    if n not in unique_nodes: unique_nodes.append(n)
+                
+                # Use a dedicated container with stylable_container if possible
+                try:
+                    with stylable_container(
+                        key="web3d_container",
+                        css_styles="""
+                            {
+                                background: radial-gradient(circle at center, #1a1a2e 0%, #0a0a0f 100%);
+                                border-radius: 16px;
+                                border: 2px solid rgba(0, 255, 204, 0.3);
+                                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+                                overflow: hidden;
+                                margin-bottom: 2rem;
+                            }
+                        """
+                    ):
+                        render_3d_state_graph_web3d({'nodes': unique_nodes, 'edges': edges}, height=600)
+                except:
+                    # Fallback to standard container
+                    st.markdown('<div class="web3d-container" style="height: 600px; margin-bottom: 2rem;">', unsafe_allow_html=True)
+                    render_3d_state_graph_web3d({'nodes': unique_nodes, 'edges': edges}, height=600)
+                    st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                st.info("No state machine data available for 3D view.")
         
         # Download buttons
         col1, col2 = st.columns(2)
