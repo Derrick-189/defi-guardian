@@ -745,9 +745,27 @@ try:
 except ImportError:
     PluginManager = None
 
+class DeFiDarkTheme:
+    """Design constants for the DeFi Dark professional theme"""
+    BG = "#0a0a0f"
+    PANEL_BG = "#161b22"
+    ACCENT = "#00ffcc"
+    ACCENT_DARK = "#00ccaa"
+    SECONDARY = "#ff00cc"
+    TERMINAL_BG = "#0d1117"
+    TEXT_MAIN = "#e6edf3"
+    TEXT_DIM = "#8b949e"
+    BORDER = "#30363d"
+    SUCCESS = "#238636"
+    ERROR = "#da3633"
+    WARNING = "#d29922"
+
 class FormalVerifierApp(ctk.CTk):
     def __init__(self):
         super().__init__()
+        
+        # Initialize theme constants
+        self.theme = DeFiDarkTheme()
         
         # Initialize plugin system
         if PluginManager:
@@ -758,13 +776,13 @@ class FormalVerifierApp(ctk.CTk):
         
         # Configure window
         ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("green")
         self.title("DeFi Guardian - Formal Verification Suite")
         self.geometry("1500x950")
+        self.configure(fg_color=self.theme.BG)
         
         # Configure grid - sidebar layout
-        self.sidebar_expanded_width = 460
-        self.sidebar_collapsed_width = 320
+        self.sidebar_expanded_width = 380
+        self.sidebar_collapsed_width = 80
         self.sidebar_is_expanded = True
         self.grid_columnconfigure(0, weight=0, minsize=self.sidebar_expanded_width)
         self.grid_columnconfigure(1, weight=1)
@@ -784,106 +802,93 @@ class FormalVerifierApp(ctk.CTk):
         # Create sidebar
         self.create_sidebar()
         
-        # After creating all widgets
-        self.after(100, self.ensure_sidebar_visibility)
-        
-        # ==================== MAIN EDITOR AREA ====================
-        self.main_frame = ctk.CTkFrame(self, corner_radius=15, fg_color="#1e1e1e")
-        self.main_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
+        # ==================== MAIN CONTENT AREA ====================
+        self.main_frame = ctk.CTkFrame(self, corner_radius=0, fg_color=self.theme.BG)
+        self.main_frame.grid(row=0, column=1, sticky="nsew")
         self.main_frame.grid_columnconfigure(0, weight=1)
-        self.main_frame.grid_rowconfigure(0, weight=1)
         
         # Configure main frame for vertical layout (70% top, 30% bottom)
         self.main_frame.grid_rowconfigure(0, weight=7)
         self.main_frame.grid_rowconfigure(1, weight=3)
         
-        # ==================== TOP PANE: CODE EDITOR (70%) ====================
-        self.top_frame = ctk.CTkFrame(self.main_frame, fg_color="#252526", corner_radius=8)
-        self.top_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=(10, 5))
+        # ==================== TOP PANE: CODE EDITOR ====================
+        self.top_panel = ctk.CTkFrame(self.main_frame, fg_color=self.theme.PANEL_BG, corner_radius=12, border_width=1, border_color=self.theme.BORDER)
+        self.top_panel.grid(row=0, column=0, sticky="nsew", padx=20, pady=(20, 10))
         
         # Editor tabview
-        self.editor_tabs = ctk.CTkTabview(self.top_frame, segmented_button_fg_color="#1e1e1e")
-        self.editor_tabs.pack(fill="both", expand=True, padx=5, pady=5)
+        self.editor_tabs = ctk.CTkTabview(
+            self.top_panel, 
+            segmented_button_fg_color=self.theme.TERMINAL_BG,
+            segmented_button_selected_color=self.theme.ACCENT,
+            segmented_button_selected_hover_color=self.theme.ACCENT_DARK,
+            segmented_button_unselected_color=self.theme.TERMINAL_BG,
+            text_color=self.theme.TEXT_MAIN
+        )
+        self.editor_tabs.pack(fill="both", expand=True, padx=15, pady=10)
         
         # Create tabs
         self.editor_tabs.add("Source")
         self.editor_tabs.add("Translated Promela")
-        self.editor_tabs.add("Problems")
-        
-        # Configure tab appearance
-        self.editor_tabs._segmented_button.configure(
-            fg_color="#2d2d30",
-            selected_color="#094771",
-            selected_hover_color="#007acc",
-            unselected_color="#2d2d30",
-            text_color="#cccccc",
-            text_color_disabled="#666666"
-        )
+        self.editor_tabs.add("Audit Problems")
         
         # Source editor tab
         self.source_editor = ctk.CTkTextbox(
             self.editor_tabs.tab("Source"),
-            font=("Consolas", 12),
-            wrap="word",
-            fg_color="#1e1e1e",
-            text_color="#cccccc",
+            font=("Fira Code", 13),
+            wrap="none",
+            fg_color=self.theme.BG,
+            text_color=self.theme.TEXT_MAIN,
             border_width=0
         )
-        self.source_editor.pack(fill="both", expand=True, padx=5, pady=5)
+        self.source_editor.pack(fill="both", expand=True, padx=2, pady=2)
         
         # Translated Promela tab
         self.translated_editor = ctk.CTkTextbox(
             self.editor_tabs.tab("Translated Promela"),
-            font=("Consolas", 12),
-            wrap="word",
-            fg_color="#1e1e1e",
-            text_color="#cccccc",
+            font=("Fira Code", 13),
+            wrap="none",
+            fg_color=self.theme.BG,
+            text_color=self.theme.ACCENT,
             border_width=0
         )
-        self.translated_editor.pack(fill="both", expand=True, padx=5, pady=5)
+        self.translated_editor.pack(fill="both", expand=True, padx=2, pady=2)
         
-        # Problems tab (listview style)
+        # Problems tab
         self.problems_text = ctk.CTkTextbox(
-            self.editor_tabs.tab("Problems"),
-            font=("Consolas", 11),
+            self.editor_tabs.tab("Audit Problems"),
+            font=("Segoe UI", 12),
             wrap="word",
-            fg_color="#1e1e1e",
-            text_color="#cccccc",
+            fg_color=self.theme.BG,
+            text_color=self.theme.ERROR,
             border_width=0
         )
-        self.problems_text.pack(fill="both", expand=True, padx=5, pady=5)
+        self.problems_text.pack(fill="both", expand=True, padx=2, pady=2)
         
-        # ==================== BOTTOM PANE: TERMINAL (30%) ====================
-        self.bottom_frame = ctk.CTkFrame(self.main_frame, fg_color="#252526", corner_radius=8)
-        self.bottom_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(5, 10))
+        # ==================== BOTTOM PANE: TERMINAL ====================
+        self.bottom_panel = ctk.CTkFrame(self.main_frame, fg_color=self.theme.TERMINAL_BG, corner_radius=12, border_width=1, border_color=self.theme.BORDER)
+        self.bottom_panel.grid(row=1, column=0, sticky="nsew", padx=20, pady=(10, 20))
         
-        # Terminal tabview
-        self.terminal_tabs = ctk.CTkTabview(self.bottom_frame, segmented_button_fg_color="#1e1e1e")
-        self.terminal_tabs.pack(fill="both", expand=True, padx=5, pady=5)
+        # Terminal Header
+        self.term_header = ctk.CTkFrame(self.bottom_panel, fg_color="transparent", height=30)
+        self.term_header.pack(fill="x", padx=15, pady=(10, 0))
         
-        # Create single unified terminal tab
-        self.terminal_tabs.add("Verification Console")
+        ctk.CTkLabel(
+            self.term_header, 
+            text=">_ VERIFICATION CONSOLE", 
+            font=ctk.CTkFont(family="Fira Code", size=11, weight="bold"),
+            text_color=self.theme.ACCENT
+        ).pack(side="left")
         
-        # Configure terminal tab appearance
-        self.terminal_tabs._segmented_button.configure(
-            fg_color="#2d2d30",
-            selected_color="#094771",
-            selected_hover_color="#007acc",
-            unselected_color="#2d2d30",
-            text_color="#cccccc",
-            text_color_disabled="#666666"
-        )
-        
-        # Unified Verification Console terminal
+        # Console terminal
         self.console_widget = ctk.CTkTextbox(
-            self.terminal_tabs.tab("Verification Console"),
-            font=("Consolas", 11),
+            self.bottom_panel,
+            font=("Fira Code", 11),
             wrap="word",
-            fg_color="#0c0c0c",
-            text_color="#00ff00",
+            fg_color="transparent",
+            text_color=self.theme.TEXT_MAIN,
             border_width=0
         )
-        self.console_widget.pack(fill="both", expand=True, padx=5, pady=5)
+        self.console_widget.pack(fill="both", expand=True, padx=15, pady=(5, 15))
         
         # Point self.console and self.spin_terminal to the unified console
         self.console = self.console_widget
@@ -895,29 +900,15 @@ class FormalVerifierApp(ctk.CTk):
         # Scan for recent files
         self.scan_recent_files()
         
-        # Add resizable panels
-        self.setup_resizable_panels()
-        
-        # Initialize theme manager
-        self.theme_manager = EnhancedThemeManager(self)
-        loaded_theme = self.theme_manager.load_theme_preference()
-        self.theme_manager.apply_theme(loaded_theme)
-        
-        # Add theme settings to sidebar
-        self.add_theme_settings()
-        
         # Setup keyboard shortcuts
         self.setup_keyboard_shortcuts()
         
-        # Start verification state monitor
+        # Start verification monitor
         self.start_verification_monitor()
         self.prewarm_lean_runtime()
         
         # Initialize file tree
         self.scan_project_directory()
-        
-        # Bind window resize event
-        self.bind("<Configure>", self.on_window_resize)
     
     def create_sidebar(self):
         """Create the sidebar with all controls"""
@@ -927,12 +918,12 @@ class FormalVerifierApp(ctk.CTk):
         self.sidebar_container.grid_propagate(False)
 
         # Create sidebar frame inside container
-        self.sidebar = ctk.CTkFrame(self.sidebar_container, width=self.sidebar_expanded_width, corner_radius=15)
+        self.sidebar = ctk.CTkFrame(self.sidebar_container, width=self.sidebar_expanded_width, corner_radius=15, fg_color=self.theme.PANEL_BG)
         self.sidebar.pack(side="left", fill="both", expand=True)
         
         # Create resize handle between sidebar and main
         self.sidebar_resize_handle = ctk.CTkFrame(self.sidebar_container, width=5, cursor="sb_h_double_arrow",
-                                                   fg_color="#3a3a3a")
+                                                   fg_color=self.theme.BORDER)
         self.sidebar_resize_handle.pack(side="left", fill="y", padx=2)
         
         # Create scrollable inner frame
@@ -945,35 +936,23 @@ class FormalVerifierApp(ctk.CTk):
         ctk.CTkLabel(
             sidebar_inner,
             text="🛡️ DEFI GUARDIAN",
-            font=ctk.CTkFont(size=18, weight="bold"),
-            text_color="#00ffcc"
+            font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
+            text_color=self.theme.ACCENT
         ).pack(anchor="w", pady=(10, 5))
         
         ctk.CTkLabel(
             sidebar_inner,
             text="Formal Verification Suite",
-            font=ctk.CTkFont(size=11),
-            text_color="#888888"
+            font=ctk.CTkFont(family="Segoe UI", size=12),
+            text_color=self.theme.TEXT_DIM
         ).pack(anchor="w", pady=(0, 15))
         
         # File Operations
-        ctk.CTkLabel(
-            sidebar_inner,
-            text="📂 FILE OPERATIONS",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#888888"
-        ).pack(anchor="w", pady=(10, 5))
+        self.add_sidebar_section("FILE OPERATIONS")
         
-        self.load_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="📂 OPEN SOURCE FILE",
-            command=self.load_file,
-            height=45,
-            font=ctk.CTkFont(size=13, weight="bold"),
-            fg_color="#2c3e50",
-            hover_color="#1a2632"
+        self.load_btn = self.create_action_button(
+            sidebar_inner, "📂 OPEN SOURCE FILE", self.load_file, self.theme.ACCENT
         )
-        self.load_btn.pack(fill="x", pady=5)
         
         # File info display
         self.file_info_frame = ctk.CTkFrame(sidebar_inner, fg_color="transparent")
@@ -983,25 +962,12 @@ class FormalVerifierApp(ctk.CTk):
             self.file_info_frame,
             text="  No file loaded",
             font=ctk.CTkFont(size=10),
-            text_color="#888888"
+            text_color=self.theme.TEXT_DIM
         )
         self.file_label.pack(anchor="w")
         
-        self.file_type_label = ctk.CTkLabel(
-            self.file_info_frame,
-            text="",
-            font=ctk.CTkFont(size=9),
-            text_color="#666666"
-        )
-        self.file_type_label.pack(anchor="w")
-        
         # File Explorer section
-        ctk.CTkLabel(
-            sidebar_inner,
-            text="📁 EXPLORER",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#888888"
-        ).pack(anchor="w", pady=(15, 5))
+        self.add_sidebar_section("📁 EXPLORER")
         
         self.explorer_frame = ctk.CTkFrame(sidebar_inner, fg_color="transparent")
         self.explorer_frame.pack(fill="x", pady=5)
@@ -1011,7 +977,7 @@ class FormalVerifierApp(ctk.CTk):
             self.explorer_frame,
             text="OPEN EDITORS",
             font=ctk.CTkFont(size=10, weight="bold"),
-            text_color="#888888"
+            text_color=self.theme.TEXT_DIM
         )
         self.open_editors_label.pack(anchor="w", pady=(5, 2))
         
@@ -1023,7 +989,7 @@ class FormalVerifierApp(ctk.CTk):
             self.explorer_frame,
             text="DEFI_GUARDIAN",
             font=ctk.CTkFont(size=10, weight="bold"),
-            text_color="#888888"
+            text_color=self.theme.TEXT_DIM
         )
         self.project_files_label.pack(anchor="w", pady=(10, 2))
         
@@ -1033,262 +999,93 @@ class FormalVerifierApp(ctk.CTk):
         # Populate file explorer
         self.populate_file_explorer()
         
-        # Separator
-        ctk.CTkFrame(sidebar_inner, height=2, fg_color="#3a3a3a").pack(pady=15, fill="x")
-        
         # Verification Options
-        ctk.CTkLabel(
-            sidebar_inner,
-            text="🔬 VERIFICATION OPTIONS",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#888888"
-        ).pack(anchor="w", pady=(10, 5))
+        self.add_sidebar_section("CORE VERIFICATION")
         
-        self.verify_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🚀 RUN SPIN VERIFICATION",
-            command=self.run_verification,
-            state="disabled",
-            height=50,
-            font=ctk.CTkFont(size=14, weight="bold"),
-            fg_color="#27ae60",
-            hover_color="#2e7d32"
+        self.verify_btn = self.create_action_button(
+            sidebar_inner, "🚀 RUN SPIN VERIFICATION", self.run_verification, self.theme.SUCCESS
         )
-        self.verify_btn.pack(fill="x", pady=5)
+        self.verify_btn.configure(state="disabled")
         
-        self.stop_spin_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🛑 STOP SPIN",
-            command=lambda: self.request_stop_tool("spin"),
-            state="disabled",
-            height=34,
-            font=ctk.CTkFont(size=11),
-            fg_color="#7f1d1d",
-            hover_color="#991b1b"
+        self.stop_spin_btn = self.create_stop_button(sidebar_inner, "spin")
+        
+        self.coq_btn = self.create_action_button(
+            sidebar_inner, "📜 COQ PROOF ASSISTANT", self.verify_with_coq, "#9b59b6"
         )
-        self.stop_spin_btn.pack(fill="x", pady=(0, 5))
+        self.stop_coq_btn = self.create_stop_button(sidebar_inner, "coq")
         
-        self.coq_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="📜 COQ VERIFICATION",
-            command=self.verify_with_coq,
-            height=45,
-            font=ctk.CTkFont(size=13),
-            fg_color="#9b59b6",
-            hover_color="#8e44ad"
+        self.lean_btn = self.create_action_button(
+            sidebar_inner, "⚡ LEAN THEOREM PROVER", self.run_lean_verification, "#e67e22"
         )
-        self.coq_btn.pack(fill="x", pady=5)
+        self.stop_lean_btn = self.create_stop_button(sidebar_inner, "lean")
         
-        self.stop_coq_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🛑 STOP COQ",
-            command=lambda: self.request_stop_tool("coq"),
-            state="disabled",
-            height=34,
-            font=ctk.CTkFont(size=11),
-            fg_color="#7f1d1d",
-            hover_color="#991b1b"
+        # Rust Tools
+        self.add_sidebar_section("RUST ANALYSIS")
+        
+        self.kani_btn = self.create_action_button(
+            sidebar_inner, "🦀 KANI MODEL CHECKER", self.verify_with_kani, "#8e44ad"
         )
-        self.stop_coq_btn.pack(fill="x", pady=(0, 5))
+        self.stop_kani_btn = self.create_stop_button(sidebar_inner, "kani")
         
-        self.lean_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="⚡ LEAN VERIFICATION",
-            command=self.run_lean_verification,
-            height=45,
-            font=ctk.CTkFont(size=13),
-            fg_color="#e67e22",
-            hover_color="#d35400"
+        self.prusti_btn = self.create_action_button(
+            sidebar_inner, "🔧 PRUSTI VERIFIER", self.verify_with_prusti, "#e74c3c"
         )
-        self.lean_btn.pack(fill="x", pady=5)
-        
-        self.stop_lean_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🛑 STOP LEAN",
-            command=lambda: self.request_stop_tool("lean"),
-            state="disabled",
-            height=34,
-            font=ctk.CTkFont(size=11),
-            fg_color="#7f1d1d",
-            hover_color="#991b1b"
-        )
-        self.stop_lean_btn.pack(fill="x", pady=(0, 5))
-        
-        # Separator before Rust tools
-        ctk.CTkFrame(sidebar_inner, height=2, fg_color="#3a3a3a").pack(pady=15, fill="x")
-        
-        # Rust Tools Label
-        ctk.CTkLabel(
-            sidebar_inner,
-            text="🦀 RUST VERIFICATION TOOLS",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#888888"
-        ).pack(anchor="w", pady=(10, 5))
-        
-        self.prusti_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🔧 PRUSTI VERIFICATION",
-            command=self.verify_with_prusti,
-            height=40,
-            font=ctk.CTkFont(size=12),
-            fg_color="#e74c3c",
-            hover_color="#c0392b"
-        )
-        self.prusti_btn.pack(fill="x", pady=3)
-        
-        self.stop_prusti_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🛑 STOP PRUSTI",
-            command=lambda: self.request_stop_tool("prusti"),
-            state="disabled",
-            height=32,
-            font=ctk.CTkFont(size=11),
-            fg_color="#7f1d1d",
-            hover_color="#991b1b"
-        )
-        self.stop_prusti_btn.pack(fill="x", pady=(0, 3))
-        
-        self.creusot_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="📐 CREUSOT VERIFICATION",
-            command=self.verify_with_creusot,
-            height=40,
-            font=ctk.CTkFont(size=12),
-            fg_color="#16a085",
-            hover_color="#1abc9c"
-        )
-        self.creusot_btn.pack(fill="x", pady=3)
-        
-        self.stop_creusot_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🛑 STOP CREUSOT",
-            command=lambda: self.request_stop_tool("creusot"),
-            state="disabled",
-            height=32,
-            font=ctk.CTkFont(size=11),
-            fg_color="#7f1d1d",
-            hover_color="#991b1b"
-        )
-        self.stop_creusot_btn.pack(fill="x", pady=(0, 3))
+        self.stop_prusti_btn = self.create_stop_button(sidebar_inner, "prusti")
 
-        self.kani_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🦀 KANI VERIFICATION",
-            command=self.verify_with_kani,
-            height=40,
-            font=ctk.CTkFont(size=12),
-            fg_color="#8e44ad",
-            hover_color="#6c3483"
+        self.creusot_btn = self.create_action_button(
+            sidebar_inner, "📐 CREUSOT VERIFICATION", self.verify_with_creusot, "#16a085"
         )
-        self.kani_btn.pack(fill="x", pady=3)
+        self.stop_creusot_btn = self.create_stop_button(sidebar_inner, "creusot")
         
-        self.stop_kani_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🛑 STOP KANI",
-            command=lambda: self.request_stop_tool("kani"),
-            state="disabled",
-            height=32,
-            font=ctk.CTkFont(size=11),
-            fg_color="#7f1d1d",
-            hover_color="#991b1b"
+        # Visualization
+        self.add_sidebar_section("VISUALIZATION")
+        
+        self.dash_btn = self.create_action_button(
+            sidebar_inner, "🌐 OPEN DASHBOARD", self.open_dashboard, self.theme.ACCENT
         )
-        self.stop_kani_btn.pack(fill="x", pady=(0, 3))
-        
-        self.elan_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="⚙️ ELAN (LEAN VERSION MANAGER)",
-            command=self.check_elan,
-            height=40,
-            font=ctk.CTkFont(size=12),
-            fg_color="#34495e",
-            hover_color="#2c3e50"
-        )
-        self.elan_btn.pack(fill="x", pady=3)
-        
-        # Separator
-        ctk.CTkFrame(sidebar_inner, height=2, fg_color="#3a3a3a").pack(pady=15, fill="x")
-        
-        # Dashboard
-        ctk.CTkLabel(
-            sidebar_inner,
-            text="📊 DASHBOARD",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#888888"
-        ).pack(anchor="w", pady=(10, 5))
-        
-        self.dash_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🌐 OPEN VISUAL DASHBOARD",
-            command=self.open_dashboard,
-            height=45,
-            font=ctk.CTkFont(size=13),
-            fg_color="#2c3e50",
-            hover_color="#1a2632"
-        )
-        self.dash_btn.pack(fill="x", pady=5)
         
         self.stop_dash_btn = ctk.CTkButton(
             sidebar_inner,
             text="🛑 STOP DASHBOARD",
             command=self.stop_dashboard,
             height=40,
-            font=ctk.CTkFont(size=12),
+            corner_radius=8,
+            font=ctk.CTkFont(size=12, weight="bold"),
             fg_color="#721c24",
             hover_color="#5a1a1a"
         )
-        self.stop_dash_btn.pack(fill="x", pady=5)
+        self.stop_dash_btn.pack(fill="x", pady=4, padx=5)
 
-        # Translated Output viewer button
-        self.view_translated_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="📄 VIEW TRANSLATED OUTPUT",
-            command=self.open_translated_output,
-            height=40,
-            font=ctk.CTkFont(size=12),
-            fg_color="#1a3a4a",
-            hover_color="#0f2a38"
+        self.view_translated_btn = self.create_action_button(
+            sidebar_inner, "📄 VIEW TRANSLATED OUTPUT", self.open_translated_output, "#1a3a4a"
         )
-        self.view_translated_btn.pack(fill="x", pady=5)
 
-        self.counterexample_btn = ctk.CTkButton(
-            sidebar_inner,
-            text="🔍 ANALYZE COUNTEREXAMPLE",
-            command=self.analyze_counterexample,
-            height=40,
-            font=ctk.CTkFont(size=12),
-            fg_color="#ff4444",
-            hover_color="#cc0000"
+        self.counterexample_btn = self.create_action_button(
+            sidebar_inner, "🔍 ANALYZE COUNTEREXAMPLE", self.analyze_counterexample, self.theme.ERROR
         )
-        self.counterexample_btn.pack(fill="x", pady=5)
 
-        # Separator
-        ctk.CTkFrame(sidebar_inner, height=2, fg_color="#3a3a3a").pack(pady=15, fill="x")
-        
         # Settings
-        ctk.CTkLabel(
-            sidebar_inner,
-            text="⚙️ SETTINGS",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#888888"
-        ).pack(anchor="w", pady=(10, 5))
+        self.add_sidebar_section("SETTINGS")
         
         self.auto_scroll = ctk.CTkSwitch(
             sidebar_inner,
             text="Auto-scroll console",
             onvalue=True,
             offvalue=False,
-            command=self.toggle_auto_scroll
+            command=self.toggle_auto_scroll,
+            progress_color=self.theme.ACCENT
         )
-        self.auto_scroll.pack(anchor="w", pady=2)
+        self.auto_scroll.pack(anchor="w", pady=2, padx=10)
         self.auto_scroll.select()
         
         self.verbose_output = ctk.CTkSwitch(
             sidebar_inner,
             text="Verbose output",
             onvalue=True,
-            offvalue=False
+            offvalue=False,
+            progress_color=self.theme.ACCENT
         )
-        self.verbose_output.pack(anchor="w", pady=2)
+        self.verbose_output.pack(anchor="w", pady=2, padx=10)
         self.verbose_output.select()
 
         self.skip_incompatible = ctk.CTkSwitch(
@@ -1296,74 +1093,58 @@ class FormalVerifierApp(ctk.CTk):
             text="Skip incompatible verifiers",
             onvalue=True,
             offvalue=False,
+            progress_color=self.theme.ACCENT
         )
-        self.skip_incompatible.pack(anchor="w", pady=2)
+        self.skip_incompatible.pack(anchor="w", pady=2, padx=10)
         self.skip_incompatible.select()
 
-        # Console Operations (Clear/Export)
-        ctk.CTkLabel(
-            sidebar_inner,
-            text="🖥️ CONSOLE OPERATIONS",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#888888"
-        ).pack(anchor="w", pady=(15, 5))
+        # Console Operations
+        self.add_sidebar_section("CONSOLE OPERATIONS")
 
         console_ops_frame = ctk.CTkFrame(sidebar_inner, fg_color="transparent")
-        console_ops_frame.pack(fill="x", pady=2)
+        console_ops_frame.pack(fill="x", pady=2, padx=5)
 
         self.clear_btn = ctk.CTkButton(
             console_ops_frame,
-            text="🧹 CLEAR CONSOLE",
+            text="🧹 CLEAR",
             command=self.clear_console,
             height=35,
-            width=140,
-            font=ctk.CTkFont(size=11),
+            corner_radius=8,
+            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color="#34495e",
             hover_color="#2c3e50"
         )
-        self.clear_btn.pack(side="left", padx=(0, 5), expand=True, fill="x")
+        self.clear_btn.pack(side="left", padx=(0, 2), expand=True, fill="x")
 
         self.export_btn = ctk.CTkButton(
             console_ops_frame,
-            text="📥 EXPORT LOGS",
+            text="📥 EXPORT",
             command=self.export_console,
             height=35,
-            width=140,
-            font=ctk.CTkFont(size=11),
+            corner_radius=8,
+            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color="#34495e",
             hover_color="#2c3e50"
         )
-        self.export_btn.pack(side="left", padx=(5, 0), expand=True, fill="x")
+        self.export_btn.pack(side="left", padx=(2, 0), expand=True, fill="x")
         
-        # Status
-        ctk.CTkFrame(sidebar_inner, height=2, fg_color="#3a3a3a").pack(pady=15, fill="x")
+        # Footer status
+        self.sidebar_footer = ctk.CTkFrame(self.sidebar, fg_color=self.theme.TERMINAL_BG, height=40, corner_radius=0)
+        self.sidebar_footer.pack(side="bottom", fill="x")
         
-        self.status_label = ctk.CTkLabel(
-            sidebar_inner,
-            text="✅ Ready",
-            font=ctk.CTkFont(size=11),
-            text_color="#00ffcc"
-        )
-        self.status_label.pack(anchor="w", pady=(10, 0))
+        self.status_dot = ctk.CTkLabel(self.sidebar_footer, text="●", text_color=self.theme.SUCCESS, font=("Segoe UI", 14))
+        self.status_dot.pack(side="left", padx=(15, 5))
         
-        self.tool_status = ctk.CTkLabel(
-            sidebar_inner,
-            text="",
-            font=ctk.CTkFont(size=10),
-            text_color="#888888"
-        )
-        self.tool_status.pack(anchor="w")
+        self.status_label = ctk.CTkLabel(self.sidebar_footer, text="System Ready", font=("Segoe UI", 11), text_color=self.theme.TEXT_MAIN)
+        self.status_label.pack(side="left")
 
         self.lean_prewarm_status = ctk.CTkLabel(
             sidebar_inner,
             text="○ Lean prewarm: pending",
             font=ctk.CTkFont(size=10),
-            text_color="#888888"
+            text_color=self.theme.TEXT_DIM
         )
-        self.lean_prewarm_status.pack(anchor="w")
-        
-        # Check tools
-        self.check_tools()
+        self.lean_prewarm_status.pack(anchor="w", padx=10)
         
         # Initialize tool_stop_buttons dictionary
         self.tool_stop_buttons = {
@@ -1377,6 +1158,63 @@ class FormalVerifierApp(ctk.CTk):
         
         # Bind mouse wheel to all sidebar elements after creation
         self.sidebar_inner.bind_mousewheel()
+        
+        # Check tools
+        self.check_tools()
+
+    def create_stop_button(self, master, tool_name):
+        btn = ctk.CTkButton(
+            master,
+            text=f"STOP {tool_name.upper()}",
+            command=lambda: self.request_stop_tool(tool_name),
+            state="disabled",
+            height=28,
+            corner_radius=6,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color="transparent",
+            border_width=1,
+            border_color="#7f1d1d",
+            text_color="#ff4444",
+            hover_color="#3a1a1a"
+        )
+        btn.pack(fill="x", pady=(0, 6), padx=15)
+        return btn
+
+    def add_sidebar_section(self, title):
+        lbl = ctk.CTkLabel(
+            self.sidebar_inner.get_inner_frame() if hasattr(self, 'sidebar_inner') else self.sidebar_scroll, 
+            text=title, 
+            font=ctk.CTkFont(size=10, weight="bold"), 
+            text_color=self.theme.TEXT_DIM
+        )
+        lbl.pack(anchor="w", padx=10, pady=(15, 8))
+
+    def create_action_button(self, master, text, command, color):
+        btn = ctk.CTkButton(
+            master, text=text, command=command, height=45, corner_radius=10,
+            fg_color=color, hover_color=self.theme.ACCENT_DARK if color == self.theme.ACCENT else None,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#ffffff" if color != self.theme.ACCENT else "#000000",
+            border_width=0
+        )
+        btn.pack(fill="x", pady=6, padx=5)
+        return btn
+
+    def show_welcome(self):
+        """Show professional welcome message in console"""
+        self.console.insert("end", "🛡️ DEFI GUARDIAN FORMAL VERIFICATION SUITE\n", "header")
+        self.console.insert("end", f"📅 System initialized: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n", "dim")
+        self.console.insert("end", "─"*60 + "\n", "dim")
+        self.console.insert("end", "⚡ Ready for protocol analysis. Please load a source file to begin.\n\n", "accent")
+        
+        # Configure console tags
+        self.console.tag_config("header", foreground=self.theme.ACCENT, font=("Fira Code", 12, "bold"))
+        self.console.tag_config("accent", foreground=self.theme.ACCENT)
+        self.console.tag_config("dim", foreground=self.theme.TEXT_DIM)
+        self.console.tag_config("success", foreground=self.theme.SUCCESS)
+        self.console.tag_config("error", foreground=self.theme.ERROR)
+        self.console.tag_config("warning", foreground=self.theme.WARNING)
+
 
     def ensure_sidebar_visibility(self):
         """Ensure sidebar is properly visible after creation"""
@@ -1632,6 +1470,18 @@ class FormalVerifierApp(ctk.CTk):
                 )
                 file_btn.pack(fill="x", pady=1)
     
+    def on_file_loaded(self):
+        """Update UI elements when a new file is loaded"""
+        if self.current_file:
+            filename = os.path.basename(self.current_file)
+            if hasattr(self, 'file_label'):
+                self.file_label.configure(text=f"📄 {filename}", text_color=self.theme.ACCENT)
+            elif hasattr(self, 'file_info'):
+                self.file_info.configure(text=f"📄 {filename}", text_color=self.theme.ACCENT)
+                
+            self.verify_btn.configure(state="normal")
+            self.status_label.configure(text=f"Loaded: {filename}")
+            
     def load_file_to_editor(self, file_path):
         """Load file content into the source editor"""
         try:
@@ -1645,13 +1495,8 @@ class FormalVerifierApp(ctk.CTk):
             self.current_file = file_path
             self.file_type = os.path.splitext(file_path)[1].lower()
             
-            # Update file label
-            self.file_label.configure(text=f"  {os.path.basename(file_path)}")
-            
-            # Update file type label
-            type_map = {'.rs': 'Rust', '.sol': 'Solidity', '.pml': 'Promela', '.py': 'Python', '.json': 'JSON', '.txt': 'Text'}
-            file_type_display = type_map.get(self.file_type, 'Unknown')
-            self.file_type_label.configure(text=file_type_display)
+            # Update UI
+            self.on_file_loaded()
             
             # If native Promela, show in translated tab too
             if self.file_type == '.pml':
@@ -1664,12 +1509,6 @@ class FormalVerifierApp(ctk.CTk):
             # Clear problems on new file load
             self.problems_text.delete("1.0", "end")
             self.problems_text.insert("1.0", "Run verification to scan for problems.")
-            
-            # Refresh file explorer to show this file in open editors
-            self.populate_file_explorer()
-            
-            # Enable verify button
-            self.verify_btn.configure(state="normal")
             
         except Exception as e:
             self.console.insert("end", f"Error loading file {file_path}: {str(e)}\n")
@@ -1758,60 +1597,78 @@ class FormalVerifierApp(ctk.CTk):
     def export_state_graph(self, verification_result):
         """Export state graph data for 3D visualization"""
         try:
-            # Parse SPIN output to extract state transitions
+            # Parse the translated Promela model for structure
+            pml_path = os.path.join(PROJECT_DIR, "translated_output.pml")
+            if not os.path.exists(pml_path):
+                # Fallback to current file if it's already PML
+                if self.current_file and self.current_file.endswith('.pml'):
+                    pml_path = self.current_file
+                else:
+                    # If no PML, use simple extraction from output
+                    self._legacy_export_state_graph(verification_result)
+                    return
+
+            with open(pml_path, 'r') as f:
+                pml_content = f.read()
+
             state_graph = {
                 "nodes": [],
                 "edges": [],
                 "counterexample_path": []
             }
             
-            # Extract states and transitions from SPIN output
-            output = verification_result.get('output', '')
+            # Extract process names as primary nodes
+            processes = re.findall(r'(?:active\s+)?proctype\s+(\w+)', pml_content)
+            for proc in processes:
+                state_graph["nodes"].append(proc)
             
-            # Simple state extraction (can be enhanced with better parsing)
-            states = set()
-            edges = []
+            # Extract labels as states
+            labels = re.findall(r'(\w+)\s*:', pml_content)
+            for label in labels:
+                if label not in ["accept", "end"] and not label.startswith("T0_") and label not in state_graph["nodes"]:
+                    state_graph["nodes"].append(label)
             
-            # Look for state patterns in SPIN output
-            import re
-            
-            # Extract process states
-            state_pattern = r'proctype\s+(\w+)'
-            for match in re.finditer(state_pattern, output):
-                proc_name = match.group(1)
-                states.add(proc_name)
-            
-            # Extract transitions (simplified)
-            transition_pattern = r'(\w+)\s*->\s*(\w+)'
-            for match in re.finditer(transition_pattern, output):
-                from_state, to_state = match.groups()
-                states.update([from_state, to_state])
-                edges.append({"from": from_state, "to": to_state, "label": "transition"})
-            
-            # If no states found, create default states
-            if not states:
-                states = ["S0", "S1", "S2"]
-                edges = [
-                    {"from": "S0", "to": "S1", "label": "initialize"},
-                    {"from": "S1", "to": "S2", "label": "execute"}
-                ]
-            
-            state_graph["nodes"] = list(states)
-            state_graph["edges"] = edges
-            
+            # Extract transitions from goto statements
+            gotos = re.findall(r'goto\s+(\w+)', pml_content)
+            for label in gotos:
+                if processes:
+                    state_graph["edges"].append({
+                        "from": processes[0], 
+                        "to": label, 
+                        "label": "goto"
+                    })
+
             # Add counterexample path if verification failed
             if not verification_result.get('success', True):
-                # Try to parse counterexample from trail file
                 trail_file = os.path.join(PROJECT_DIR, "pan.trail")
                 if os.path.exists(trail_file):
                     try:
-                        with open(trail_file, 'r') as f:
-                            trail_content = f.read()
-                        # Simple trail parsing (can be enhanced)
-                        trail_states = ["S0", "S1", "S2"]  # Placeholder
-                        state_graph["counterexample_path"] = trail_states
+                        trace_result = subprocess.run(
+                            ["spin", "-t", "-p", pml_path],
+                            cwd=PROJECT_DIR,
+                            capture_output=True,
+                            text=True,
+                            timeout=10
+                        )
+                        if trace_result.returncode == 0:
+                            steps = []
+                            for line in trace_result.stdout.split('\n'):
+                                match = re.search(r'line\s+(\d+)', line)
+                                if match:
+                                    steps.append(f"Line_{match.group(1)}")
+                            state_graph["counterexample_path"] = steps
                     except:
-                        state_graph["counterexample_path"] = ["S0", "S1"]
+                        pass
+            
+            # If no edges found, create a logical flow
+            if not state_graph["edges"] and state_graph["nodes"]:
+                nodes = state_graph["nodes"]
+                for i in range(len(nodes) - 1):
+                    state_graph["edges"].append({
+                        "from": nodes[i],
+                        "to": nodes[i+1],
+                        "label": "transition"
+                    })
             
             # Save state graph to JSON
             output_file = os.path.join(PROJECT_DIR, "state_graph.json")
@@ -1822,6 +1679,38 @@ class FormalVerifierApp(ctk.CTk):
             
         except Exception as e:
             self.console.insert("end", f"   Error exporting state graph: {str(e)}\n")
+
+    def _legacy_export_state_graph(self, verification_result):
+        """Simple extraction from SPIN output as fallback"""
+        try:
+            state_graph = {"nodes": [], "edges": [], "counterexample_path": []}
+            output = verification_result.get('output', '')
+            states = set()
+            edges = []
+            
+            state_pattern = r'proctype\s+(\w+)'
+            for match in re.finditer(state_pattern, output):
+                states.add(match.group(1))
+            
+            transition_pattern = r'(\w+)\s*->\s*(\w+)'
+            for match in re.finditer(transition_pattern, output):
+                from_state, to_state = match.groups()
+                states.update([from_state, to_state])
+                edges.append({"from": from_state, "to": to_state, "label": "transition"})
+            
+            if not states:
+                states = ["S0", "S1", "S2"]
+                edges = [{"from": "S0", "to": "S1", "label": "initialize"}, {"from": "S1", "to": "S2", "label": "execute"}]
+            
+            state_graph["nodes"] = list(states)
+            state_graph["edges"] = edges
+            
+            output_file = os.path.join(PROJECT_DIR, "state_graph.json")
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(state_graph, f, indent=2)
+            self.console.insert("end", f"   State graph saved to: {output_file} (fallback)\n")
+        except:
+            pass
 
     def toggle_auto_scroll(self):
         self.auto_scroll_enabled = self.auto_scroll.get()
@@ -1921,13 +1810,21 @@ class FormalVerifierApp(ctk.CTk):
         """Warm up Lean/Elan once to reduce first-run latency."""
         def _prewarm():
             try:
+                # Use elan --version as it's more robust for initial check
                 result = subprocess.run(
-                    ["lean", "--version"],
+                    ["elan", "--version"],
                     capture_output=True,
                     text=True,
                     timeout=90,
                 )
                 ok = result.returncode == 0
+                
+                # If elan is ok, also try lean --version but don't fail if it's read-only
+                if ok:
+                    try:
+                        subprocess.run(["lean", "--version"], capture_output=True, timeout=10)
+                    except:
+                        pass
                 self.after(
                     0,
                     lambda: self.lean_prewarm_status.configure(
@@ -2163,72 +2060,28 @@ class FormalVerifierApp(ctk.CTk):
                 self.console.insert("end", f"\n❌ Export failed: {e}\n")
     
     def load_file(self):
+        """Open file dialog and load selected file"""
         file_path = filedialog.askopenfilename(
-            title="Select Formal Model",
-            initialdir=os.path.expanduser("~"),
+            title="Open Source File",
             filetypes=[
-                ("All Supported", "*.pml *.sol *.rs"),
-                ("Promela Models", "*.pml"),
-                ("Solidity Contracts", "*.sol"),
-                ("Rust Programs", "*.rs"),
-                ("All Files", "*.*")
+                ("All Supported", "*.sol *.pml *.rs"),
+                ("Solidity", "*.sol"),
+                ("Promela", "*.pml"),
+                ("Rust", "*.rs")
             ]
         )
-        
         if file_path:
             self.load_file_to_editor(file_path)
-            
-            ext = os.path.splitext(file_path)[1].lower()
-            
-            if ext == '.pml':
-                self.file_type = 'pml'
-                type_str = "Promela Model"
-                verify_text = "VERIFY PROMELA MODEL"
-                self.file_type_label.configure(text="Type: Promela Model (Native)")
-            elif ext == '.sol':
-                self.file_type = 'sol'
-                type_str = "Solidity Contract"
-                verify_text = "VERIFY SOLIDITY CONTRACT"
-                self.file_type_label.configure(text="Type: Solidity Contract (Will translate to Promela)")
-            elif ext == '.rs':
-                self.file_type = 'rs'
-                type_str = "Rust Program"
-                verify_text = "🦀 VERIFY RUST PROGRAM"
-                self.file_type_label.configure(text="Type: Rust Program (Experimental)")
-            else:
-                self.file_type = 'unknown'
-                type_str = "Unknown Format"
-                verify_text = "🔍 RUN FORMAL AUDIT"
-                self.file_type_label.configure(text="Type: Unknown Format")
-            
-            self.file_label.configure(text=f"📄 {os.path.basename(file_path)}")
-            self.verify_btn.configure(state="normal", text=verify_text)
-            self.status_label.configure(text=f"📂 Loaded: {os.path.basename(file_path)}")
-            
-            self.console.insert("end", f"\n{'='*80}\n")
-            self.console.insert("end", f"📂 LOADED FILE: {os.path.basename(file_path)}\n")
-            self.console.insert("end", f"📁 TYPE: {type_str}\n")
-            self.console.insert("end", f"📂 PATH: {file_path}\n")
-            self.console.insert("end", f"{'='*80}\n\n")
-            self.console.see("end")
             
             # Save for dashboard
             with open(os.path.join(PROJECT_DIR, "active_file.txt"), "w") as f:
                 f.write(os.path.basename(file_path))
             
-            # Show preview
-            try:
-                with open(file_path, 'r') as f:
-                    lines = f.readlines()[:30]
-                    self.console.insert("end", "📄 MODEL PREVIEW (first 30 lines):\n")
-                    self.console.insert("end", "-" * 60 + "\n")
-                    for i, line in enumerate(lines, 1):
-                        if line.strip():
-                            preview_line = line[:100].rstrip()
-                            self.console.insert("end", f"{i:3d} | {preview_line}\n")
-                    self.console.insert("end", "-" * 60 + "\n\n")
-            except Exception as e:
-                self.console.insert("end", f"⚠️ Could not preview: {e}\n\n")
+            self.console.insert("end", f"\n📂 LOADED FILE: {os.path.basename(file_path)}\n", "header")
+            self.console.insert("end", f"📁 TYPE: {self.file_type.upper() if self.file_type else 'Unknown'}\n", "dim")
+            self.console.insert("end", f"📂 PATH: {file_path}\n", "dim")
+            self.console.insert("end", "─"*60 + "\n\n", "dim")
+            self.console.see("end")
     
     def run_verification(self):
         if not self.current_file:
@@ -2240,11 +2093,10 @@ class FormalVerifierApp(ctk.CTk):
             self.set_tool_running("spin", True)
             self.status_label.configure(text="🔍 Running SPIN verification...")
             
-            self.console.insert("end", "\n" + "="*80 + "\n")
-            self.console.insert("end", "🚀 RUNNING SPIN VERIFICATION\n")
-            self.console.insert("end", f"📁 Model: {os.path.basename(self.current_file)}\n")
-            self.console.insert("end", f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            self.console.insert("end", "="*80 + "\n\n")
+            self.console.insert("end", "\n🚀 RUNNING SPIN VERIFICATION\n", "header")
+            self.console.insert("end", f"📁 Model: {os.path.basename(self.current_file)}\n", "dim")
+            self.console.insert("end", f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n", "dim")
+            self.console.insert("end", "─"*60 + "\n\n", "dim")
             if self.auto_scroll_enabled:
                 self.console.see("end")
             
@@ -2257,7 +2109,7 @@ class FormalVerifierApp(ctk.CTk):
                 translated_path = None
                 
                 # Translate if needed
-                if self.file_type == 'sol':
+                if self.file_type == '.sol':
                     self.console.insert("end", "[1/5] 🔄 Translating Solidity to Promela...\n")
                     translator = VerifiedTranslator()
                     translated_content, obligations = translator.translate_with_proof(content)
@@ -2273,7 +2125,7 @@ class FormalVerifierApp(ctk.CTk):
                         self.console.insert("end", f"   📜 Proof Obligation: {obligation}\n")
                     self.console.insert("end", "\n")
                     
-                elif self.file_type == 'rs':
+                elif self.file_type == '.rs':
                     self.console.insert("end", "[1/5] 🔄 Translating Rust to Promela...\n")
                     translated_content = DeFiTranslator.translate_rust(content)
                     self.console.insert("end", "   ✅ Translation complete\n\n")
@@ -2460,12 +2312,11 @@ class FormalVerifierApp(ctk.CTk):
                         ltl_results.append(line.strip())
                 
                 if success:
-                    self.console.insert("end", "\n" + "="*80 + "\n")
-                    self.console.insert("end", "✅ VERIFICATION SUCCESSFUL!\n")
-                    self.console.insert("end", "   ✓ All LTL properties satisfied\n")
-                    self.console.insert("end", "   ✓ No counterexamples found\n")
-                    self.console.insert("end", "   ✓ Invariants hold in all states\n")
-                    self.console.insert("end", "="*80 + "\n\n")
+                    self.console.insert("end", "\n✅ VERIFICATION SUCCESSFUL!\n", "success")
+                    self.console.insert("end", "   ✓ All LTL properties satisfied\n", "success")
+                    self.console.insert("end", "   ✓ No counterexamples found\n", "success")
+                    self.console.insert("end", "   ✓ Invariants hold in all states\n", "success")
+                    self.console.insert("end", "─"*60 + "\n\n", "dim")
                     
                     self.status_label.configure(text="✅ Verification successful!")
                     
@@ -2473,27 +2324,26 @@ class FormalVerifierApp(ctk.CTk):
                     if "states, stored" in verify_result.stdout:
                         match = re.search(r"(\d+) states, stored", verify_result.stdout)
                         if match:
-                            self.console.insert("end", f"📊 States explored: {match.group(1)}\n")
+                            self.console.insert("end", f"📊 States explored: {match.group(1)}\n", "accent")
                     if "depth reached" in verify_result.stdout:
                         match = re.search(r"depth reached (\d+)", verify_result.stdout)
                         if match:
-                            self.console.insert("end", f"📊 Depth reached: {match.group(1)}\n")
+                            self.console.insert("end", f"📊 Depth reached: {match.group(1)}\n", "accent")
                     if "transitions" in verify_result.stdout:
                         match = re.search(r"(\d+) transitions", verify_result.stdout)
                         if match:
-                            self.console.insert("end", f"📊 Transitions: {match.group(1)}\n")
+                            self.console.insert("end", f"📊 Transitions: {match.group(1)}\n", "accent")
                     
                     if ltl_results:
-                        self.console.insert("end", "\n📋 LTL PROPERTIES VERIFIED:\n")
+                        self.console.insert("end", "\n📋 LTL PROPERTIES VERIFIED:\n", "header")
                         for ltl in ltl_results:
-                            self.console.insert("end", f"   • {ltl}\n")
+                            self.console.insert("end", f"   • {ltl}\n", "success")
                     
                 else:
-                    self.console.insert("end", "\n" + "="*80 + "\n")
-                    self.console.insert("end", "❌ VERIFICATION FAILED!\n")
-                    self.console.insert("end", "   Counterexample found\n")
-                    self.console.insert("end", "   Review the model and LTL properties\n")
-                    self.console.insert("end", "="*80 + "\n\n")
+                    self.console.insert("end", "\n❌ VERIFICATION FAILED!\n", "error")
+                    self.console.insert("end", "   Counterexample found\n", "error")
+                    self.console.insert("end", "   Review the model and LTL properties\n", "error")
+                    self.console.insert("end", "─"*60 + "\n\n", "dim")
                     
                     self.status_label.configure(text="❌ Verification failed - counterexample found")
                     
@@ -2619,28 +2469,22 @@ class FormalVerifierApp(ctk.CTk):
         """Update the tool status display in sidebar"""
         state_file = os.path.join(PROJECT_DIR, 'verification_state.json')
         if not os.path.exists(state_file):
-            self.tool_status.configure(text="SPIN | Coq | Lean | GCC")
             return
         
         try:
             with open(state_file, 'r') as f:
                 state = json.load(f)
             
-            status_parts = []
-            for tool in ['spin', 'coq', 'lean']:
-                if tool in state:
-                    success = state[tool].get('success', False)
-                    icon = "✅" if success else "❌"
-                    status_parts.append(f"{icon} {tool.upper()}")
-                else:
-                    status_parts.append(f"○ {tool.upper()}")
+            # Update sidebar icons/colors based on results
+            if state.get('spin'):
+                success = state['spin'].get('success', False)
+                self.verify_btn.configure(border_color=self.theme.SUCCESS if success else self.theme.ERROR)
             
-            # Add GCC status
-            status_parts.append("✅ GCC")
-            
-            self.tool_status.configure(text=" | ".join(status_parts))
+            if state.get('kani'):
+                success = state['kani'].get('success', False)
+                self.kani_btn.configure(border_color=self.theme.SUCCESS if success else self.theme.ERROR)
         except:
-            self.tool_status.configure(text="SPIN | Coq | Lean | GCC")
+            pass
 
     def start_verification_monitor(self):
         """Monitor verification status in real-time"""
@@ -2676,18 +2520,22 @@ class FormalVerifierApp(ctk.CTk):
     def verify_with_coq(self):
         """Run Coq verification"""
         if not self.current_file:
-            self.console.insert("end", "❌ No file selected\n")
+            self.console.insert("end", "❌ No file selected\n", "error")
             return
         
         self.coq_btn.configure(state="disabled", text="⏳ Running Coq...")
         
         def run_coq():
             try:
+                self.after(0, lambda: self.console.insert("end",
+                    "\n📜 COQ VERIFICATION\n", "header"))
+                self.after(0, lambda: self.console.insert("end", "─"*60 + "\n", "dim"))
+                
                 from coq_verifier import CoqVerifier
                 verifier = CoqVerifier()
                 
                 if not verifier.coq_available:
-                    self.after(0, lambda: self.console.insert("end", "❌ Coq is not installed\n"))
+                    self.after(0, lambda: self.console.insert("end", "❌ Coq is not installed\n", "error"))
                     self.after(0, lambda: self.coq_btn.configure(state="normal", text="📜 COQ VERIFICATION"))
                     return
                 
@@ -2698,6 +2546,7 @@ class FormalVerifierApp(ctk.CTk):
                 coq_out = result.get('output', '')
                 coq_err = result.get('errors', result.get('error', ''))
                 coq_log_path = self.save_tool_log('coq', coq_out, coq_err)
+                
                 # Save Coq state
                 self.save_verification_state('coq', {
                     **result,
@@ -2706,34 +2555,30 @@ class FormalVerifierApp(ctk.CTk):
                 })
                 
                 def display():
-                    self.console.insert("end", "\n" + "="*60 + "\n")
-                    self.console.insert("end", "📜 COQ VERIFICATION RESULTS\n")
-                    self.console.insert("end", "="*60 + "\n")
-                    
                     if result.get('success'):
-                        self.console.insert("end", "✅ Coq verification successful!\n")
+                        self.console.insert("end", "✅ Coq verification successful!\n", "success")
                     else:
                         error_msg = result.get('error', result.get('errors', 'Unknown error'))
-                        self.console.insert("end", f"❌ Coq failed: {error_msg}\n")
+                        self.console.insert("end", f"❌ Coq failed: {error_msg}\n", "error")
                     
                     self.console.see("end")
-                    self.coq_btn.configure(state="normal", text="📜 COQ VERIFICATION")
+                    self.coq_btn.configure(state="normal", text="📜 COQ PROOF ASSISTANT")
                 
                 self.after(0, display)
                 
             except Exception as e:
-                self.after(0, lambda: self.console.insert("end", f"❌ Coq error: {e}\n"))
-                self.after(0, lambda: self.coq_btn.configure(state="normal", text="📜 COQ VERIFICATION"))
+                self.after(0, lambda: self.console.insert("end", f"❌ Coq error: {e}\n", "error"))
+                self.after(0, lambda: self.coq_btn.configure(state="normal", text="📜 COQ PROOF ASSISTANT"))
         
         threading.Thread(target=run_coq, daemon=True).start()
 
     def run_lean_verification(self):
         """Run Lean verification — uses lean directly on a temp .lean file (no lake/mathlib)"""
         if not self.current_file:
-            self.console.insert("end", "❌ No file selected\n")
+            self.console.insert("end", "❌ No file selected\n", "error")
             return
         if self.lean_running:
-            self.console.insert("end", "⏳ Lean verification already running. Please wait.\n")
+            self.console.insert("end", "⏳ Lean verification already running. Please wait.\n", "warning")
             return
 
         self.lean_running = True
@@ -2745,7 +2590,8 @@ class FormalVerifierApp(ctk.CTk):
             tmp_file = None
             try:
                 self.after(0, lambda: self.console.insert("end",
-                    "\n" + "="*60 + "\n⚡ LEAN VERIFICATION RESULTS\n" + "="*60 + "\n"))
+                    "\n⚡ LEAN VERIFICATION\n", "header"))
+                self.after(0, lambda: self.console.insert("end", "─"*60 + "\n", "dim"))
 
                 contract_name = os.path.basename(self.current_file).split('.')[0]
 
@@ -2812,13 +2658,13 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
 
                 def display():
                     if success:
-                        self.console.insert("end", "✅ Lean verification successful!\n")
+                        self.console.insert("end", "✅ Lean verification successful!\n", "success")
                         if result['stdout']:
-                            self.console.insert("end", result['stdout'][:400] + "\n")
+                            self.console.insert("end", result['stdout'][:400] + "\n", "dim")
                     else:
                         # Lean sometimes prints errors to stdout
                         err = result['stderr'] or result['stdout']
-                        self.console.insert("end", f"❌ Lean failed:\n{err[:500]}\n")
+                        self.console.insert("end", f"❌ Lean failed:\n{err[:500]}\n", "error")
                     self.console.see("end")
                     self.lean_btn.configure(state="normal", text="⚡ LEAN VERIFICATION")
 
@@ -2838,11 +2684,11 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
     def verify_with_prusti(self):
         """Run Prusti on the actual user Rust file with auto-annotations."""
         if not self.current_file:
-            self.console.insert("end", "❌ No file selected\n")
+            self.console.insert("end", "❌ No file selected\n", "error")
             return
         ext = os.path.splitext(self.current_file)[1].lower()
         if ext != '.rs':
-            self.console.insert("end", "❌ Prusti only works with .rs files\n")
+            self.console.insert("end", "❌ Prusti only works with .rs files\n", "error")
             return
 
         self.prusti_btn.configure(state="disabled", text="⏳ Running Prusti...")
@@ -2856,8 +2702,9 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
 
                 self.after(0, lambda: self.console.insert(
                     "end",
-                    "\n" + "=" * 60 + "\n🔧 PRUSTI VERIFICATION\n" + "=" * 60 + "\n",
+                    "\n🔧 PRUSTI VERIFICATION\n", "header"
                 ))
+                self.after(0, lambda: self.console.insert("end", "─"*60 + "\n", "dim"))
 
                 verifier = RustVerifier()
                 if not verifier.prusti_available:
@@ -3126,11 +2973,11 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
     def verify_with_kani(self):
         """Run Kani model checking using cargo kani in a temp Cargo project"""
         if not self.current_file:
-            self.console.insert("end", "❌ No file selected\n")
+            self.console.insert("end", "❌ No file selected\n", "error")
             return
         ext = os.path.splitext(self.current_file)[1].lower()
         if ext != '.rs':
-            self.console.insert("end", "❌ Kani only works with .rs files\n")
+            self.console.insert("end", "❌ Kani only works with .rs files\n", "error")
             return
 
         self.kani_btn.configure(state="disabled", text="⏳ Running Kani...")
@@ -3141,7 +2988,8 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
             project_dir = None
             try:
                 self.after(0, lambda: self.console.insert("end",
-                    "\n" + "="*60 + "\n🦀 KANI VERIFICATION\n" + "="*60 + "\n"))
+                    "\n🦀 KANI VERIFICATION\n", "header"))
+                self.after(0, lambda: self.console.insert("end", "─"*60 + "\n", "dim"))
 
                 with open(self.current_file, 'r') as f:
                     rust_code = f.read()
@@ -3617,4 +3465,7 @@ def run_nicegui_interface():
 
 if __name__ == "__main__":
     app = FormalVerifierApp()
-    app.mainloop()
+    try:
+        app.mainloop()
+    except KeyboardInterrupt:
+        print("\n👋 DeFi Guardian closed safely.")

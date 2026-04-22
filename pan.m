@@ -566,7 +566,7 @@
 		_m = 3; goto P999; /* 0 */
 
 		 /* CLAIM never_0 */
-	case 23: // STATE 1 - /home/slade/defi_guardian/translated_output.pml:68 - [(((state==1)&&(lock==1)))] (0:0:0 - 1)
+	case 23: // STATE 1 - translated_output.pml:68 - [(((state==1)&&(lock==1)))] (0:0:0 - 1)
 		
 #if defined(VERI) && !defined(NP)
 #if NCLAIMS>1
@@ -592,7 +592,7 @@
 		if (!(((((int)now.state)==1)&&(((int)now.lock)==1))))
 			continue;
 		_m = 3; goto P999; /* 0 */
-	case 24: // STATE 3 - /home/slade/defi_guardian/translated_output.pml:69 - [((state==2))] (0:0:0 - 1)
+	case 24: // STATE 3 - translated_output.pml:69 - [((state==2))] (0:0:0 - 1)
 		
 #if defined(VERI) && !defined(NP)
 #if NCLAIMS>1
@@ -618,7 +618,7 @@
 		if (!((((int)now.state)==2)))
 			continue;
 		_m = 3; goto P999; /* 0 */
-	case 25: // STATE 5 - /home/slade/defi_guardian/translated_output.pml:70 - [((state==0))] (0:0:0 - 1)
+	case 25: // STATE 5 - translated_output.pml:70 - [((state==0))] (0:0:0 - 1)
 		
 #if defined(VERI) && !defined(NP)
 #if NCLAIMS>1
@@ -644,7 +644,7 @@
 		if (!((((int)now.state)==0)))
 			continue;
 		_m = 3; goto P999; /* 0 */
-	case 26: // STATE 10 - /home/slade/defi_guardian/translated_output.pml:72 - [-end-] (0:0:0 - 1)
+	case 26: // STATE 10 - translated_output.pml:72 - [-end-] (0:0:0 - 1)
 		
 #if defined(VERI) && !defined(NP)
 #if NCLAIMS>1
@@ -671,7 +671,7 @@
 		_m = 3; goto P999; /* 0 */
 
 		 /* PROC Contract */
-	case 27: // STATE 1 - /home/slade/defi_guardian/translated_output.pml:32 - [printf('Formal Verification: Contract Initialized\\n')] (0:24:1 - 1)
+	case 27: // STATE 1 - translated_output.pml:32 - [printf('Formal Verification: Contract Initialized\\n')] (0:24:1 - 1)
 		IfNotBlocked
 		reached[0][1] = 1;
 		Printf("Formal Verification: Contract Initialized\n");
@@ -687,13 +687,13 @@
 		reached[0][25] = 1;
 		;
 		_m = 3; goto P999; /* 2 */
-	case 28: // STATE 4 - /home/slade/defi_guardian/translated_output.pml:37 - [((state==1))] (0:0:0 - 1)
+	case 28: // STATE 4 - translated_output.pml:37 - [((state==1))] (0:0:0 - 1)
 		IfNotBlocked
 		reached[0][4] = 1;
 		if (!((((int)now.state)==1)))
 			continue;
 		_m = 3; goto P999; /* 0 */
-	case 29: // STATE 5 - /home/slade/defi_guardian/translated_output.pml:39 - [assert((user_collateral>=0))] (0:15:1 - 1)
+	case 29: // STATE 5 - translated_output.pml:39 - [assert((user_collateral>=0))] (0:15:1 - 1)
 		IfNotBlocked
 		reached[0][5] = 1;
 		spin_assert((now.user_collateral>=0), "(user_collateral>=0)", II, tt, t);
@@ -712,7 +712,7 @@
 #endif
 		;
 		_m = 3; goto P999; /* 3 */
-	case 30: // STATE 9 - /home/slade/defi_guardian/translated_output.pml:48 - [((health_factor<100))] (24:0:3 - 1)
+	case 30: // STATE 9 - translated_output.pml:48 - [((health_factor<100))] (24:0:3 - 1)
 		IfNotBlocked
 		reached[0][9] = 1;
 		if (!((now.health_factor<100)))
@@ -755,7 +755,7 @@
 		reached[0][25] = 1;
 		;
 		_m = 3; goto P999; /* 7 */
-	case 31: // STATE 14 - /home/slade/defi_guardian/translated_output.pml:53 - [printf('Position healthy: health_factor = %d\\n',health_factor)] (0:24:1 - 1)
+	case 31: // STATE 14 - translated_output.pml:53 - [printf('Position healthy: health_factor = %d\\n',health_factor)] (0:24:1 - 1)
 		IfNotBlocked
 		reached[0][14] = 1;
 		Printf("Position healthy: health_factor = %d\n", now.health_factor);
@@ -777,7 +777,7 @@
 		reached[0][25] = 1;
 		;
 		_m = 3; goto P999; /* 4 */
-	case 32: // STATE 17 - /home/slade/defi_guardian/translated_output.pml:55 - [printf('Formal Verification: Execution Completed\\n')] (0:24:1 - 3)
+	case 32: // STATE 17 - translated_output.pml:55 - [printf('Formal Verification: Execution Completed\\n')] (0:24:1 - 3)
 		IfNotBlocked
 		reached[0][17] = 1;
 		Printf("Formal Verification: Execution Completed\n");
@@ -793,13 +793,13 @@
 		reached[0][25] = 1;
 		;
 		_m = 3; goto P999; /* 2 */
-	case 33: // STATE 20 - /home/slade/defi_guardian/translated_output.pml:58 - [((state==2))] (0:0:0 - 1)
+	case 33: // STATE 20 - translated_output.pml:58 - [((state==2))] (0:0:0 - 1)
 		IfNotBlocked
 		reached[0][20] = 1;
 		if (!((((int)now.state)==2)))
 			continue;
 		_m = 3; goto P999; /* 0 */
-	case 34: // STATE 21 - /home/slade/defi_guardian/translated_output.pml:59 - [printf('Contract execution terminated.\\n')] (0:27:0 - 1)
+	case 34: // STATE 21 - translated_output.pml:59 - [printf('Contract execution terminated.\\n')] (0:27:0 - 1)
 		IfNotBlocked
 		reached[0][21] = 1;
 		Printf("Contract execution terminated.\n");
@@ -807,7 +807,7 @@
 		reached[0][22] = 1;
 		;
 		_m = 3; goto P999; /* 1 */
-	case 35: // STATE 27 - /home/slade/defi_guardian/translated_output.pml:63 - [-end-] (0:0:0 - 2)
+	case 35: // STATE 27 - translated_output.pml:63 - [-end-] (0:0:0 - 2)
 		IfNotBlocked
 		reached[0][27] = 1;
 		if (!delproc(1, II)) continue;

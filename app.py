@@ -690,6 +690,10 @@ st.markdown("""
         border-radius: 16px; 
         padding: 1.5rem; 
         transition: all 0.3s ease; 
+        height: 220px; /* Fixed height for uniformity */
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
     } 
      
     .glass-card:hover { 
@@ -773,27 +777,33 @@ col1, col2, col3 = st.columns(3)
  
 with col1: 
     st.markdown(""" 
-    <div class="glass-card" style="cursor: pointer;" onclick="window.location.href='/Verification'"> 
-        <h3>🔬 Verification Suite</h3> 
-        <p>Run SPIN, Coq, Lean, Prusti, Kani, and Creusot verifications</p> 
+    <div class="glass-card" style="cursor: pointer;" onclick="window.parent.document.getElementById('verification-suite').scrollIntoView({behavior: 'smooth'})"> 
+        <div>
+            <h3>🔬 Verification Suite</h3> 
+            <p>Run SPIN, Coq, Lean, Prusti, Kani, and Creusot verifications</p> 
+        </div>
         <span style="color: #00ffcc;">→ Launch</span> 
     </div> 
     """, unsafe_allow_html=True) 
  
 with col2: 
     st.markdown(""" 
-    <div class="glass-card"> 
-        <h3>📐 State Machine Explorer</h3> 
-        <p>Interactive 3D visualization of state spaces and transitions</p> 
+    <div class="glass-card" style="cursor: pointer;" onclick="window.parent.document.getElementById('state-explorer').scrollIntoView({behavior: 'smooth'})"> 
+        <div>
+            <h3>📐 State Machine Explorer</h3> 
+            <p>Interactive 3D visualization of state spaces and transitions</p> 
+        </div>
         <span style="color: #00ffcc;">→ Launch</span> 
     </div> 
     """, unsafe_allow_html=True) 
  
 with col3: 
     st.markdown(""" 
-    <div class="glass-card"> 
-        <h3>📊 Analytics Dashboard</h3> 
-        <p>Monte Carlo simulations, risk metrics, and verification scoring</p> 
+    <div class="glass-card" style="cursor: pointer;" onclick="window.parent.document.getElementById('analytics-dashboard').scrollIntoView({behavior: 'smooth'})"> 
+        <div>
+            <h3>📊 Analytics Dashboard</h3> 
+            <p>Monte Carlo simulations, risk metrics, and verification scoring</p> 
+        </div>
         <span style="color: #00ffcc;">→ Launch</span> 
     </div> 
     """, unsafe_allow_html=True)
@@ -850,6 +860,10 @@ def export_verification_report(format='pdf'):
          c.setFont("Helvetica-Bold", 14)
          c.drawString(50, 750, "Verification Results Summary")
          
+         active_file = get_active_filename()
+         is_solidity = active_file.lower().endswith('.sol')
+         is_rust = active_file.lower().endswith('.rs')
+         
          data = load_verification_state() 
          y = 720 
          
@@ -864,6 +878,12 @@ def export_verification_report(format='pdf'):
          for tool, result in data.items(): 
              if not isinstance(result, dict): continue
              if tool in ['success', 'datetime', 'states_stored', 'transitions', 'depth']: continue
+             
+             # Filter tools based on active file type
+             if is_solidity and tool.lower() not in ['spin', 'coq', 'lean']:
+                 continue
+             if is_rust and tool.lower() not in ['kani', 'prusti', 'creusot', 'lean']:
+                 continue
              
              c.setFont("Helvetica", 11) 
              status = result.get('status', 'FAIL')
@@ -1149,9 +1169,10 @@ def generate_state_diagram(pml_file, rank_dir='TB', layout_engine='dot', show_tr
         dot.edge('check', 'pass', label='Verified')
         dot.edge('check', 'fail', label='Counterexample')
         
-        # Render to PNG
+        # Render to PNG with higher resolution
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.dot')
         temp_file.close()
+        dot.attr(dpi='300') # Increase DPI for better visibility
         dot.render(temp_file.name, format='png', cleanup=True)
         png_file = temp_file.name + '.png'
         
@@ -1831,21 +1852,39 @@ with st.sidebar:
     # Tool Status
     st.markdown("---")
     st.markdown("#### 🔧 Tool Status")
+    
+    active_file = get_active_filename()
+    is_solidity = active_file.lower().endswith('.sol')
+    is_rust = active_file.lower().endswith('.rs')
+    is_loaded = active_file != "No Model Loaded"
+    
+    # Common tools
     spin_status = get_tool_status('spin')
     coq_status = get_tool_status('coq')
     lean_status = get_tool_status('lean')
-    # prusti_status = get_tool_status('prusti')  # disabled
-    kani_status = get_tool_status('kani')
-
+    
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(f"{'✅' if check_tool('SPIN', TOOL_COMMANDS['SPIN']) else '❌'} SPIN - {spin_status['status']}")
         st.markdown(f"{'✅' if check_tool('Coq', TOOL_COMMANDS['Coq']) else '❌'} Coq - {coq_status['status']}")
+        # If it's Rust, we could also show Prusti/Creusot here
+        if is_rust:
+            kani_status = get_tool_status('kani')
+            st.markdown(f"{'✅' if check_tool('Kani', TOOL_COMMANDS['Kani']) else '❌'} Kani - {kani_status['status']}")
+            # prusti_status = get_tool_status('prusti')
+            # st.markdown(f"{'✅' if check_tool('Prusti', TOOL_COMMANDS['Prusti']) else '❌'} Prusti - {prusti_status['status']}")
+            # creusot_status = get_tool_status('creusot')
+            # st.markdown(f"{'✅' if check_tool('Creusot', TOOL_COMMANDS['Creusot']) else '❌'} Creusot - {creusot_status['status']}")
+            
     with col2:
         st.markdown(f"{'✅' if check_tool('Lean', TOOL_COMMANDS['Lean']) else '❌'} Lean - {lean_status['status']}")
         st.markdown(f"{'✅' if check_tool('Graphviz', TOOL_COMMANDS['Graphviz']) else '❌'} Graphviz")
-        # st.markdown(f"{'✅' if check_tool('Prusti', TOOL_COMMANDS['Prusti']) else '❌'} Prusti - {prusti_status['status']}")  # disabled
-        st.markdown(f"{'✅' if check_tool('Kani', TOOL_COMMANDS['Kani']) else '❌'} Kani - {kani_status['status']}")
+        
+        # If it's Rust, we could also show Prusti/Creusot here if they were enabled
+        if is_rust:
+            # prusti_status = get_tool_status('prusti')
+            # st.markdown(f"{'✅' if check_tool('Prusti', TOOL_COMMANDS['Prusti']) else '❌'} Prusti - {prusti_status['status']}")
+            pass
 
     # Live mode takes precedence over 5s auto-refresh to avoid double timers.
     if st.session_state.auto_refresh and not st.session_state.auto_refresh_dashboard:
@@ -1877,6 +1916,7 @@ else:
     var_risk = (price - liquidation_price) * collateral_units
 
 # Header
+st.markdown('<div id="verification-suite"></div>', unsafe_allow_html=True)
 st.markdown(f"""
 <div class="professional-header">
     <div class="header-title">Formal Verification Dashboard</div>
@@ -2423,69 +2463,85 @@ st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 # ==================== 3D STATE SPACE VISUALIZATION ====================
 
+st.markdown('<div id="state-explorer"></div>', unsafe_allow_html=True)
 st.markdown('<div class="state-diagram-container">', unsafe_allow_html=True)
 st.markdown("""
 <div class="state-diagram-header">
-    <div class="state-diagram-title">🔬 3D STATE SPACE EXPLORATION</div>
-    <div class="state-diagram-badge">Interactive Three.js</div>
+    <div class="state-diagram-title">🔬 3D VERIFICATION TRANSITIONS</div>
+    <div class="state-diagram-badge">Simulated State Space</div>
 </div>
 """, unsafe_allow_html=True)
 
-# Prepare state graph data from your PML parsing
-if st.session_state.get('state_machine'):
-    sm = st.session_state.state_machine
-    
-    # Extract states and transitions
-    raw_nodes = sm.get('states', [])
-    edges = []
-    
-    # Track all nodes seen in edges to ensure they exist
-    nodes_seen = set(raw_nodes)
-    
-    for trans in sm.get('transitions', [])[:20]: # Show more transitions
-        from_node = trans.get('from', 'S0')
-        to_node = trans.get('to', 'S1')
-        
-        nodes_seen.add(from_node)
-        nodes_seen.add(to_node)
-        
-        edges.append({
-            'from': from_node,
-            'to': to_node,
-            'label': trans.get('condition', 'transition')[:25]
-        })
-    
-    # Final nodes list
-    nodes = list(nodes_seen)
-    
-    # If still no nodes/edges, use demo data but ensure consistency
-    if not nodes or len(nodes) < 2:
-        nodes = ['Init', 'Deposited', 'Borrowed', 'Liquidated', 'Repaid']
-        edges = [
-            {'from': 'Init', 'to': 'Deposited', 'label': 'deposit()'},
-            {'from': 'Deposited', 'to': 'Borrowed', 'label': 'borrow()'},
-            {'from': 'Borrowed', 'to': 'Liquidated', 'label': 'health < 1'},
-            {'from': 'Borrowed', 'to': 'Repaid', 'label': 'repay()'},
-            {'from': 'Repaid', 'to': 'Deposited', 'label': 'withdraw()'}
-        ]
-    
-    state_graph = {'nodes': nodes, 'edges': edges}
-    
-    # Render the 3D visualization
+# Attempt to load simulated state graph from verification results
+verification_state_graph = None
+if os.path.exists("state_graph.json"):
+    try:
+        with open("state_graph.json", "r") as f:
+            verification_state_graph = json.load(f)
+    except:
+        pass
+
+# Prepare data for visualization
+if verification_state_graph and len(verification_state_graph.get('edges', [])) > 0:
+    st.markdown("#### Verification Results (Simulated Transitions)")
+    state_graph = verification_state_graph
     render_3d_state_graph_web3d(state_graph, height=500)
     
     # Add download option for state graph data
     col1, col2 = st.columns(2)
     with col1:
         st.download_button(
-            "📥 Download State Graph (JSON)",
+            "📥 Download Verification Graph (JSON)",
             json.dumps(state_graph, indent=2),
-            "state_graph.json",
+            "verification_state_graph.json",
             "application/json",
             use_container_width=True
         )
     with col2:
-        st.metric("States", len(nodes), delta=f"{len(edges)} transitions")
+        st.metric("Explored States", len(state_graph.get('nodes', [])), 
+                  delta=f"{len(state_graph.get('edges', []))} transitions found")
+
+elif st.session_state.get('state_machine'):
+    st.markdown("#### Static Model Structure (PML Analysis)")
+    sm = st.session_state.state_machine
+    
+    # Extract states and transitions
+    raw_nodes = sm.get('states', [])
+    edges = []
+    nodes_seen = set(raw_nodes)
+    
+    # Add transitions from the state machine
+    for trans in sm.get('transitions', [])[:30]:
+        from_node = trans.get('from', 'S0')
+        to_node = trans.get('to', 'S1')
+        nodes_seen.add(from_node)
+        nodes_seen.add(to_node)
+        edges.append({
+            'from': from_node,
+            'to': to_node,
+            'label': trans.get('condition', 'transition')[:25]
+        })
+    
+    # If we have verification nodes but no edges, add them to the seen nodes
+    if verification_state_graph:
+        for node in verification_state_graph.get('nodes', []):
+            nodes_seen.add(node)
+    
+    nodes = list(nodes_seen)
+    state_graph = {'nodes': nodes, 'edges': edges}
+    render_3d_state_graph_web3d(state_graph, height=500)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button(
+            "📥 Download Model Graph (JSON)",
+            json.dumps(state_graph, indent=2),
+            "model_graph.json",
+            "application/json",
+            use_container_width=True
+        )
+    with col2:
+        st.metric("Parsed States", len(nodes), delta=f"{len(edges)} transitions")
 else:
     # Show demo visualization
     demo_nodes = ['Init', 'Deposited', 'Borrowed', 'Liquidated', 'Repaid']
@@ -2503,11 +2559,11 @@ else:
 st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-# ==================== INTERACTIVE 3D STATE SPACE ====================
+# ==================== STATIC MODEL ARCHITECTURE ====================
 
-with st.expander("🎮 Interactive 3D State Space", expanded=False):
-    st.markdown("### Three.js 3D Visualization")
-    st.markdown("*Drag to rotate • Scroll to zoom • Hover for details*")
+with st.expander("📐 Static Model Architecture Explorer", expanded=False):
+    st.markdown("### Structural View (Parsed from Source)")
+    st.markdown("*Shows the formal structure of your contract processes and variables*")
     
     if st.session_state.get('state_machine'):
         sm = st.session_state.state_machine
@@ -2519,7 +2575,7 @@ with st.expander("🎮 Interactive 3D State Space", expanded=False):
         
         render_3d_state_graph_web3d({'nodes': nodes, 'edges': edges}, height=600)
     else:
-        st.info("No state machine data available. Load a model to see 3D visualization.")
+        st.info("No state machine data available. Load a model to see static architecture.")
 
 # ==================== RISK ASSESSMENT ====================
 
@@ -2713,6 +2769,7 @@ if st.session_state.model_content:
 
 # ==================== PERFORMANCE BENCHMARKS ====================
 
+st.markdown('<div id="analytics-dashboard"></div>', unsafe_allow_html=True)
 st.markdown('<div class="panel">', unsafe_allow_html=True)
 st.markdown('<div class="panel-title">🚀 PERFORMANCE BENCHMARKS</div>', unsafe_allow_html=True)
 
@@ -2721,12 +2778,24 @@ if os.path.exists(benchmark_file):
     try:
         with open(benchmark_file, 'r') as f:
             bench_data = json.load(f)
+            
+            # Filter benchmarks by active file type
+            active_file = get_active_filename()
+            is_solidity = active_file.lower().endswith('.sol')
+            is_rust = active_file.lower().endswith('.rs')
+            
+            if is_solidity:
+                bench_data = [d for d in bench_data if d['tool'].lower() in ['spin', 'coq', 'lean']]
+            elif is_rust:
+                bench_data = [d for d in bench_data if d['tool'].lower() in ['kani', 'prusti', 'creusot', 'lean']]
+            
             df_bench = pd.DataFrame(bench_data)
             
-            # Aggregate stats
-            avg_time = df_bench.groupby('tool')['time'].mean().reset_index()
-            success_rate = df_bench.groupby('tool')['success'].mean().reset_index()
-            success_rate['success'] = success_rate['success'] * 100
+            if not df_bench.empty:
+                # Aggregate stats
+                avg_time = df_bench.groupby('tool')['time'].mean().reset_index()
+                success_rate = df_bench.groupby('tool')['success'].mean().reset_index()
+                success_rate['success'] = success_rate['success'] * 100
             
             col1, col2 = st.columns(2)
             
