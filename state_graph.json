@@ -1,6 +1,6 @@
 {
   "nodes": [
-    "Program"
+    "Contract"
   ],
   "edges": [],
   "counterexample_path": []

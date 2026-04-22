@@ -17,13 +17,15 @@ import asyncio
 import threading
 from datetime import datetime
 import numpy as np
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import json
 from PIL import Image
 import io
 import graphviz
 import networkx as nx
 import time
+
+# Ensure we're in the right directory
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 def render_3d_state_graph_web3d(state_graph_data, height=500):
     """
@@ -1298,6 +1300,7 @@ with st.sidebar:
     
     # Diagram Settings
     st.markdown("#### 📐 Diagram Settings")
+    viz_mode = st.radio("Visualization Mode", ["2D (Static)", "3D (Interactive)", "Hybrid View"], horizontal=True, key="viz_mode")
     layout_engine = st.selectbox("Layout Engine", ["dot", "neato", "twopi", "circo"], key="layout_engine")
     rank_dir = st.radio("Flow Direction", ["TB", "LR"], horizontal=True, 
                          format_func=lambda x: "Top-Down" if x == "TB" else "Left-Right", key="rank_dir")

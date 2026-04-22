@@ -2,7 +2,7 @@
 #define PAN_H
 
 #define SpinVersion	"Spin Version 6.5.2 -- 6 December 2019"
-#define PanSource	"/home/slade/defi_guardian/translated_output.pml"
+#define PanSource	"translated_output.pml"
 
 #define G_long	8
 #define G_int	4
@@ -17,7 +17,7 @@
 #endif
 
 #ifdef BFS_PAR
-	#define NRUNS	1
+	#define NRUNS	0
 	#ifndef BFS
 		#define BFS
 	#endif
@@ -102,6 +102,7 @@
 #ifndef NFAIR
 	#define NFAIR	2	/* must be >= 2 */
 #endif
+#define HAS_LTL	1
 #define HAS_CODE	1
 #if defined(RANDSTORE) && !defined(RANDSTOR)
 	#define RANDSTOR	RANDSTORE
@@ -120,10 +121,16 @@
 #endif
 #ifdef NP
 	#define HAS_NP	2
-	#define VERI	2	/* np_ */
+	#define VERI	10	/* np_ */
 #endif
 #if defined(NOCLAIM) && defined(NP)
 	#undef NOCLAIM
+#endif
+#ifndef NOCLAIM
+	#define NCLAIMS	9
+	#ifndef NP
+		#define VERI	9
+	#endif
 #endif
 
 typedef struct S_F_MAP {
@@ -132,24 +139,80 @@ typedef struct S_F_MAP {
 	int upto;
 } S_F_MAP;
 
-#define _nstates1	42	/* User */
-#define minseq1	6
-#define maxseq1	46
-#define _endstate1	41
+#define _nstates9	14	/* reachability_liquidation */
+#define minseq9	112
+#define maxseq9	124
+#define _endstate9	13
 
-#define _nstates0	7	/* :init: */
+#define _nstates8	14	/* fairness */
+#define minseq8	99
+#define maxseq8	111
+#define _endstate8	13
+
+#define _nstates7	14	/* stability */
+#define minseq7	86
+#define maxseq7	98
+#define _endstate7	13
+
+#define _nstates6	14	/* response_price_drop */
+#define minseq6	73
+#define maxseq6	85
+#define _endstate6	13
+
+#define _nstates5	11	/* invariant_collateral */
+#define minseq5	63
+#define maxseq5	72
+#define _endstate5	10
+
+#define _nstates4	7	/* liveness_progress */
+#define minseq4	57
+#define maxseq4	62
+#define _endstate4	6
+
+#define _nstates3	11	/* safety_reentrancy */
+#define minseq3	47
+#define maxseq3	56
+#define _endstate3	10
+
+#define _nstates2	11	/* safety_no_overflow */
+#define minseq2	37
+#define maxseq2	46
+#define _endstate2	10
+
+#define _nstates1	11	/* never_0 */
+#define minseq1	27
+#define maxseq1	36
+#define _endstate1	10
+
+#define _nstates0	28	/* Contract */
 #define minseq0	0
-#define maxseq0	5
-#define _endstate0	6
+#define maxseq0	26
+#define _endstate0	27
 
+extern short src_ln9[];
+extern short src_ln8[];
+extern short src_ln7[];
+extern short src_ln6[];
+extern short src_ln5[];
+extern short src_ln4[];
+extern short src_ln3[];
+extern short src_ln2[];
 extern short src_ln1[];
 extern short src_ln0[];
+extern S_F_MAP src_file9[];
+extern S_F_MAP src_file8[];
+extern S_F_MAP src_file7[];
+extern S_F_MAP src_file6[];
+extern S_F_MAP src_file5[];
+extern S_F_MAP src_file4[];
+extern S_F_MAP src_file3[];
+extern S_F_MAP src_file2[];
 extern S_F_MAP src_file1[];
 extern S_F_MAP src_file0[];
 
 #define T_ID	unsigned char
-#define _T5	20
-#define _T2	21
+#define _T5	36
+#define _T2	37
 #define WS		8 /* word size in bytes */
 #define SYNC	0
 #define ASYNC	0
@@ -164,47 +227,134 @@ extern S_F_MAP src_file0[];
 	#endif
 #endif
 
-struct Account { /* user defined type */
-	int balance;
-	int debt;
-};
-#define PUser	((P1 *)_this)
-typedef struct P1 { /* User */
+typedef struct P9 { /* reachability_liquidation */
 	unsigned _pid : 8;  /* 0..255 */
-	unsigned _t   : 3; /* proctype */
-	unsigned _p   : 7; /* state    */
+	unsigned _t   : 5; /* proctype */
+	unsigned _p   : 6; /* state    */
 #ifdef HAS_PRIORITY
 	unsigned _priority : 8; /* 0..255 */
 #endif
-	uchar id;
-	int action;
-} P1;
-#define Air1	(sizeof(P1) - Offsetof(P1, action) - 1*sizeof(int))
+} P9;
+#define Air9	(sizeof(P9) - 3)
 
-#define Pinit	((P0 *)_this)
-typedef struct P0 { /* :init: */
+typedef struct P8 { /* fairness */
 	unsigned _pid : 8;  /* 0..255 */
-	unsigned _t   : 3; /* proctype */
-	unsigned _p   : 7; /* state    */
+	unsigned _t   : 5; /* proctype */
+	unsigned _p   : 6; /* state    */
 #ifdef HAS_PRIORITY
 	unsigned _priority : 8; /* 0..255 */
 #endif
-} P0;
-#define Air0	(sizeof(P0) - 3)
+} P8;
+#define Air8	(sizeof(P8) - 3)
 
-typedef struct P2 { /* np_ */
+typedef struct P7 { /* stability */
 	unsigned _pid : 8;  /* 0..255 */
-	unsigned _t   : 3; /* proctype */
-	unsigned _p   : 7; /* state    */
+	unsigned _t   : 5; /* proctype */
+	unsigned _p   : 6; /* state    */
+#ifdef HAS_PRIORITY
+	unsigned _priority : 8; /* 0..255 */
+#endif
+} P7;
+#define Air7	(sizeof(P7) - 3)
+
+typedef struct P6 { /* response_price_drop */
+	unsigned _pid : 8;  /* 0..255 */
+	unsigned _t   : 5; /* proctype */
+	unsigned _p   : 6; /* state    */
+#ifdef HAS_PRIORITY
+	unsigned _priority : 8; /* 0..255 */
+#endif
+} P6;
+#define Air6	(sizeof(P6) - 3)
+
+typedef struct P5 { /* invariant_collateral */
+	unsigned _pid : 8;  /* 0..255 */
+	unsigned _t   : 5; /* proctype */
+	unsigned _p   : 6; /* state    */
+#ifdef HAS_PRIORITY
+	unsigned _priority : 8; /* 0..255 */
+#endif
+} P5;
+#define Air5	(sizeof(P5) - 3)
+
+typedef struct P4 { /* liveness_progress */
+	unsigned _pid : 8;  /* 0..255 */
+	unsigned _t   : 5; /* proctype */
+	unsigned _p   : 6; /* state    */
+#ifdef HAS_PRIORITY
+	unsigned _priority : 8; /* 0..255 */
+#endif
+} P4;
+#define Air4	(sizeof(P4) - 3)
+
+typedef struct P3 { /* safety_reentrancy */
+	unsigned _pid : 8;  /* 0..255 */
+	unsigned _t   : 5; /* proctype */
+	unsigned _p   : 6; /* state    */
+#ifdef HAS_PRIORITY
+	unsigned _priority : 8; /* 0..255 */
+#endif
+} P3;
+#define Air3	(sizeof(P3) - 3)
+
+typedef struct P2 { /* safety_no_overflow */
+	unsigned _pid : 8;  /* 0..255 */
+	unsigned _t   : 5; /* proctype */
+	unsigned _p   : 6; /* state    */
 #ifdef HAS_PRIORITY
 	unsigned _priority : 8; /* 0..255 */
 #endif
 } P2;
 #define Air2	(sizeof(P2) - 3)
 
-#define Pclaim	P0
-#ifndef NCLAIMS
-	#define NCLAIMS 1
+typedef struct P1 { /* never_0 */
+	unsigned _pid : 8;  /* 0..255 */
+	unsigned _t   : 5; /* proctype */
+	unsigned _p   : 6; /* state    */
+#ifdef HAS_PRIORITY
+	unsigned _priority : 8; /* 0..255 */
+#endif
+} P1;
+#define Air1	(sizeof(P1) - 3)
+
+#define PContract	((P0 *)_this)
+typedef struct P0 { /* Contract */
+	unsigned _pid : 8;  /* 0..255 */
+	unsigned _t   : 5; /* proctype */
+	unsigned _p   : 6; /* state    */
+#ifdef HAS_PRIORITY
+	unsigned _priority : 8; /* 0..255 */
+#endif
+} P0;
+#define Air0	(sizeof(P0) - 3)
+
+typedef struct P10 { /* np_ */
+	unsigned _pid : 8;  /* 0..255 */
+	unsigned _t   : 5; /* proctype */
+	unsigned _p   : 6; /* state    */
+#ifdef HAS_PRIORITY
+	unsigned _priority : 8; /* 0..255 */
+#endif
+} P10;
+#define Air10	(sizeof(P10) - 3)
+
+
+#ifndef NOCLAIM
+ #ifndef NP
+	#undef VERI
+	#define VERI	11
+ #endif
+	#define Pclaim	P11
+
+typedef struct P11 {
+	unsigned _pid : 8; /* always zero */
+	unsigned _t   : 5; /* active-claim type  */
+	unsigned _p   : 6; /* active-claim state */
+	unsigned _n   : 5; /* active-claim index */
+	uchar c_cur[NCLAIMS]; /* claim-states */
+} P11;
+	#define Air11	(0)
+
 #endif
 #if defined(BFS) && defined(REACH)
 	#undef REACH
@@ -392,8 +542,14 @@ typedef struct State {
 		unsigned short _event;
 	#endif
 #endif
-	uchar total_liquidity;
-	struct Account users[2];
+	unsigned lock : 1;
+	unsigned liquidation_executed : 1;
+	uchar state;
+	int amount;
+	int user_collateral;
+	int user_debt;
+	int price_eth;
+	int health_factor;
 #ifdef TRIX
 	/* room for 512 proc+chan ptrs, + safety margin */
 	char *_ids_[MAXPROC+MAXQ+4];
@@ -418,17 +574,25 @@ typedef struct TRIX_v6 {
 #define FORWARD_MOVES	"pan.m"
 #define BACKWARD_MOVES	"pan.b"
 #define TRANSITIONS	"pan.t"
-#define _NP_	2
-#define _nstates2	3 /* np_ */
-#define _endstate2	2 /* np_ */
+#define _NP_	10
+#define _nstates10	3 /* np_ */
+#define _endstate10	2 /* np_ */
 
-#define _start2	0 /* np_ */
-#define _start1	38
+#define _start10	0 /* np_ */
+#define _start9	5
+#define _start8	5
+#define _start7	5
+#define _start6	5
+#define _start5	6
+#define _start4	3
+#define _start3	6
+#define _start2	6
+#define _start1	7
 #define _start0	3
 #ifdef NP
 	#define ACCEPT_LAB	1 /* at least 1 in np_ */
 #else
-	#define ACCEPT_LAB	0 /* user-defined accept labels */
+	#define ACCEPT_LAB	8 /* user-defined accept labels */
 #endif
 #ifdef MEMCNT
 	#ifdef MEMLIM
@@ -774,7 +938,7 @@ typedef struct BFS_State {
 
 void qsend(int, int, int);
 
-#define Addproc(x,y)	addproc(256, y, x, 0)
+#define Addproc(x,y)	addproc(256, y, x)
 #define LOCAL	1
 #define Q_FULL_F	2
 #define Q_EMPT_F	3
@@ -784,7 +948,7 @@ void qsend(int, int, int);
 #define GLOBAL	7
 #define BAD	8
 #define ALPHA_F	9
-#define NTRANS	22
+#define NTRANS	38
 #if defined(BFS_PAR) || NCORE>1
 	void e_critical(int);
 	void x_critical(int);
