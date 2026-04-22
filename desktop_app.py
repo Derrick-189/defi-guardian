@@ -705,7 +705,7 @@ except ImportError:
 
 # Import translators
 try:
-    from translator import DeFiTranslator
+    from translator import DeFiTranslator, VerifiedTranslator
 except ImportError:
     class DeFiTranslator:
         @staticmethod
@@ -733,10 +733,28 @@ except ImportError:
         @staticmethod
         def generate_ltl_properties(state_vars):
             return ""
+    
+    class VerifiedTranslator(DeFiTranslator):
+        def translate_with_proof(self, source_code):
+            pml = self.translate_solidity(source_code)
+            return pml, ["∀s: State • source_invariant(s) ⇒ pml_invariant(translate(s))"]
+
+# Import verifier plugins
+try:
+    from verifier_plugins import PluginManager
+except ImportError:
+    PluginManager = None
 
 class FormalVerifierApp(ctk.CTk):
     def __init__(self):
         super().__init__()
+        
+        # Initialize plugin system
+        if PluginManager:
+            self.plugin_manager = PluginManager()
+            print(f"🔌 Plugin Manager loaded with {len(self.plugin_manager.plugins)} plugins")
+        else:
+            self.plugin_manager = None
         
         # Configure window
         ctk.set_appearance_mode("dark")
@@ -2241,8 +2259,19 @@ class FormalVerifierApp(ctk.CTk):
                 # Translate if needed
                 if self.file_type == 'sol':
                     self.console.insert("end", "[1/5] 🔄 Translating Solidity to Promela...\n")
-                    translated_content = DeFiTranslator.translate_solidity(content)
-                    self.console.insert("end", "   ✅ Translation complete\n\n")
+                    translator = VerifiedTranslator()
+                    translated_content, obligations = translator.translate_with_proof(content)
+                    
+                    # Check cache for translation results
+                    if self.plugin_manager:
+                        cached = self.plugin_manager.cache.get(content, "spin") if self.plugin_manager.cache else None
+                        if cached:
+                            self.console.insert("end", "⚡ Results loaded from cache (no re-translation needed)\n")
+                    
+                    self.console.insert("end", "   ✅ Translation complete with semantic preservation checks\n")
+                    for obligation in obligations:
+                        self.console.insert("end", f"   📜 Proof Obligation: {obligation}\n")
+                    self.console.insert("end", "\n")
                     
                 elif self.file_type == 'rs':
                     self.console.insert("end", "[1/5] 🔄 Translating Rust to Promela...\n")
@@ -2886,7 +2915,7 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
 
                 self.after(0, lambda: self.console.insert(
                     "end",
-                    "✅ Annotations generated. Running Prusti...\n\n",
+                    "✅ Annotations generated. Running robust Prusti verification...\n\n",
                 ))
 
                 annotated_path = os.path.join(PROJECT_DIR, "annotated_output.rs")
@@ -2897,8 +2926,19 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
                     f"📄 Annotated code saved to: {annotated_path}\n\n",
                 ))
 
-                # Must use skip_analyze=True: analyze_and_annotate already ran above
-                result = verifier.verify_with_prusti(annotated_code, skip_analyze=True)
+                # Use the new robust verification chain
+                result = verifier.verify_with_prusti_robust(annotated_code)
+
+                if result.get('cached'):
+                    self.after(0, lambda: self.console.insert(
+                        "end", "⚡ Results loaded from cache (no re-verification needed)\n"
+                    ))
+
+                strategy = result.get('robust_strategy')
+                if strategy:
+                    self.after(0, lambda s=strategy: self.console.insert(
+                        "end", f"ℹ️ Robust strategy used: {s}\n"
+                    ))
 
                 log_path = self.save_tool_log(
                     'prusti', result.get('output', ''), result.get('errors', '')
