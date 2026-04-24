@@ -1,7 +1,101 @@
 {
   "nodes": [
-    "Contract"
+    "Start",
+    "Line_32_Step_0",
+    "Line_33_Step_1",
+    "Line_37_Step_2",
+    "Line_39_Step_3",
+    "Line_40_Step_4",
+    "Line_41_Step_5",
+    "Line_44_Step_6",
+    "Line_52_Step_7",
+    "Line_53_Step_8",
+    "Line_55_Step_9",
+    "Line_56_Step_10",
+    "Line_58_Step_11",
+    "Line_59_Step_12"
   ],
-  "edges": [],
-  "counterexample_path": []
+  "edges": [
+    {
+      "from": "Start",
+      "to": "Line_32_Step_0",
+      "label": "Line 32"
+    },
+    {
+      "from": "Line_32_Step_0",
+      "to": "Line_33_Step_1",
+      "label": "Line 33"
+    },
+    {
+      "from": "Line_33_Step_1",
+      "to": "Line_37_Step_2",
+      "label": "Line 37"
+    },
+    {
+      "from": "Line_37_Step_2",
+      "to": "Line_39_Step_3",
+      "label": "Line 39"
+    },
+    {
+      "from": "Line_39_Step_3",
+      "to": "Line_40_Step_4",
+      "label": "Line 40"
+    },
+    {
+      "from": "Line_40_Step_4",
+      "to": "Line_41_Step_5",
+      "label": "Line 41"
+    },
+    {
+      "from": "Line_41_Step_5",
+      "to": "Line_44_Step_6",
+      "label": "Line 44"
+    },
+    {
+      "from": "Line_44_Step_6",
+      "to": "Line_52_Step_7",
+      "label": "Line 52"
+    },
+    {
+      "from": "Line_52_Step_7",
+      "to": "Line_53_Step_8",
+      "label": "Line 53"
+    },
+    {
+      "from": "Line_53_Step_8",
+      "to": "Line_55_Step_9",
+      "label": "Line 55"
+    },
+    {
+      "from": "Line_55_Step_9",
+      "to": "Line_56_Step_10",
+      "label": "Line 56"
+    },
+    {
+      "from": "Line_56_Step_10",
+      "to": "Line_58_Step_11",
+      "label": "Line 58"
+    },
+    {
+      "from": "Line_58_Step_11",
+      "to": "Line_59_Step_12",
+      "label": "Line 59"
+    }
+  ],
+  "counterexample_path": [
+    "Start",
+    "Line_32_Step_0",
+    "Line_33_Step_1",
+    "Line_37_Step_2",
+    "Line_39_Step_3",
+    "Line_40_Step_4",
+    "Line_41_Step_5",
+    "Line_44_Step_6",
+    "Line_52_Step_7",
+    "Line_53_Step_8",
+    "Line_55_Step_9",
+    "Line_56_Step_10",
+    "Line_58_Step_11",
+    "Line_59_Step_12"
+  ]
 }

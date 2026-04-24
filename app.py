@@ -1002,7 +1002,7 @@ def parse_pml_variable(filename, var_name, default_val):
     return float(default_val)
 
 def parse_pml_state_machine(pml_content):
-    """Parse PML file to extract state machine structure"""
+    """Parse PML file to extract state machine structure with improved logic"""
     states = []
     transitions = []
     processes = []
@@ -1017,38 +1017,106 @@ def parse_pml_state_machine(pml_content):
         proc_body = match.group(2)
         processes.append(proc_name)
         
+        # Track the current state for transitions
+        current_context_state = f"{proc_name}.INIT"
+        
         # Extract labels (states)
-        label_pattern = r'(\w+)\s*:'
-        for label_match in re.finditer(label_pattern, proc_body):
-            state_name = label_match.group(1)
-            states.append(f"{proc_name}.{state_name}")
+        label_pattern = r'^(\w+)\s*:'
+        for line in proc_body.split('\n'):
+            label_match = re.match(label_pattern, line.strip())
+            if label_match:
+                state_name = label_match.group(1)
+                if state_name not in ['skip', 'break', 'goto', 'printf', 'assert']:
+                    states.append(f"{proc_name}.{state_name}")
         
-        # Extract transitions from if statements
-        if_pattern = r'if\s*::\s*(.*?)\s*->\s*(.*?)\s*(?:;|fi)'
-        for if_match in re.finditer(if_pattern, proc_body, re.DOTALL):
-            condition = if_match.group(1).strip()
-            action = if_match.group(2).strip()
-            transitions.append({
-                'from': proc_name,
-                'to': proc_name,
-                'condition': condition[:50],
-                'action': action[:50]
+        # 1. First, find all explicit state assignments to build the backbone
+        state_assign_pattern = r'state\s*=\s*(\d+)'
+        assignments = []
+        for sa_match in re.finditer(state_assign_pattern, proc_body):
+            state_num = sa_match.group(1)
+            assignments.append({
+                'num': state_num,
+                'pos': sa_match.start(),
+                'name': f"{proc_name}.State_{state_num}"
             })
-        
-        # Extract transitions from atomic blocks
-        atomic_pattern = r'atomic\s*\{\s*(.*?)\s*\}'
-        for atomic_match in re.finditer(atomic_pattern, proc_body, re.DOTALL):
-            atomic_content = atomic_match.group(1)
-            assign_pattern = r'(\w+)\s*=\s*([^;]+);'
-            for assign in re.finditer(assign_pattern, atomic_content):
-                var = assign.group(1)
-                value = assign.group(2)
+            if f"{proc_name}.State_{state_num}" not in states:
+                states.append(f"{proc_name}.State_{state_num}")
+
+        # 2. Extract transitions from if statements with context awareness
+        # Find if...fi blocks
+        if_blocks = re.finditer(r'if\s*(.*?)\s*fi', proc_body, re.DOTALL)
+        for block in if_blocks:
+            block_content = block.group(1)
+            block_start = block.start()
+            
+            # Find the state assignment just before this if block
+            prev_assignment = "INIT"
+            for assign in assignments:
+                if assign['pos'] < block_start:
+                    prev_assignment = f"State_{assign['num']}"
+                else:
+                    break
+            
+            # Parse branches inside if
+            branches = re.finditer(r'::\s*(.*?)\s*->(.*?)(?=(?:::|fi|$))', block_content, re.DOTALL)
+            for branch in branches:
+                condition = branch.group(1).strip()
+                action_content = branch.group(2)
+                
+                # Find if this branch has a state assignment
+                branch_state_match = re.search(r'state\s*=\s*(\d+)', action_content)
+                target = f"{proc_name}.State_{branch_state_match.group(1)}" if branch_state_match else f"{proc_name}.FI_Exit"
+                
                 transitions.append({
-                    'from': proc_name,
-                    'to': proc_name,
-                    'condition': f"update {var}",
-                    'action': f"{var} = {value}"
+                    'from': f"{proc_name}.{prev_assignment}",
+                    'to': target,
+                    'condition': condition[:40],
+                    'action': 'Conditional Branch'
                 })
+
+        # 3. Extract transitions from do loops
+        do_blocks = re.finditer(r'do\s*(.*?)\s*od', proc_body, re.DOTALL)
+        for block in do_blocks:
+            block_content = block.group(1)
+            
+            # Find loop options
+            options = re.finditer(r'::\s*(.*?)\s*->(.*?)(?=(?:::|od|$))', block_content, re.DOTALL)
+            for opt in options:
+                condition = opt.group(1).strip()
+                action_content = opt.group(2)
+                
+                # Check for state assignments or break
+                state_match = re.search(r'state\s*=\s*(\d+)', action_content)
+                is_break = 'break' in action_content
+                
+                if state_match:
+                    target = f"{proc_name}.State_{state_match.group(1)}"
+                elif is_break:
+                    target = f"{proc_name}.LoopBreak"
+                else:
+                    target = f"{proc_name}.LoopStay"
+                
+                transitions.append({
+                    'from': f"{proc_name}.Running", # Logic for 'do' usually starts from a running state
+                    'to': target,
+                    'condition': condition[:40],
+                    'action': 'Loop Branch'
+                })
+
+        # 4. Fallback for linear state assignments not caught in blocks
+        last_s = "INIT"
+        for assign in assignments:
+            curr_s = f"State_{assign['num']}"
+            # Only add if not already represented as a transition from a block
+            exists = any(t['to'] == f"{proc_name}.{curr_s}" for t in transitions)
+            if not exists:
+                transitions.append({
+                    'from': f"{proc_name}.{last_s}",
+                    'to': f"{proc_name}.{curr_s}",
+                    'condition': 'assignment',
+                    'action': f'Update to {assign["num"]}'
+                })
+            last_s = curr_s
     
     # Extract state variables
     var_pattern = r'(?:int|bool|byte)\s+(\w+)\s*(?:=\s*([^;]+))?;'
@@ -1073,7 +1141,7 @@ def parse_pml_state_machine(pml_content):
     fairness_conditions = re.findall(fairness_pattern, pml_content)
     
     return {
-        'states': list(set(states)) if states else processes,
+        'states': list(set(states)) if states else (processes if processes else ["INIT", "END"]),
         'transitions': transitions,
         'processes': processes,
         'state_vars': state_vars,
@@ -1237,9 +1305,21 @@ def load_active_verification_results():
 
 
 def get_active_filename():
+    """Get the most relevant active file path"""
+    # Priority 1: Translated output (contains LTL and full model)
+    if os.path.exists("translated_output.pml"):
+        return "translated_output.pml"
+        
+    # Priority 2: File explicitly set by desktop app
     if os.path.exists("active_file.txt"):
         with open("active_file.txt", "r") as f:
-            return f.read().strip()
+            path = f.read().strip()
+            if os.path.exists(path):
+                return path
+            # Fallback if path doesn't exist but filename does in current dir
+            elif os.path.exists(os.path.basename(path)):
+                return os.path.basename(path)
+                
     return "No Model Loaded"
 
 TOOL_COMMANDS = {
@@ -1313,9 +1393,9 @@ def generate_proof_obligations(state_machine):
     
     report.append("\n## 3. Transition System Proof Obligations")
     for i, trans in enumerate(state_machine.get('transitions', [])[:10], 1):
-        report.append(f"**T-{i}**: Transition from `{trans['from']}` to `{trans['to']}`")
-        report.append(f"   - Condition: {trans['condition']}")
-        report.append(f"   - Action: {trans['action']}")
+        report.append(f"**T-{i}**: Transition from `{trans.get('from', 'Unknown')}` to `{trans.get('to', 'Unknown')}`")
+        report.append(f"   - Condition: {trans.get('condition', 'true')}")
+        report.append(f"   - Action: {trans.get('action', 'State Change')}")
         report.append(f"   - Obligation: Prove that the action preserves all invariants")
     
     report.append("\n## 4. Fairness Proof Obligations")
@@ -1340,14 +1420,25 @@ def generate_proof_obligations(state_machine):
     
     return "\n".join(report)
 
-def render_3d_state_space(state_graph_data):
-    # state_graph_data = {"nodes": ["S0", "S1"], "edges": [{"from": "S0", "to": "S1", "label": "borrow()"}]}
+def render_3d_state_space(state_graph_data, height=500):
+    """Render 3D state space using Plotly for better layout control"""
     
-    G = nx.DiGraph()
-    for edge in state_graph_data['edges']:
-        G.add_edge(edge['from'], edge['to'])
+    if isinstance(state_graph_data, nx.Graph):
+        G = state_graph_data
+    else:
+        # state_graph_data = {"nodes": ["S0", "S1"], "edges": [{"from": "S0", "to": "S1", "label": "borrow()"}]}
+        G = nx.DiGraph()
+        # Add all nodes first to ensure isolated nodes are included
+        for node in state_graph_data.get('nodes', []):
+            G.add_node(node)
+            
+        for edge in state_graph_data.get('edges', []):
+            G.add_edge(edge.get('from', 'S0'), edge.get('to', 'S1'))
     
-    # Use spring layout for 3D positioning
+    if not G.nodes():
+        return go.Figure()
+
+    # CRITICAL FIX: Add dim=3 
     pos = nx.spring_layout(G, dim=3, seed=42, k=0.5)
     
     # Extract coordinates
@@ -1355,41 +1446,208 @@ def render_3d_state_space(state_graph_data):
     y_nodes = [pos[node][1] for node in G.nodes()]
     z_nodes = [pos[node][2] for node in G.nodes()]
     
-    # Create Edges (Lines)
-    edge_traces = []
+    # Create the 3D Scatter plot for states 
+    node_trace = go.Scatter3d( 
+        x=x_nodes, y=y_nodes, z=z_nodes, 
+        mode='markers+text', 
+        marker=dict(size=10, color='#00ffcc', symbol='circle', 
+                   line=dict(color='#ff00cc', width=1)), 
+        text=list(G.nodes()), 
+        textposition="top center",
+        hoverinfo='text',
+        textfont=dict(color='white', size=10)
+    ) 
+    
+    # Create the lines for transitions 
+    edge_x, edge_y, edge_z = [], [], [] 
+    for edge in G.edges(): 
+        x0, y0, z0 = pos[edge[0]] 
+        x1, y1, z1 = pos[edge[1]] 
+        edge_x.extend([x0, x1, None]) 
+        edge_y.extend([y0, y1, None]) 
+        edge_z.extend([z0, z1, None]) 
+ 
+    edge_trace = go.Scatter3d( 
+        x=edge_x, y=edge_y, z=edge_z, 
+        line=dict(width=4, color='#888'), 
+        hoverinfo='none', 
+        mode='lines' 
+    ) 
+ 
+    fig = go.Figure(data=[node_trace, edge_trace]) 
+    fig.update_layout( 
+        scene=dict( 
+            xaxis=dict(visible=False), 
+            yaxis=dict(visible=False), 
+            zaxis=dict(visible=False), 
+            bgcolor="rgba(0,0,0,0)" 
+        ), 
+        paper_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=0, r=0, b=0, t=0),
+        showlegend=False,
+        height=height
+    ) 
+    return fig
+
+def render_2d_state_space(G, height=500):
+    """Render 2D state space using Plotly for a cleaner static view"""
+    if not G.nodes():
+        return go.Figure()
+
+    pos = nx.spring_layout(G, dim=2, seed=42, k=0.5)
+    
+    edge_x, edge_y = [], []
     for edge in G.edges():
-        x0, y0, z0 = pos[edge[0]]
-        x1, y1, z1 = pos[edge[1]]
-        edge_traces.append(go.Scatter3d(
-            x=[x0, x1, None], y=[y0, y1, None], z=[z0, z1, None],
-            mode='lines',
-            line=dict(color='#00ffcc', width=2),
-            hoverinfo='none'
-        ))
-        
-    # Create Nodes (Spheres)
-    node_trace = go.Scatter3d(
-        x=x_nodes, y=y_nodes, z=z_nodes,
+        x0, y0 = pos[edge[0]]
+        x1, y1 = pos[edge[1]]
+        edge_x.extend([x0, x1, None])
+        edge_y.extend([y0, y1, None])
+
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y,
+        line=dict(width=2, color='#888'),
+        hoverinfo='none',
+        mode='lines'
+    )
+
+    node_x, node_y = [], []
+    for node in G.nodes():
+        x, y = pos[node]
+        node_x.append(x)
+        node_y.append(y)
+
+    node_trace = go.Scatter(
+        x=node_x, y=node_y,
         mode='markers+text',
-        marker=dict(size=12, color='#ff00cc', line=dict(color='#00ffcc', width=1)),
+        hoverinfo='text',
         text=list(G.nodes()),
         textposition="top center",
-        hoverinfo='text'
+        marker=dict(
+            showscale=False,
+            color='#00ffcc',
+            size=15,
+            line_width=2),
+        textfont=dict(color='white', size=10)
     )
-    
-    fig = go.Figure(data=edge_traces + [node_trace])
-    fig.update_layout(
-        title="🔬 3D State Space Exploration",
-        scene=dict(
-            xaxis=dict(showbackground=False, showticklabels=False, title=''),
-            yaxis=dict(showbackground=False, showticklabels=False, title=''),
-            zaxis=dict(showbackground=False, showticklabels=False, title=''),
-            bgcolor='rgba(0,0,0,0)'
-        ),
-        paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white')
-    )
+
+    fig = go.Figure(data=[edge_trace, node_trace],
+                 layout=go.Layout(
+                    showlegend=False,
+                    hovermode='closest',
+                    margin=dict(b=0, l=0, r=0, t=0),
+                    xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    height=height
+                ))
     return fig
+
+def render_model_architecture(sm, height=600):
+    """Render static model architecture"""
+    nodes = sm.get('states', ['State_' + str(i) for i in range(5)])
+    edges = [{'from': t.get('from', 'S0'), 
+              'to': t.get('to', 'S1'), 
+              'label': t.get('condition', '')[:15]} 
+             for t in sm.get('transitions', [])[:12]]
+    
+    # Create Graph object for analysis
+    G = nx.DiGraph()
+    for node in nodes: G.add_node(node)
+    for edge in edges: G.add_edge(edge['from'], edge['to'])
+
+    pos = nx.spring_layout(G, dim=3, seed=42)
+    
+    # Extract coordinates
+    x_nodes = [pos[node][0] for node in G.nodes()]
+    y_nodes = [pos[node][1] for node in G.nodes()]
+    z_nodes = [pos[node][2] for node in G.nodes()]
+    
+    # Create the 3D Scatter plot for states 
+    node_trace = go.Scatter3d( 
+        x=x_nodes, y=y_nodes, z=z_nodes, 
+        mode='markers+text', 
+        marker=dict(size=10, color='#ff00cc', symbol='circle', 
+                   line=dict(color='#00ffcc', width=1)), 
+        text=list(G.nodes()), 
+        textposition="top center",
+        hoverinfo='text',
+        textfont=dict(color='white', size=10)
+    ) 
+    
+    # Create the lines for transitions 
+    edge_x, edge_y, edge_z = [], [], [] 
+    for edge in G.edges(): 
+        x0, y0, z0 = pos[edge[0]] 
+        x1, y1, z1 = pos[edge[1]] 
+        edge_x.extend([x0, x1, None]) 
+        edge_y.extend([y0, y1, None]) 
+        edge_z.extend([z0, z1, None]) 
+ 
+    edge_trace = go.Scatter3d( 
+        x=edge_x, y=edge_y, z=edge_z, 
+        line=dict(width=4, color='#00ffcc'), 
+        hoverinfo='none', 
+        mode='lines' 
+    ) 
+ 
+    fig = go.Figure(data=[node_trace, edge_trace]) 
+    fig.update_layout( 
+        scene=dict( 
+            xaxis=dict(visible=False), 
+            yaxis=dict(visible=False), 
+            zaxis=dict(visible=False), 
+            bgcolor="rgba(0,0,0,0)" 
+        ), 
+        paper_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=0, r=0, b=0, t=0),
+        showlegend=False,
+        height=height
+    ) 
+    return fig
+
+def extract_error_trail(pml_filename): 
+    """ 
+    Executes SPIN in replay mode to extract the exact path to a failure. 
+    Requires that a .trail file exists (generated by a failed verification run). 
+    """ 
+    try: 
+        # Run SPIN in trail replay mode 
+        # -t: follow the trail, -p: print transitions 
+        result = subprocess.run( 
+            ["spin", "-t", "-p", pml_filename], 
+            capture_output=True, text=True, timeout=30 
+        ) 
+        
+        raw_output = result.stdout 
+        # Extract line numbers or state transitions using regex 
+        # Example: looking for "proc 0 (Program) translated_output.pml:45" 
+        path = re.findall(r'(\w+)\.pml:(\d+)', raw_output) 
+        
+        # Build the graph data 
+        nodes = ["Start"] 
+        edges = [] 
+        for i, (file, line) in enumerate(path): 
+            node_id = f"Line_{line}_Step_{i}" 
+            nodes.append(node_id) 
+            edges.append({'from': nodes[i], 'to': nodes[i+1], 'label': f'Line {line}'}) 
+            
+        trail_data = { 
+            "nodes": nodes, 
+            "edges": edges, 
+            "counterexample_path": nodes 
+        } 
+        
+        # Also update state_graph.json if it exists or create it
+        try:
+            with open('state_graph.json', 'w') as f: 
+                json.dump(trail_data, f, indent=2) 
+        except:
+            pass
+            
+        return trail_data 
+    except Exception as e: 
+        return {"error": str(e)}
 
 def file_watcher():
     """Watch for changes in verification_state.json and trigger rerun"""
@@ -1758,6 +2016,16 @@ if 'watcher_started' not in st.session_state:
 # ==================== GET ACTIVE MODEL ====================
 
 active_name = get_active_filename()
+
+# Auto-load state machine if not loaded
+if active_name != "No Model Loaded" and st.session_state.state_machine is None:
+    try:
+        with open(active_name, 'r') as f:
+            content = f.read()
+            st.session_state.state_machine = parse_pml_state_machine(content)
+    except:
+        pass
+
 init_price = parse_pml_variable(active_name, "price_eth", 100.0)
 init_collateral = parse_pml_variable(active_name, "user_collateral", 5.0)
 init_debt = parse_pml_variable(active_name, "user_debt", 30.0)
@@ -1784,9 +2052,20 @@ with st.sidebar:
     
     # Market Parameters
     st.markdown("#### 📊 Market Parameters")
-    price = st.slider("ETH Price (USD)", 1.0, 500.0, float(init_price), 1.0, format="%.0f", key="price_slider")
-    collateral_units = st.number_input("Collateral (ETH)", 0.0, 100.0, float(init_collateral), 0.5, format="%.1f", key="collateral_input")
-    debt = st.number_input("Debt (USD)", 0.0, 50000.0, float(init_debt), 100.0, format="%.0f", key="debt_input")
+    
+    # Define safe ranges to prevent StreamlitValueAboveMaxError
+    price_min, price_max = 0.1, 100000.0
+    collateral_min, collateral_max = 0.0, 1000000.0
+    debt_min, debt_max = 0.0, 10000000.0
+    
+    # Clamp initial values from model to the safe ranges
+    safe_init_price = max(price_min, min(float(init_price), price_max))
+    safe_init_collateral = max(collateral_min, min(float(init_collateral), collateral_max))
+    safe_init_debt = max(debt_min, min(float(init_debt), debt_max))
+
+    price = st.slider("Asset Price (USD)", price_min, price_max, safe_init_price, 1.0, format="%.0f", key="price_slider")
+    collateral_units = st.number_input("Collateral Units", collateral_min, collateral_max, safe_init_collateral, 1.0, format="%.1f", key="collateral_input")
+    debt = st.number_input("Debt (USD)", debt_min, debt_max, safe_init_debt, 100.0, format="%.0f", key="debt_input")
     
     st.markdown("---")
     
@@ -1847,6 +2126,15 @@ with st.sidebar:
     
     # Manual Refresh Button
     if st.button("🔄 Refresh Results"):
+        st.rerun()
+
+    st.markdown("---") 
+    st.markdown("#### 🔄 Data Refresh") 
+    if st.button("🔄 Reload Verification Data", use_container_width=True): 
+        # Clear session state to force reload 
+        for key in ['state_machine', 'diagram_path', 'verification_result']: 
+            if key in st.session_state: 
+                del st.session_state[key] 
         st.rerun()
 
     # Tool Status
@@ -2422,8 +2710,14 @@ st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 # ==================== PRICE SENSITIVITY ====================
 
-st.markdown('<div class="panel">', unsafe_allow_html=True)
-st.markdown('<div class="panel-title">📈 PRICE SENSITIVITY ANALYSIS</div>', unsafe_allow_html=True)
+st.markdown("""
+<div class="premium-container">
+    <div class="premium-header">
+        <span class="premium-icon">📈</span>
+        <span class="premium-title">PRICE SENSITIVITY ANALYSIS</span>
+    </div>
+    <div class="premium-body">
+""", unsafe_allow_html=True)
 
 price_range = np.linspace(max(1.0, price * 0.5), price * 1.5, 100)
 health_factors = [(p * collateral_units / debt) if debt > 0 else 10.0 for p in price_range]
@@ -2434,83 +2728,171 @@ fig_sensitivity.add_trace(go.Scatter(
     y=health_factors,
     mode='lines',
     name='Health Factor',
-    line=dict(color='#00ffcc', width=3),
+    line=dict(color='#00ffcc', width=4, shape='spline'),
     fill='tozeroy',
-    fillcolor='rgba(0, 255, 204, 0.2)'
+    fillcolor='rgba(0, 255, 204, 0.15)'
 ))
 
-fig_sensitivity.add_hline(y=1.0, line_dash="dash", line_color="#ff4444", line_width=2, annotation_text="Liquidation")
-fig_sensitivity.add_hline(y=1.5, line_dash="dash", line_color="#ffa500", line_width=2, annotation_text="Warning")
-fig_sensitivity.add_vline(x=price, line_dash="dot", line_color="#ffffff", line_width=3, annotation_text="Current")
+fig_sensitivity.add_hline(y=1.0, line_dash="dash", line_color="#ff4444", line_width=2, 
+                         annotation_text="LIQUIDATION THRESHOLD", annotation_font_color="#ff4444")
+fig_sensitivity.add_hline(y=1.5, line_dash="dash", line_color="#ffa500", line_width=2, 
+                         annotation_text="WARNING ZONE", annotation_font_color="#ffa500")
+fig_sensitivity.add_vline(x=price, line_dash="dot", line_color="#ffffff", line_width=3, 
+                         annotation_text="CURRENT PRICE", annotation_position="top left")
 
 fig_sensitivity.update_layout(
-    title="Health Factor vs ETH Price",
-    xaxis_title="ETH Price (USD)",
-    yaxis_title="Health Factor",
-    xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', showline=True, linecolor='#00ffcc'),
-    yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', showline=True, linecolor='#00ffcc', range=[0, 3.5]),
+    xaxis_title="ASSET PRICE (USD)",
+    yaxis_title="HEALTH FACTOR",
+    xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', showline=True, linecolor='rgba(0,255,204,0.2)'),
+    yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', showline=True, linecolor='rgba(0,255,204,0.2)', range=[0, 3.5]),
     paper_bgcolor='rgba(0,0,0,0)',
     plot_bgcolor='rgba(0,0,0,0)',
-    font={'color': "white", 'size': 12},
-    height=400,
-    hovermode='closest',
-    showlegend=True
+    font={'color': "#e0e0e0", 'family': "Inter, sans-serif", 'size': 11},
+    height=450,
+    margin=dict(l=20, r=20, t=40, b=20),
+    hovermode='x unified',
+    showlegend=False
 )
 
 st.plotly_chart(fig_sensitivity, use_container_width=True, config={'displayModeBar': False})
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div></div>', unsafe_allow_html=True)
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-# ==================== 3D STATE SPACE VISUALIZATION ====================
+# ==================== STATE SPACE VISUALIZATION ====================
 
 st.markdown('<div id="state-explorer"></div>', unsafe_allow_html=True)
-st.markdown('<div class="state-diagram-container">', unsafe_allow_html=True)
 st.markdown("""
-<div class="state-diagram-header">
-    <div class="state-diagram-title">🔬 3D VERIFICATION TRANSITIONS</div>
-    <div class="state-diagram-badge">Simulated State Space</div>
-</div>
+<div class="premium-container">
+    <div class="premium-header">
+        <span class="premium-icon">🔬</span>
 """, unsafe_allow_html=True)
 
-# Attempt to load simulated state graph from verification results
-verification_state_graph = None
-if os.path.exists("state_graph.json"):
+# Determine which title to show based on data source
+state_graph_file = os.path.join(os.path.dirname(__file__), "state_graph.json")
+has_real_data = False
+model_name = "Unknown"
+
+if os.path.exists(state_graph_file):
     try:
-        with open("state_graph.json", "r") as f:
+        with open(state_graph_file, "r") as f:
             verification_state_graph = json.load(f)
+            has_real_data = len(verification_state_graph.get('edges', [])) > 0
+            model_name = verification_state_graph.get('model_name', 'Unknown')
     except:
-        pass
+        verification_state_graph = None
+        has_real_data = False
+else:
+    verification_state_graph = None
+    has_real_data = False
+
+# Dynamic header based on data availability
+if has_real_data:
+    st.markdown(f'<span class="premium-title">VERIFIED STATE SPACE: {model_name}</span><span class="premium-badge">LIVE DATA</span></div>', unsafe_allow_html=True)
+else:
+    st.markdown('<span class="premium-title">STATE SPACE EXPLORATION</span><span class="premium-badge-demo">DEMO MODE</span></div>', unsafe_allow_html=True)
+
+st.markdown('<div class="premium-body">', unsafe_allow_html=True)
 
 # Prepare data for visualization
-if verification_state_graph and len(verification_state_graph.get('edges', [])) > 0:
-    st.markdown("#### Verification Results (Simulated Transitions)")
+if verification_state_graph and has_real_data:
+    st.markdown(f'<div class="success-toast">✓ Successfully loaded {len(verification_state_graph.get("nodes", []))} verified states</div>', unsafe_allow_html=True)
+
     state_graph = verification_state_graph
-    render_3d_state_graph_web3d(state_graph, height=500)
     
-    # Add download option for state graph data
-    col1, col2 = st.columns(2)
+    # CRITICAL FIX: Extract error trail if verification failed and trail exists
+    trail_file = "translated_output.pml.trail"
+    if not os.path.exists(trail_file):
+        trail_file = "pan.trail"
+        
+    if os.path.exists(trail_file):
+        pml_to_use = "translated_output.pml"
+        if not os.path.exists(pml_to_use):
+            pml_to_use = model_name
+            
+        if os.path.exists(pml_to_use):
+            with st.spinner("🔍 Extracting error trail..."):
+                trail_data = extract_error_trail(pml_to_use)
+                if "error" not in trail_data:
+                    state_graph = trail_data
+                    st.info("📍 Showing detailed counterexample execution path")
+
+    # Create Graph object for analysis
+    G = nx.DiGraph()
+    for node in state_graph.get('nodes', []): G.add_node(node)
+    for edge in state_graph.get('edges', []): G.add_edge(edge['from'], edge['to'])
+
+    # Determine Visualization Header and Expander label
+    viz_header = "🌐 3D State Space Visualization"
+    if viz_mode == "2D (Static)":
+        viz_header = "📊 2D State Space Map"
+    elif viz_mode == "Hybrid View":
+        viz_header = "⚖️ Hybrid State Explorer"
+
+    with st.expander(viz_header, expanded=True): 
+         if len(G.nodes()) > 1: 
+             if viz_mode == "2D (Static)":
+                 fig_viz = render_2d_state_space(G, height=500)
+             elif viz_mode == "3D (Interactive)":
+                 fig_viz = render_3d_state_space(G, height=500)
+             else: # Hybrid
+                 col_3d, col_2d = st.columns(2)
+                 with col_3d:
+                     st.plotly_chart(render_3d_state_space(G, height=400), use_container_width=True, config={'displayModeBar': False})
+                 with col_2d:
+                     st.plotly_chart(render_2d_state_space(G, height=400), use_container_width=True, config={'displayModeBar': False})
+                 fig_viz = None
+
+             if fig_viz:
+                 st.plotly_chart(fig_viz, use_container_width=True, config={'displayModeBar': False}) 
+         else: 
+             st.warning("Analysis pending: Not enough states found to render visualization.")
+
+    # Show counterexample path if verification failed
+    if verification_state_graph.get('counterexample_path'):
+        with st.expander("🔴 Counterexample Path Found", expanded=True):
+            st.error("Verification failed - counterexample detected!")
+            st.write("Path to violation:")
+            for i, step in enumerate(verification_state_graph['counterexample_path']):
+                st.markdown(f"{i+1}. → `{step}`")
+
+    # Download options
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.download_button(
-            "📥 Download Verification Graph (JSON)",
+            "📥 Download State Graph (JSON)",
             json.dumps(state_graph, indent=2),
-            "verification_state_graph.json",
+            f"state_graph_{model_name.replace('.', '_')}.json",
             "application/json",
             use_container_width=True
         )
     with col2:
-        st.metric("Explored States", len(state_graph.get('nodes', [])), 
-                  delta=f"{len(state_graph.get('edges', []))} transitions found")
+        st.metric("Total States", len(state_graph.get('nodes', [])))
+    with col3:
+        st.metric("Total Transitions", len(state_graph.get('edges', [])))
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+# ==================== PARSED MODEL STRUCTURE ====================
 
 elif st.session_state.get('state_machine'):
-    st.markdown("#### Static Model Structure (PML Analysis)")
+    st.markdown("""
+    <div class="premium-container">
+        <div class="premium-header">
+            <span class="premium-icon">📊</span>
+            <span class="premium-title">PARSED MODEL STRUCTURE</span>
+            <span class="premium-badge-info">PRE-VERIFICATION</span>
+        </div>
+        <div class="premium-body">
+    """, unsafe_allow_html=True)
+
     sm = st.session_state.state_machine
-    
+
     # Extract states and transitions
     raw_nodes = sm.get('states', [])
     edges = []
     nodes_seen = set(raw_nodes)
-    
-    # Add transitions from the state machine
+
     for trans in sm.get('transitions', [])[:30]:
         from_node = trans.get('from', 'S0')
         to_node = trans.get('to', 'S1')
@@ -2521,16 +2903,41 @@ elif st.session_state.get('state_machine'):
             'to': to_node,
             'label': trans.get('condition', 'transition')[:25]
         })
-    
-    # If we have verification nodes but no edges, add them to the seen nodes
-    if verification_state_graph:
-        for node in verification_state_graph.get('nodes', []):
-            nodes_seen.add(node)
-    
+
     nodes = list(nodes_seen)
     state_graph = {'nodes': nodes, 'edges': edges}
-    render_3d_state_graph_web3d(state_graph, height=500)
     
+    # Create Graph object for analysis
+    G = nx.DiGraph()
+    for node in nodes: G.add_node(node)
+    for edge in edges: G.add_edge(edge['from'], edge['to'])
+
+    # Determine Visualization Header and Expander label
+    viz_header_static = "🌐 3D Model Architecture"
+    if viz_mode == "2D (Static)":
+        viz_header_static = "📊 2D Model Architecture"
+    elif viz_mode == "Hybrid View":
+        viz_header_static = "⚖️ Hybrid Architecture Explorer"
+
+    with st.expander(viz_header_static, expanded=True): 
+         if len(G.nodes()) > 1: 
+             if viz_mode == "2D (Static)":
+                 fig_viz = render_2d_state_space(G, height=500)
+             elif viz_mode == "3D (Interactive)":
+                 fig_viz = render_3d_state_space(G, height=500)
+             else: # Hybrid
+                 col_3d, col_2d = st.columns(2)
+                 with col_3d:
+                     st.plotly_chart(render_3d_state_space(G, height=400), use_container_width=True, config={'displayModeBar': False})
+                 with col_2d:
+                     st.plotly_chart(render_2d_state_space(G, height=400), use_container_width=True, config={'displayModeBar': False})
+                 fig_viz = None
+
+             if fig_viz:
+                 st.plotly_chart(fig_viz, use_container_width=True, config={'displayModeBar': False}) 
+         else: 
+             st.warning("Analysis pending: Not enough states found to render visualization.")
+
     col1, col2 = st.columns(2)
     with col1:
         st.download_button(
@@ -2542,40 +2949,49 @@ elif st.session_state.get('state_machine'):
         )
     with col2:
         st.metric("Parsed States", len(nodes), delta=f"{len(edges)} transitions")
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+# ==================== DEMO VISUALIZATION ====================
+
 else:
-    # Show demo visualization
+    st.markdown("""
+    <div class="premium-container">
+        <div class="premium-header">
+            <span class="premium-icon">🧪</span>
+            <span class="premium-title">DEMO VISUALIZATION</span>
+            <span class="premium-badge-demo">SAMPLE DATA</span>
+        </div>
+        <div class="premium-body">
+    """, unsafe_allow_html=True)
+    
+    st.warning("⚠️ No state graph data available. Run SPIN verification in the desktop app to generate state space data.")
     demo_nodes = ['Init', 'Deposited', 'Borrowed', 'Liquidated', 'Repaid']
     demo_edges = [
         {'from': 'Init', 'to': 'Deposited', 'label': 'deposit()'},
         {'from': 'Deposited', 'to': 'Borrowed', 'label': 'borrow()'},
         {'from': 'Borrowed', 'to': 'Liquidated', 'label': 'health < 1'},
         {'from': 'Borrowed', 'to': 'Repaid', 'label': 'repay()'},
-        {'from': 'Repaid', 'to': 'Deposited', 'label': 'withdraw()'}
-    ]
+        {'from': 'Repaid', 'to': 'Deposited', 'label': 'withdraw()'} 
+    ] 
     
-    render_3d_state_graph_web3d({'nodes': demo_nodes, 'edges': demo_edges}, height=500)
-    st.caption("👆 Demo visualization - Run verification to see your model's state space")
+    # Create Graph object for analysis
+    G = nx.DiGraph()
+    for node in demo_nodes: G.add_node(node)
+    for edge in demo_edges: G.add_edge(edge['from'], edge['to'])
 
-st.markdown('</div>', unsafe_allow_html=True)
-st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    with st.expander("🌐 3D State Space Visualization", expanded=True): 
+         if len(G.nodes()) > 1: 
+             fig_3d = render_3d_state_space(G, height=500) 
+             st.plotly_chart(fig_3d, use_container_width=True, config={'displayModeBar': False}) 
+         else: 
+             st.warning("Analysis pending: Not enough states found to render 3D space.")
 
-# ==================== STATIC MODEL ARCHITECTURE ====================
+    st.caption("👆 This is DEMO data. Click 'Run SPIN Verification' in the desktop app to see your contract's actual state space.")
 
-with st.expander("📐 Static Model Architecture Explorer", expanded=False):
-    st.markdown("### Structural View (Parsed from Source)")
-    st.markdown("*Shows the formal structure of your contract processes and variables*")
-    
-    if st.session_state.get('state_machine'):
-        sm = st.session_state.state_machine
-        nodes = sm.get('states', ['State_' + str(i) for i in range(5)])
-        edges = [{'from': t.get('from', 'S0'), 
-                  'to': t.get('to', 'S1'), 
-                  'label': t.get('condition', '')[:15]} 
-                 for t in sm.get('transitions', [])[:12]]
-        
-        render_3d_state_graph_web3d({'nodes': nodes, 'edges': edges}, height=600)
-    else:
-        st.info("No state machine data available. Load a model to see static architecture.")
+    st.markdown('</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 # ==================== RISK ASSESSMENT ====================
 
