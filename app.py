@@ -414,6 +414,7 @@ def render_3d_state_graph_web3d(state_graph_data, height=500):
             // Data from Python
             const nodesData = {nodes_json};
             const edgesData = {edges_json};
+            const trailData = {json.dumps(st.session_state.get('trail_data', {}))};
             
             // Wait for THREE to be loaded
             function init() {{
@@ -513,36 +514,39 @@ def render_3d_state_graph_web3d(state_graph_data, height=500):
                     const nodeMeshes = [];
                     const nodePositions = {{}};
                     
-                    // Calculate positions
+                    // Calculate positions and create nodes
                     const actualNodes = nodesData.length > 0 ? nodesData : ['S0', 'S1', 'S2', 'S3'];
                     actualNodes.forEach((nodeName, index) => {{
                         const angle = (index / actualNodes.length) * Math.PI * 2;
                         const radius = 8;
-                        const y = Math.sin(index * 0.5) * 4;
+                        const y = (index % 2 === 0 ? 1 : -1) * (index * 0.4); // Spiral layout to reduce crowding
                         const x = Math.cos(angle) * radius;
                         const z = Math.sin(angle) * radius;
                         
                         nodePositions[nodeName] = new THREE.Vector3(x, y, z);
                         
-                        // Node Sphere with color coding
-                        let color = 0x00ffcc; // Default (States)
+                        // Node Details for Tooltip
+                        const details = trailData && trailData.node_details ? 
+                                       trailData.node_details.find(n => n.id === nodeName) : null;
+                        
+                        let color = 0x00ffcc; 
                         let emissive = 0x00ffcc;
                         
-                        if (nodeName.startsWith('ltl_')) {{
+                        const isInTrail = trailData && trailData.counterexample_path && 
+                                          trailData.counterexample_path.includes(nodeName);
+                        
+                        if (isInTrail) {{
+                            color = 0xff4444; 
+                            emissive = 0xff4444;
+                        }} else if (nodeName.toLowerCase().includes('ltl')) {{
                             color = 0xff00cc; // Pink for LTL
                             emissive = 0xff00cc;
-                        }} else if (nodeName.startsWith('var_')) {{
-                            color = 0xffa500; // Orange for Variables
-                            emissive = 0xffa500;
-                        }} else if (nodeName === 'pass' || nodeName.endsWith('_init')) {{
-                            color = 0x00ff00; // Green for Start/Pass
+                        }} else if (nodeName.toLowerCase().includes('pass')) {{
+                            color = 0x00ff00; // Green for success
                             emissive = 0x00ff00;
-                        }} else if (nodeName === 'fail') {{
-                            color = 0xff4444; // Red for Fail
+                        }} else if (nodeName.toLowerCase().includes('fail')) {{
+                            color = 0xff4444; // Red for failure
                             emissive = 0xff4444;
-                        }} else if (['start', 'verify', 'check'].includes(nodeName)) {{
-                            color = 0x8888ff; // Blue for Flow
-                            emissive = 0x8888ff;
                         }}
 
                         const sphere = new THREE.Mesh(
@@ -556,7 +560,21 @@ def render_3d_state_graph_web3d(state_graph_data, height=500):
                             }})
                         );
                         sphere.position.set(x, y, z);
-                        sphere.userData = {{ name: nodeName }};
+                        
+                        // Add data for tooltip
+                        let tooltipContent = `<strong>${{nodeName}}</strong><br>`;
+                        if (details) {{
+                            tooltipContent += `Action: ${{details.action}}<br>`;
+                            tooltipContent += `Line: ${{details.line}}<br>`;
+                            if (details.variables && Object.keys(details.variables).length > 0) {{
+                                tooltipContent += `<hr style="border: 0.5px solid #00ffcc33;">`;
+                                for (const [v, val] of Object.entries(details.variables)) {{
+                                    tooltipContent += `${{v}}: <span style="color: #00ffcc;">${{val}}</span><br>`;
+                                }}
+                            }}
+                        }}
+                        
+                        sphere.userData = {{ name: nodeName, tooltip: tooltipContent }};
                         scene.add(sphere);
                         nodeMeshes.push(sphere);
                         
@@ -588,9 +606,17 @@ def render_3d_state_graph_web3d(state_graph_data, height=500):
                                 toPos
                             ]);
                             
+                            // Check if this edge is in the trail
+                            const isEdgeInTrail = trailData && trailData.edges && 
+                                                 trailData.edges.some(e => e.from === edge.from && e.to === edge.to);
+                            
                             const tube = new THREE.Mesh(
-                                new THREE.TubeGeometry(curve, 20, 0.05, 8, false),
-                                new THREE.MeshStandardMaterial({{ color: 0x00ffcc, transparent: true, opacity: 0.6 }})
+                                new THREE.TubeGeometry(curve, 20, isEdgeInTrail ? 0.15 : 0.05, 8, false),
+                                new THREE.MeshStandardMaterial({{ 
+                                    color: isEdgeInTrail ? 0xff4444 : 0x00ffcc, 
+                                    transparent: true, 
+                                    opacity: isEdgeInTrail ? 1.0 : 0.6 
+                                }})
                             );
                             scene.add(tube);
                         }}
@@ -987,19 +1013,27 @@ def get_tool_status(tool_name):
 
 # ==================== HELPER FUNCTIONS ====================
 
+def parse_all_pml_variables(filename):
+    """Extract all variables and their values from PML file"""
+    vars_dict = {}
+    if not os.path.exists(filename): return vars_dict
+    try:
+        with open(filename, 'r') as f:
+            content = f.read()
+            # Find all variable declarations: type name = value;
+            matches = re.findall(r'(?:int|bool|byte|short)\s+(\w+)\s*=\s*(\d+|true|false)', content)
+            for name, val in matches:
+                if val == 'true': val = 1
+                elif val == 'false': val = 0
+                else: val = int(val)
+                vars_dict[name] = val
+    except: pass
+    return vars_dict
+
 def parse_pml_variable(filename, var_name, default_val):
     """Parse variable from PML file"""
-    if not os.path.exists(filename):
-        return float(default_val)
-    try:
-        with open(filename, "r") as f:
-            content = f.read()
-            match = re.search(rf"int\s+{var_name}\s*=\s*(\d+)\s*;", content)
-            if match:
-                return float(match.group(1))
-    except Exception:
-        pass
-    return float(default_val)
+    all_vars = parse_all_pml_variables(filename)
+    return float(all_vars.get(var_name, default_val))
 
 def parse_pml_state_machine(pml_content):
     """Parse PML file to extract state machine structure with improved logic"""
@@ -1304,6 +1338,16 @@ def load_active_verification_results():
     return results        
 
 
+def get_original_filename():
+    """Get the original source filename from active_file.txt"""
+    if os.path.exists("active_file.txt"):
+        try:
+            with open("active_file.txt", "r") as f:
+                return f.read().strip()
+        except:
+            pass
+    return "Unknown"
+
 def get_active_filename():
     """Get the most relevant active file path"""
     # Priority 1: Translated output (contains LTL and full model)
@@ -1438,13 +1482,19 @@ def render_3d_state_space(state_graph_data, height=500):
     if not G.nodes():
         return go.Figure()
 
-    # CRITICAL FIX: Add dim=3 
-    pos = nx.spring_layout(G, dim=3, seed=42, k=0.5)
+    # CRITICAL FIX: Add dim=3 and better k for 3D
+    pos = nx.spring_layout(G, dim=3, seed=42, k=1.0, iterations=50)
     
     # Extract coordinates
     x_nodes = [pos[node][0] for node in G.nodes()]
     y_nodes = [pos[node][1] for node in G.nodes()]
     z_nodes = [pos[node][2] for node in G.nodes()]
+    
+    # Add noise to prevent linear stacking
+    import numpy as np
+    x_nodes = [x + np.random.uniform(-0.1, 0.1) for x in x_nodes]
+    y_nodes = [y + np.random.uniform(-0.1, 0.1) for y in y_nodes]
+    z_nodes = [z + np.random.uniform(-0.1, 0.1) for z in z_nodes]
     
     # Create the 3D Scatter plot for states 
     node_trace = go.Scatter3d( 
@@ -1494,7 +1544,8 @@ def render_2d_state_space(G, height=500):
     if not G.nodes():
         return go.Figure()
 
-    pos = nx.spring_layout(G, dim=2, seed=42, k=0.5)
+    # Use a better layout for state traces
+    pos = nx.kamada_kawai_layout(G) if len(G.nodes()) < 50 else nx.spring_layout(G, seed=42)
     
     edge_x, edge_y = [], []
     for edge in G.edges():
@@ -1505,28 +1556,51 @@ def render_2d_state_space(G, height=500):
 
     edge_trace = go.Scatter(
         x=edge_x, y=edge_y,
-        line=dict(width=2, color='#888'),
+        line=dict(width=2, color='rgba(136, 136, 136, 0.5)'),
         hoverinfo='none',
         mode='lines'
     )
 
-    node_x, node_y = [], []
+    node_x, node_y, node_text, node_color = [], [], [], []
+    trail_data = st.session_state.get('trail_data', {})
+    
     for node in G.nodes():
         x, y = pos[node]
         node_x.append(x)
         node_y.append(y)
+        
+        # Build tooltip with variable data
+        tooltip = f"<b>{node}</b><br>"
+        color = '#00ffcc'
+        
+        if trail_data and trail_data.get('node_details'):
+            details = next((n for n in trail_data['node_details'] if n['id'] == node), None)
+            if details:
+                tooltip += f"Action: {details['action']}<br>"
+                tooltip += f"Line: {details['line']}<br>"
+                if details.get('variables'):
+                    tooltip += "<br>Variables:<br>"
+                    for v, val in details['variables'].items():
+                        tooltip += f"- {v}: {val}<br>"
+                
+                if trail_data.get('counterexample_path') and node in trail_data['counterexample_path']:
+                    color = '#ff4444'
+                    
+        node_text.append(tooltip)
+        node_color.append(color)
 
     node_trace = go.Scatter(
         x=node_x, y=node_y,
         mode='markers+text',
         hoverinfo='text',
         text=list(G.nodes()),
+        hovertext=node_text,
         textposition="top center",
         marker=dict(
             showscale=False,
-            color='#00ffcc',
-            size=15,
-            line_width=2),
+            color=node_color,
+            size=18,
+            line=dict(color='white', width=1)),
         textfont=dict(color='white', size=10)
     )
 
@@ -1609,42 +1683,68 @@ def render_model_architecture(sm, height=600):
 def extract_error_trail(pml_filename): 
     """ 
     Executes SPIN in replay mode to extract the exact path to a failure. 
-    Requires that a .trail file exists (generated by a failed verification run). 
     """ 
     try: 
-        # Run SPIN in trail replay mode 
-        # -t: follow the trail, -p: print transitions 
+        # Check if trail file exists
+        trail_file = pml_filename + ".trail"
+        if not os.path.exists(trail_file):
+            # Fallback to standard pan.trail
+            if os.path.exists("pan.trail"):
+                trail_file = "pan.trail"
+            else:
+                return {"error": "No .trail file found. Run verification first."}
+
+        # Run SPIN in trail replay mode with variable output (-v)
+        # -t: follow trail, -p: print transitions, -v: print variables, -l: print local variables, -g: global variables
         result = subprocess.run( 
-            ["spin", "-t", "-p", pml_filename], 
+            ["spin", "-t", "-p", "-v", "-g", pml_filename], 
             capture_output=True, text=True, timeout=30 
         ) 
         
         raw_output = result.stdout 
-        # Extract line numbers or state transitions using regex 
-        # Example: looking for "proc 0 (Program) translated_output.pml:45" 
-        path = re.findall(r'(\w+)\.pml:(\d+)', raw_output) 
         
         # Build the graph data 
-        nodes = ["Start"] 
+        nodes = [] 
         edges = [] 
-        for i, (file, line) in enumerate(path): 
-            node_id = f"Line_{line}_Step_{i}" 
-            nodes.append(node_id) 
-            edges.append({'from': nodes[i], 'to': nodes[i+1], 'label': f'Line {line}'}) 
+        
+        # Split output into steps
+        # Look for lines like:  2:	proc  0 (Contract:1) translated_output.pml:44 (state 10)	[assert(!(paused))]
+        step_pattern = r'(\d+):\s+proc\s+\d+\s+\(([^)]+)\)\s+[^:]+:(\d+)\s+\(state\s+(\d+)\)\s+\[([^\]]+)\]'
+        
+        # We need to associate variable values with each step
+        lines = raw_output.split('\n')
+        current_step = None
+        
+        for line in lines:
+            step_match = re.search(step_pattern, line)
+            if step_match:
+                step_num, proc, line_num, state, action = step_match.groups()
+                current_step = {
+                    "id": f"S{state}_Step{len(nodes)}",
+                    "label": f"STEP {len(nodes)+1}: {proc}\nLine {line_num}: {action.strip()}",
+                    "state": state,
+                    "line": line_num,
+                    "action": action.strip(),
+                    "variables": {}
+                }
+                nodes.append(current_step)
+                if len(nodes) > 1:
+                    edges.append({'from': nodes[-2]["id"], 'to': current_step["id"], 'label': f'step {len(nodes)-1}'})
+            elif current_step and line.strip().startswith('\t') and '=' in line:
+                # Variable update line: \t\tlock = 1
+                var_match = re.search(r'(\w+)\s*=\s*(\d+|true|false)', line)
+                if var_match:
+                    var_name, var_val = var_match.groups()
+                    current_step["variables"][var_name] = var_val
             
         trail_data = { 
-            "nodes": nodes, 
+            "nodes": [n["id"] for n in nodes], 
+            "node_details": nodes,
             "edges": edges, 
-            "counterexample_path": nodes 
+            "counterexample_path": [n["id"] for n in nodes],
+            "raw_trail": raw_output[:10000] # Cap for UI
         } 
         
-        # Also update state_graph.json if it exists or create it
-        try:
-            with open('state_graph.json', 'w') as f: 
-                json.dump(trail_data, f, indent=2) 
-        except:
-            pass
-            
         return trail_data 
     except Exception as e: 
         return {"error": str(e)}
@@ -2017,14 +2117,19 @@ if 'watcher_started' not in st.session_state:
 
 active_name = get_active_filename()
 
-# Auto-load state machine if not loaded
-if active_name != "No Model Loaded" and st.session_state.state_machine is None:
-    try:
-        with open(active_name, 'r') as f:
-            content = f.read()
-            st.session_state.state_machine = parse_pml_state_machine(content)
-    except:
-        pass
+# Auto-load state machine if not loaded or if active file changed
+if active_name != "No Model Loaded":
+    if 'last_active_name' not in st.session_state or st.session_state.last_active_name != active_name:
+        try:
+            with open(active_name, 'r') as f:
+                content = f.read()
+                st.session_state.state_machine = parse_pml_state_machine(content)
+                st.session_state.last_active_name = active_name
+                # Also reset trail data when file changes
+                if 'trail_data' in st.session_state:
+                    del st.session_state['trail_data']
+        except:
+            pass
 
 init_price = parse_pml_variable(active_name, "price_eth", 100.0)
 init_collateral = parse_pml_variable(active_name, "user_collateral", 5.0)
@@ -2053,19 +2158,40 @@ with st.sidebar:
     # Market Parameters
     st.markdown("#### 📊 Market Parameters")
     
-    # Define safe ranges to prevent StreamlitValueAboveMaxError
-    price_min, price_max = 0.1, 100000.0
-    collateral_min, collateral_max = 0.0, 1000000.0
-    debt_min, debt_max = 0.0, 10000000.0
+    # Load all variables from the model
+    model_vars = parse_all_pml_variables(active_name)
     
-    # Clamp initial values from model to the safe ranges
-    safe_init_price = max(price_min, min(float(init_price), price_max))
-    safe_init_collateral = max(collateral_min, min(float(init_collateral), collateral_max))
-    safe_init_debt = max(debt_min, min(float(init_debt), debt_max))
-
-    price = st.slider("Asset Price (USD)", price_min, price_max, safe_init_price, 1.0, format="%.0f", key="price_slider")
-    collateral_units = st.number_input("Collateral Units", collateral_min, collateral_max, safe_init_collateral, 1.0, format="%.1f", key="collateral_input")
-    debt = st.number_input("Debt (USD)", debt_min, debt_max, safe_init_debt, 100.0, format="%.0f", key="debt_input")
+    # Track which sliders we've created
+    created_sliders = set()
+    
+    # First, handle the primary DeFi variables with nice labels
+    primary_vars = [
+        ("price_eth", "Asset Price (USD)", 0.1, 100000.0, 100.0),
+        ("user_collateral", "Collateral Units", 0.0, 1000000.0, 5.0),
+        ("user_debt", "Debt (USD)", 0.0, 10000000.0, 30.0)
+    ]
+    
+    for var_id, label, v_min, v_max, default in primary_vars:
+        val = model_vars.get(var_id, default)
+        safe_val = max(v_min, min(float(val), v_max))
+        if var_id == "price_eth":
+            price = st.slider(label, v_min, v_max, safe_val, 1.0, format="%.0f", key=f"slider_{var_id}")
+        elif var_id == "user_collateral":
+            collateral_units = st.number_input(label, v_min, v_max, safe_val, 1.0, format="%.1f", key=f"input_{var_id}")
+        elif var_id == "user_debt":
+            debt = st.number_input(label, v_min, v_max, safe_val, 100.0, format="%.0f", key=f"input_{var_id}")
+        created_sliders.add(var_id)
+    
+    # Then, show any other discovered variables
+    other_vars = [v for v in model_vars.keys() if v not in created_sliders and v not in ['lock', 'state', 'liquidation_executed']]
+    if other_vars:
+        st.markdown("#### 🔍 Other Model Variables")
+        for var_name in other_vars:
+            val = model_vars[var_name]
+            if isinstance(val, bool) or val in [0, 1]:
+                st.checkbox(f"Variable: {var_name}", value=bool(val), key=f"dynamic_{var_name}")
+            else:
+                st.number_input(f"Variable: {var_name}", value=float(val), key=f"dynamic_{var_name}")
     
     st.markdown("---")
     
@@ -2837,8 +2963,10 @@ if verification_state_graph and has_real_data:
              else: # Hybrid
                  col_3d, col_2d = st.columns(2)
                  with col_3d:
+                     st.markdown("### 🌐 3D Interactive View")
                      st.plotly_chart(render_3d_state_space(G, height=400), use_container_width=True, config={'displayModeBar': False})
                  with col_2d:
+                     st.markdown("### 📊 2D Topology View")
                      st.plotly_chart(render_2d_state_space(G, height=400), use_container_width=True, config={'displayModeBar': False})
                  fig_viz = None
 
@@ -3195,23 +3323,42 @@ if os.path.exists(benchmark_file):
         with open(benchmark_file, 'r') as f:
             bench_data = json.load(f)
             
-            # Filter benchmarks by active file type
+            # Filter benchmarks by ORIGINAL active file type
             active_file = get_active_filename()
-            is_solidity = active_file.lower().endswith('.sol')
-            is_rust = active_file.lower().endswith('.rs')
+            original_file = get_original_filename()
+            active_contract_name = os.path.basename(original_file).split('.')[0]
             
+            is_solidity = original_file.lower().endswith('.sol')
+            is_rust = original_file.lower().endswith('.rs')
+            
+            # Highlight results for active contract
+            active_benchmarks = [d for d in bench_data if d.get('contract', '').lower() == active_contract_name.lower()]
+            
+            # CRITICAL: Only show tools relevant to the original file type
             if is_solidity:
-                bench_data = [d for d in bench_data if d['tool'].lower() in ['spin', 'coq', 'lean']]
+                bench_data = [d for d in bench_data if d['tool'].lower() in ['spin', 'coq', 'lean', 'certora']]
             elif is_rust:
-                bench_data = [d for d in bench_data if d['tool'].lower() in ['kani', 'prusti', 'creusot', 'lean']]
+                bench_data = [d for d in bench_data if d['tool'].lower() in ['kani', 'prusti', 'creusot', 'lean', 'spin']]
+            else:
+                # Default filter if type is unknown (e.g. .pml file directly)
+                bench_data = [d for d in bench_data if d['tool'].lower() in ['spin', 'coq', 'lean']]
             
+            # Re-create DataFrame after filtering
             df_bench = pd.DataFrame(bench_data)
             
             if not df_bench.empty:
-                # Aggregate stats
+                # Re-calculate stats on filtered data
                 avg_time = df_bench.groupby('tool')['time'].mean().reset_index()
                 success_rate = df_bench.groupby('tool')['success'].mean().reset_index()
                 success_rate['success'] = success_rate['success'] * 100
+            else:
+                avg_time = pd.DataFrame(columns=['tool', 'time'])
+                success_rate = pd.DataFrame(columns=['tool', 'success'])
+            
+            if active_benchmarks:
+                st.success(f"📈 Found {len(active_benchmarks)} historical benchmark results for `{active_contract_name}`")
+            else:
+                st.info(f"ℹ️ Showing global benchmarks for {'.SOL' if is_solidity else '.RS'} contracts")
             
             col1, col2 = st.columns(2)
             

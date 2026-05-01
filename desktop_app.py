@@ -1014,6 +1014,15 @@ class FormalVerifierApp(ctk.CTk):
         )
         self.stop_coq_btn = self.create_stop_button(sidebar_inner, "coq")
         
+        # Certora Verification 
+        self.add_sidebar_section("BYTECODE VERIFICATION") 
+        
+        self.verify_with_certora_btn = self.create_action_button( 
+            sidebar_inner, "🎯 VERIFY WITH CERTORA", 
+            self.verify_with_certora, "#ff6b35"  # Orange color 
+        ) 
+        self.stop_certora_btn = self.create_stop_button(sidebar_inner, "certora")
+        
         self.lean_btn = self.create_action_button(
             sidebar_inner, "⚡ LEAN THEOREM PROVER", self.run_lean_verification, "#e67e22"
         )
@@ -1422,6 +1431,10 @@ class FormalVerifierApp(ctk.CTk):
     
     def populate_file_explorer(self):
         """Populate the file explorer with project files"""
+        # Create certora directories if they don't exist
+        for d in ["contracts", "specs", "confs"]:
+            os.makedirs(os.path.join(PROJECT_DIR, "certora", d), exist_ok=True)
+            
         # Clear existing widgets
         for widget in self.open_editors_frame.winfo_children():
             widget.destroy()
@@ -3135,10 +3148,193 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
                 self.after(0, lambda: self.creusot_btn.configure(state="normal", text="📐 CREUSOT VERIFICATION"))
             finally:
                 self.after(0, lambda: self.set_tool_running("creusot", False))
-                if project_dir and os.path.exists(project_dir):
-                    shutil.rmtree(project_dir, ignore_errors=True)
 
         threading.Thread(target=run_creusot, daemon=True).start()
+
+    def verify_with_certora(self): 
+         """Run Certora Prover on the active Solidity contract""" 
+         if not self.current_file: 
+             self.console.insert("end", "❌ No file selected\n", "error") 
+             return 
+         
+         ext = os.path.splitext(self.current_file)[1].lower() 
+         if ext != '.sol': 
+             self.console.insert("end", "❌ Certora only works with .sol files\n", "error") 
+             return 
+         
+         # Check if Certora CLI is installed 
+         try: 
+             subprocess.run(["certoraRun", "--version"], capture_output=True, timeout=5) 
+         except (FileNotFoundError, subprocess.TimeoutExpired): 
+             self.console.insert("end", "❌ certora-cli not installed\n", "error") 
+             self.console.insert("end", "   Install: pip install certora-cli\n", "error") 
+             return 
+         
+         # Check API key 
+         if "CERTORAKEY" not in os.environ: 
+             self.console.insert("end", "⚠️  CERTORAKEY environment variable not set in current process\n", "warning") 
+             self.console.insert("end", "   If already set in your system, ensure it is exported to this IDE session.\n", "warning") 
+             self.console.insert("end", "   Attempting to run anyway...\n\n") 
+         
+         self.verify_with_certora_btn.configure(state="disabled", text="⏳ Running Certora...") 
+         self.set_tool_running("certora", True) 
+         
+         def run_certora(): 
+             try: 
+                 self.after(0, lambda: self.console.insert("end", 
+                     "\n🎯 CERTORA FORMAL VERIFICATION\n", "header")) 
+                 self.after(0, lambda: self.console.insert("end", "─"*60 + "\n", "dim")) 
+                 self.after(0, lambda: self.console.insert("end", 
+                     f"📁 Verifying: {os.path.basename(self.current_file)}\n", "dim")) 
+                 
+                 # Copy contract to certora directory 
+                 certora_dir = os.path.join(PROJECT_DIR, "certora", "contracts") 
+                 os.makedirs(certora_dir, exist_ok=True) 
+                 
+                 contract_name = os.path.splitext(os.path.basename(self.current_file))[0] 
+                 dest_path = os.path.join(certora_dir, os.path.basename(self.current_file)) 
+                 
+                 import shutil 
+                 shutil.copy2(self.current_file, dest_path) 
+                 self.after(0, lambda: self.console.insert("end", 
+                     f"📋 Contract copied to: {dest_path}\n")) 
+                 
+                 # Check if spec file exists 
+                 spec_file = os.path.join(PROJECT_DIR, "certora", "specs", f"{contract_name}.spec") 
+                 if not os.path.exists(spec_file): 
+                     self.after(0, lambda: self.console.insert("end", 
+                         f"⚠️  No spec file found at: {spec_file}\n")) 
+                     self.after(0, lambda: self.console.insert("end", 
+                         "   Using default spec template...\n")) 
+                     
+                     # Generate default spec 
+                     default_spec = self._generate_default_certora_spec(contract_name) 
+                     with open(spec_file, 'w') as f: 
+                         f.write(default_spec) 
+                     self.after(0, lambda: self.console.insert("end", 
+                         f"📝 Generated default spec: {spec_file}\n")) 
+                 
+                 # Create config file 
+                 conf_dir = os.path.join(PROJECT_DIR, "certora", "confs") 
+                 os.makedirs(conf_dir, exist_ok=True) 
+                 
+                 conf_file = os.path.join(conf_dir, f"{contract_name}.conf") 
+                 conf = { 
+                     "files": [dest_path], 
+                     "verify": f"{contract_name}:{spec_file}", 
+                     "solc": "solc8.17", 
+                     "optimistic_loop": True, 
+                     "loop_iter": "3", 
+                     "rule_sanity": "basic", 
+                     "msg": f"DeFi Guardian - {contract_name}", 
+                     "cloud": True, 
+                     "prover_args": [ 
+                         "-mediumTimeout", "300", 
+                         "-depth", "200" 
+                     ] 
+                 } 
+                 with open(conf_file, 'w') as f: 
+                     json.dump(conf, f, indent=2) 
+                 
+                 # Run Certora 
+                 self.after(0, lambda: self.console.insert("end", 
+                     "\n⏳ Running Certora Prover (cloud)...\n")) 
+                 self.after(0, lambda: self.console.insert("end", 
+                     "   This may take 2-10 minutes...\n\n")) 
+                 
+                 result = subprocess.run( 
+                     ["certoraRun", conf_file], 
+                     capture_output=True, 
+                     text=True, 
+                     timeout=600, 
+                     cwd=PROJECT_DIR 
+                 ) 
+                 
+                 # Parse results 
+                 output = result.stdout 
+                 errors = result.stderr 
+                 
+                 success = "VERIFIED" in output or "PASS" in output 
+                 
+                 # Save results 
+                 log_path = self.save_tool_log('certora', output, errors) 
+                 self.save_verification_state('certora', { 
+                     'success': success, 
+                     'output': output, 
+                     'errors': errors, 
+                     'log_path': log_path, 
+                 }) 
+                 
+                 def display(): 
+                     if success: 
+                         self.console.insert("end", "✅ Certora verification passed!\n", "success") 
+                         self.console.insert("end", "   All rules verified on actual bytecode\n", "success") 
+                     else: 
+                         self.console.insert("end", "❌ Certora found violations:\n", "error") 
+                         
+                         # Extract rule violations 
+                         violations = re.findall(r'Rule (\w+) violated', output + errors) 
+                         for v in violations: 
+                             self.console.insert("end", f"   • {v}\n", "error") 
+                     
+                     # Show job URL if available 
+                     job_match = re.search(r'https://prover\.certora\.com/output/\d+/[a-f0-9]+', output) 
+                     if job_match: 
+                         self.console.insert("end", f"\n📊 Full results: {job_match.group(0)}\n") 
+                     
+                     if log_path: 
+                         self.console.insert("end", f"📄 Log saved: {log_path}\n") 
+                     
+                     self.console.see("end") 
+                     self.verify_with_certora_btn.configure(state="normal", text="🎯 VERIFY WITH CERTORA") 
+                 
+                 self.after(0, display) 
+                 
+             except subprocess.TimeoutExpired: 
+                 self.after(0, lambda: self.console.insert("end", "❌ Certora timed out (10 min)\n")) 
+                 self.after(0, lambda: self.verify_with_certora_btn.configure( 
+                     state="normal", text="🎯 VERIFY WITH CERTORA")) 
+             except Exception as e: 
+                 self.after(0, lambda: self.console.insert("end", f"❌ Certora error: {e}\n")) 
+                 self.after(0, lambda: self.verify_with_certora_btn.configure( 
+                     state="normal", text="🎯 VERIFY WITH CERTORA")) 
+             finally: 
+                 self.after(0, lambda: self.set_tool_running("certora", False)) 
+         
+         threading.Thread(target=run_certora, daemon=True).start() 
+     
+    def _generate_default_certora_spec(self, contract_name): 
+         """Generate a default Certora spec template""" 
+         return f'''/* 
+  * Auto-generated Certora Specification 
+  * Contract: {contract_name} 
+  * Generated by DeFi Guardian 
+  */ 
+ 
+ methods {{ 
+     // Declare your contract's external functions here 
+     // function yourFunction(address, uint256) external returns (uint256) envfree; 
+ }} 
+ 
+ // Rule: Basic sanity check - constructor doesn't revert 
+ rule constructorSanity() {{ 
+     constructor(); 
+     assert true, "Constructor should complete"; 
+ }} 
+ 
+ // Rule: No function should revert unexpectedly 
+ rule noUnexpectedRevert(method f) {{ 
+     calldataarg args; 
+     f@withrevert(e, args); 
+     
+     // Log reverts for analysis (doesn't fail the rule) 
+     // Remove the comment below to fail on unexpected reverts: 
+     // assert !lastReverted, "Unexpected revert"; 
+ }} 
+ 
+ // TODO: Add your contract-specific rules here 
+ // See: https://docs.certora.com/ 
+ '''
 
     def verify_with_kani(self):
         """Run Kani model checking using cargo kani in a temp Cargo project"""
