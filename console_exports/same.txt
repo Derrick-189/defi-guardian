@@ -36,15 +36,15 @@
 ✅ Ready for verification!
    File tree saved to: /home/slade/defi_guardian/file_tree.json
 
-📂 LOADED FILE: Account.sol
+📂 LOADED FILE: VestingWalletCliff.sol
 📁 TYPE: .SOL
-📂 PATH: /home/slade/Downloads/Account.sol
+📂 PATH: /home/slade/Downloads/VestingWalletCliff.sol
 ────────────────────────────────────────────────────────────
 
 
 🚀 RUNNING SPIN VERIFICATION
-📁 Model: Account.sol
-⏰ Time: 2026-04-24 16:29:09
+📁 Model: VestingWalletCliff.sol
+⏰ Time: 2026-05-04 21:11:41
 ────────────────────────────────────────────────────────────
 
 [1/5] 🔄 Translating Solidity to Promela...
@@ -52,10 +52,11 @@
    📜 Proof Obligation: ∀s: State • source_invariant(s) ⇒ pml_invariant(translate(s))
    📜 Proof Obligation: ∀s, s': State • source_transition(s, s') ⇒ pml_transition(translate(s), translate(s'))
 
-   📄 Translated output saved to: /home/slade/defi_guardian/translated_output.pml
+   📄 Translated output saved to: /home/slade/defi_guardian/generated/models/translated_output.pml
 
-   📄 Backup saved to: /home/slade/defi_guardian/Account_translated.pml
+   📄 Backup saved to: /home/slade/defi_guardian/generated/models/VestingWalletCliff_translated.pml
 
+   📝 Applied custom specifications from Specification tab
    ✓ Detected 8 LTL property(ies) in model
 
 [2/5] 🔧 Generating SPIN verifier...
@@ -70,7 +71,7 @@ ltl reachability_liquidation: [] ((! ((health_factor<100))) || (<> ((liquidation
   the model contains 9 never claims: reachability_liquidation, fairness, stability, response_price_drop, invariant_collateral, liveness_progress, safety_reentrancy, safety_no_overflow, never_0
   only one claim is used in a verification run
   choose which one with ./pan -a -N name (defaults to -N never_0)
-  or use e.g.: spin -search -ltl never_0 /home/slade/defi_guardian/translated_output.pml
+  or use e.g.: spin -search -ltl never_0 /home/slade/defi_guardian/generated/models/translated_output.pml
 
 [3/5] ⚙️ Compiling verifier...
 [4/5] 🔍 Running verification with LTL model checking...
@@ -113,8 +114,8 @@ Stats on memory usage (in Megabytes):
 
 
 unreached in proctype Contract
-	/home/slade/defi_guardian/translated_output.pml:50, state 11, "liquidation_executed = 1"
-	/home/slade/defi_guardian/translated_output.pml:51, state 12, "state = 2"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:50, state 11, "liquidation_executed = 1"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:51, state 12, "state = 2"
 	(2 of 27 states)
 unreached in claim safety_no_overflow
 	_spin_nvr.tmp:8, state 10, "-end-"
@@ -150,8 +151,8 @@ Stats on memory usage (in Megabytes):
 
 
 unreached in proctype Contract
-	/home/slade/defi_guardian/translated_output.pml:50, state 11, "liquidation_executed = 1"
-	/home/slade/defi_guardian/translated_output.pml:51, state 12, "state = 2"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:50, state 11, "liquidation_executed = 1"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:51, state 12, "state = 2"
 	(2 of 27 states)
 unreached in claim safety_reentrancy
 	_spin_nvr.tmp:17, state 10, "-end-"
@@ -187,10 +188,10 @@ Stats on memory usage (in Megabytes):
 
 
 unreached in proctype Contract
-	/home/slade/defi_guardian/translated_output.pml:50, state 11, "liquidation_executed = 1"
-	/home/slade/defi_guardian/translated_output.pml:51, state 12, "state = 2"
-	/home/slade/defi_guardian/translated_output.pml:59, state 23, "printf('Contract execution terminated.\n')"
-	/home/slade/defi_guardian/translated_output.pml:63, state 27, "-end-"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:50, state 11, "liquidation_executed = 1"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:51, state 12, "state = 2"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:59, state 23, "printf('Contract execution terminated.\n')"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:63, state 27, "-end-"
 	(4 of 27 states)
 unreached in claim liveness_progress
 	_spin_nvr.tmp:24, state 6, "-end-"
@@ -226,8 +227,8 @@ Stats on memory usage (in Megabytes):
 
 
 unreached in proctype Contract
-	/home/slade/defi_guardian/translated_output.pml:50, state 11, "liquidation_executed = 1"
-	/home/slade/defi_guardian/translated_output.pml:51, state 12, "state = 2"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:50, state 11, "liquidation_executed = 1"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:51, state 12, "state = 2"
 	(2 of 27 states)
 unreached in claim invariant_collateral
 	_spin_nvr.tmp:33, state 10, "-end-"
@@ -263,8 +264,8 @@ Stats on memory usage (in Megabytes):
 
 
 unreached in proctype Contract
-	/home/slade/defi_guardian/translated_output.pml:50, state 11, "liquidation_executed = 1"
-	/home/slade/defi_guardian/translated_output.pml:51, state 12, "state = 2"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:50, state 11, "liquidation_executed = 1"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:51, state 12, "state = 2"
 	(2 of 27 states)
 unreached in claim response_price_drop
 	_spin_nvr.tmp:42, state 10, "(!((health_factor<150)))"
@@ -334,8 +335,8 @@ Stats on memory usage (in Megabytes):
 
 
 unreached in proctype Contract
-	/home/slade/defi_guardian/translated_output.pml:50, state 11, "liquidation_executed = 1"
-	/home/slade/defi_guardian/translated_output.pml:51, state 12, "state = 2"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:50, state 11, "liquidation_executed = 1"
+	/home/slade/defi_guardian/generated/models/translated_output.pml:51, state 12, "state = 2"
 	(2 of 27 states)
 unreached in claim fairness
 	_spin_nvr.tmp:64, state 10, "(!((lock==0)))"
@@ -380,30 +381,23 @@ pan: elapsed time 0 seconds
 
 ────────────────────────────────────────────────────────────
 
-✅ VERIFICATION SUCCESSFUL!
-   ✓ All LTL properties satisfied
-   ✓ No counterexamples found
-   ✓ Invariants hold in all states
+❌ Error: '/home/slade/defi_guardian/translated_output.pml.trail' and '/home/slade/defi_guardian/translated_output.pml.trail' are the same file
+
+🎯 CERTORA FORMAL VERIFICATION
 ────────────────────────────────────────────────────────────
+📁 Verifying: VestingWalletCliff.sol
+📋 Contract copied to: /home/slade/defi_guardian/certora/contracts/VestingWalletCliff.sol
+⚠️  No spec file found at: /home/slade/defi_guardian/certora/specs/VestingWalletCliff.spec
+   Using default spec template...
+📝 Generated default spec: /home/slade/defi_guardian/certora/specs/VestingWalletCliff.spec
 
-📊 States explored: 7
-📊 Depth reached: 15
-📊 Transitions: 8
+⏳ Running Certora Prover (cloud)...
+   This may take 2-10 minutes...
 
-[5/5] 💾 Verification results saved to verification_state.json
-   📊 State graph with 9 nodes and 0 edges saved
-
-📊 State graph exported for dashboard visualization
-
-📜 COQ VERIFICATION
-────────────────────────────────────────────────────────────
-✅ Coq verification successful!
-
-⚡ LEAN VERIFICATION
-────────────────────────────────────────────────────────────
+❌ Certora found violations:
+📄 Log saved: /home/slade/defi_guardian/logs/certora/certora_verification_20260504_211219.log
 
 🌐 Opening dashboard in browser...
 ⏳ Starting Streamlit… (first run can take 30–90s while Python loads)
 ✅ Dashboard ready at http://localhost:8501
-❌ Lean timed out (300s). Lean/Elan may still be warming up.
 

@@ -11,11 +11,17 @@ import tempfile
 import json
 from pathlib import Path
 
+# Path Constants
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+GENERATED_DIR = os.path.join(PROJECT_DIR, "generated")
+MODELS_DIR = os.path.join(GENERATED_DIR, "models")
+REPORTS_DIR = os.path.join(GENERATED_DIR, "reports")
+
 class CoqVerifier:
     """Coq theorem prover that reads from translated Promela output"""
 
     def __init__(self, project_dir=None):
-        self.project_dir = project_dir or os.path.dirname(os.path.abspath(__file__))
+        self.project_dir = project_dir or PROJECT_DIR
         self.coq_available = self._check_coq_installed()
         self.pml_file = self._find_promela_file()
 
@@ -38,12 +44,12 @@ class CoqVerifier:
         Priority: translated_output.pml > active_file.txt > any .pml in project
         """
         # Priority 1: The translated output from SPIN
-        translated = os.path.join(self.project_dir, "translated_output.pml")
+        translated = os.path.join(MODELS_DIR, "translated_output.pml")
         if os.path.exists(translated) and os.path.getsize(translated) > 0:
             return translated
         
         # Priority 2: Active file if it's a .pml
-        active_file_path = os.path.join(self.project_dir, "active_file.txt")
+        active_file_path = os.path.join(REPORTS_DIR, "active_file.txt")
         if os.path.exists(active_file_path):
             with open(active_file_path, 'r') as f:
                 filename = f.read().strip()
@@ -56,6 +62,11 @@ class CoqVerifier:
             full_path = os.path.join(self.project_dir, filename)
             if os.path.exists(full_path) and full_path.endswith('.pml'):
                 return full_path
+            
+            # Try in models directory
+            models_full_path = os.path.join(MODELS_DIR, filename)
+            if os.path.exists(models_full_path) and models_full_path.endswith('.pml'):
+                return models_full_path
         
         # Priority 3: Any .pml file in project directory
         for f in os.listdir(self.project_dir):
@@ -165,20 +176,23 @@ class CoqVerifier:
     def _ltl_to_coq_expr(self, ltl_formula, state_vars):
         """
         Convert an LTL formula to a Coq expression.
-        
-        Promela LTL operators:
-        - [] always/globally → forall states
-        - <> eventually → exists state
-        - && logical and → /\
-        - || logical or → \/
-        - ! logical not → ~
-        - -> implication → ->
         """
         expr = ltl_formula
         
-        # Replace struct field access: var_name → var_name s
-        for var_name in state_vars.keys():
-            expr = re.sub(rf'\b{var_name}\b', f'({var_name} s)', expr)
+        # Replace struct field access and handle boolean comparisons
+        # For booleans in LTL formulas like 'lock', we need '(lock s) = true'
+        for var_name, var_val in state_vars.items():
+            if isinstance(var_val, bool):
+                # If it's just the variable name (e.g., 'lock'), replace with '(lock s) = true'
+                # but be careful with existing comparisons like 'lock == true'
+                expr = re.sub(rf'\b{var_name}\s*==\s*true\b', f'({var_name} s) = true', expr)
+                expr = re.sub(rf'\b{var_name}\s*==\s*false\b', f'({var_name} s) = false', expr)
+                expr = re.sub(rf'\b{var_name}\s*!=\s*true\b', f'({var_name} s) = false', expr)
+                expr = re.sub(rf'\b{var_name}\s*!=\s*false\b', f'({var_name} s) = true', expr)
+                # Standalone boolean variable
+                expr = re.sub(rf'\b{var_name}\b(?!\s*[!=]=)', f'({var_name} s) = true', expr)
+            else:
+                expr = re.sub(rf'\b{var_name}\b', f'({var_name} s)', expr)
         
         # Replace operators
         expr = expr.replace('&&', '/\\')
@@ -250,19 +264,19 @@ Record ContractState : Type := mkState {{
         # Add state variables as record fields
         max_display = 15
         count = 0
-        for var_name, default_val in state_vars.items():
-            if count >= max_display:
-                break
+        vars_list = list(state_vars.items())[:max_display]
+        for i, (var_name, default_val) in enumerate(vars_list):
             coq_type = self._promela_to_coq_type(var_name, default_val)
             comment = f"(* Promela: {type(default_val).__name__} = {default_val} *)"
-            script += f"    {var_name} : {coq_type};  {comment}\n"
+            # Standard Coq record field termination
+            sep = ";" if i < len(vars_list) - 1 else ""
+            script += f"    {var_name} : {coq_type}{sep}  {comment}\n"
             count += 1
         
-        script += '''}}.
+        script += '''}.
 
 (* === Initial State (from Promela initial values) === *)
 Definition initial_state : ContractState :=
-  mkState
 '''
         
         # Build initial state

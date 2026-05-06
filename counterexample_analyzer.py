@@ -7,6 +7,7 @@ Parses SPIN trail files and generates readable reports
 import os
 import re
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 class CounterexampleAnalyzer:
@@ -69,24 +70,57 @@ class CounterexampleAnalyzer:
         except Exception as e:
             return f"Error analyzing counterexample: {e}"
     
-    def parse_trail_file(self):
-        """Parse the trail file directly"""
-        if not self.has_counterexample():
-            return None
+    def get_structured_trace(self, pml_file=None):
+        """Get a structured execution trace for UI display"""
+        spin_output = self.analyze_with_spin(pml_file)
+        if "No counterexample" in spin_output or "No Promela model" in spin_output or "Stale trail" in spin_output:
+            return {"error": spin_output}
+
+        steps = []
+        current_vars = {}
         
-        trace = []
-        with open(self.trail_file, 'r') as f:
-            content = f.read()
-            
-            lines = content.split('\n')
-            for i, line in enumerate(lines):
-                if 'state' in line.lower():
-                    trace.append({
-                        'step': i,
-                        'raw': line.strip()
-                    })
+        # Regex to parse SPIN output lines
+        # Example: 1:	proc  0 (main) line   4 "test.pml" (state 1)	[x = 1]
+        line_pattern = re.compile(r'^\s*(\d+):\s*proc\s+(\d+)\s*\(([^)]+)\)\s+line\s+(\d+)\s+"([^"]+)"\s+\(state\s+(\d+)\)\s*(?:\[(.*)\])?')
         
-        return trace
+        for line in spin_output.split('\n'):
+            match = line_pattern.match(line)
+            if match:
+                step_num, proc_id, proc_name, line_num, filename, state_id, var_updates = match.groups()
+                
+                # Parse variable updates
+                updates = {}
+                if var_updates:
+                    # var_updates can be "x = 1" or multiple "x = 1, y = 2"
+                    parts = var_updates.split(',')
+                    for part in parts:
+                        if '=' in part:
+                            var, val = part.split('=')
+                            var = var.strip()
+                            val = val.strip()
+                            updates[var] = val
+                            current_vars[var] = val
+                
+                steps.append({
+                    "step": int(step_num),
+                    "proc_id": int(proc_id),
+                    "proc_name": proc_name,
+                    "line": int(line_num),
+                    "file": filename,
+                    "state": int(state_id),
+                    "updates": updates,
+                    "variables": current_vars.copy(),
+                    "raw": line.strip()
+                })
+            elif "ltl" in line.lower() and "violated" in line.lower():
+                # Property violation message
+                steps.append({"type": "violation", "message": line.strip()})
+        
+        return {
+            "steps": steps,
+            "final_variables": current_vars,
+            "pml_file": pml_file
+        }
     
     def generate_report(self, pml_file=None):
         """Generate a comprehensive counterexample report"""
@@ -110,11 +144,11 @@ class CounterexampleAnalyzer:
             report.append(spin_output)
             report.append("")
         
-        trace = self.parse_trail_file()
-        if trace:
+        structured_trace = self.get_structured_trace(pml_file)
+        if "steps" in structured_trace:
             report.append("📊 EXECUTION TRACE:")
             report.append("-"*50)
-            for step in trace[:50]:
+            for step in structured_trace["steps"][:50]:
                 report.append(f"  Step {step['step']}: {step['raw']}")
             report.append("")
         
@@ -127,10 +161,19 @@ class CounterexampleAnalyzer:
         
         return "\n".join(report)
     
-    def save_report(self, filename="counterexample_report.txt"):
-        """Save the counterexample report to a file"""
+    def save_report(self, filename=None):
+        """Save the counterexample report to a dedicated folder with timestamp"""
         report = self.generate_report()
-        report_path = os.path.join(self.project_dir, filename)
+        
+        # Create dedicated reports folder
+        reports_dir = os.path.join(self.project_dir, "reports", "counterexamples")
+        os.makedirs(reports_dir, exist_ok=True)
+        
+        if filename is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"counterexample_{timestamp}.log"
+            
+        report_path = os.path.join(reports_dir, filename)
         with open(report_path, 'w') as f:
             f.write(report)
         return report_path

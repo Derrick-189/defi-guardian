@@ -9,7 +9,7 @@ int user_debt = 3000;
 int price_eth = 100;
 int health_factor = 0;
 bool liquidation_executed = false;
-byte state = 0; // 0=INIT, 1=RUNNING, 2=END
+byte state = 0;
 
 /* === HELPER MACROS === */
 #define calculate_health_factor (user_collateral * price_eth / user_debt)
@@ -17,14 +17,14 @@ byte state = 0; // 0=INIT, 1=RUNNING, 2=END
 
 
 /* === LTL PROPERTIES FOR FORMAL VERIFICATION === */
-ltl safety_no_overflow { [] (amount >= 0 && amount <= 1000000) }
-ltl safety_reentrancy { [] !(lock && amount > 100) }
-ltl liveness_progress { <> (state == 2) }
-ltl invariant_collateral { [] (user_collateral >= user_debt) }
-ltl response_price_drop { [] (price_eth < 50 -> <> (health_factor < 150)) }
-ltl stability { [] (lock == false -> <> (amount > 0 && health_factor > 200)) }
-ltl fairness { [] <> (lock == false) }
-ltl reachability_liquidation { [] (health_factor < 100 -> <> (liquidation_executed == 1)) }
+
+
+
+
+
+
+
+
 
 /* === MAIN CONTRACT PROCESS === */
 active proctype Contract() {
@@ -70,3 +70,21 @@ never { /* [] !deadlock */
         :: (state == 0) -> skip
     od
 }
+
+
+/* === CUSTOM SPECIFICATIONS === */
+ltl safety_no_overflow { [] (amount >= 0 && amount <= 1000000) }
+
+ltl safety_reentrancy { [] !(lock && amount > 100) }
+
+ltl liveness_progress { <> (state == 2) }
+
+ltl invariant_collateral { [] (user_collateral >= user_debt) }
+
+ltl response_price_drop { [] (price_eth < 50 -> <> (health_factor < 150)) }
+
+ltl stability { [] (lock == false -> <> (amount > 0 && health_factor > 200)) }
+
+ltl fairness { [] <> (lock == false) }
+
+ltl reachability_liquidation { [] (health_factor < 100 -> <> (liquidation_executed == 1)) }

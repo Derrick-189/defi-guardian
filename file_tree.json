@@ -58,6 +58,13 @@
           "type": "folder",
           "children": [
             {
+              "name": "IERC1363Spender.conf",
+              "type": "file",
+              "icon": "file",
+              "path": "certora/confs/IERC1363Spender.conf",
+              "size": 419
+            },
+            {
               "name": "IERC3156FlashBorrower.conf",
               "type": "file",
               "icon": "file",
@@ -70,6 +77,20 @@
               "icon": "file",
               "path": "certora/confs/lending_pool.conf",
               "size": 497
+            },
+            {
+              "name": "VestingWallet.conf",
+              "type": "file",
+              "icon": "file",
+              "path": "certora/confs/VestingWallet.conf",
+              "size": 411
+            },
+            {
+              "name": "VestingWalletCliff.conf",
+              "type": "file",
+              "icon": "file",
+              "path": "certora/confs/VestingWalletCliff.conf",
+              "size": 431
             }
           ]
         },
@@ -78,11 +99,32 @@
           "type": "folder",
           "children": [
             {
+              "name": "IERC1363Spender.sol",
+              "type": "file",
+              "icon": "solidity",
+              "path": "certora/contracts/IERC1363Spender.sol",
+              "size": 1119
+            },
+            {
               "name": "IERC3156FlashBorrower.sol",
               "type": "file",
               "icon": "solidity",
               "path": "certora/contracts/IERC3156FlashBorrower.sol",
               "size": 900
+            },
+            {
+              "name": "VestingWallet.sol",
+              "type": "file",
+              "icon": "solidity",
+              "path": "certora/contracts/VestingWallet.sol",
+              "size": 6057
+            },
+            {
+              "name": "VestingWalletCliff.sol",
+              "type": "file",
+              "icon": "solidity",
+              "path": "certora/contracts/VestingWalletCliff.sol",
+              "size": 2018
             }
           ]
         },
@@ -90,6 +132,13 @@
           "name": "specs",
           "type": "folder",
           "children": [
+            {
+              "name": "IERC1363Spender.spec",
+              "type": "file",
+              "icon": "file",
+              "path": "certora/specs/IERC1363Spender.spec",
+              "size": 856
+            },
             {
               "name": "IERC3156FlashBorrower.spec",
               "type": "file",
@@ -103,6 +152,20 @@
               "icon": "file",
               "path": "certora/specs/SimpleLendingPool.spec",
               "size": 5165
+            },
+            {
+              "name": "VestingWallet.spec",
+              "type": "file",
+              "icon": "file",
+              "path": "certora/specs/VestingWallet.spec",
+              "size": 854
+            },
+            {
+              "name": "VestingWalletCliff.spec",
+              "type": "file",
+              "icon": "file",
+              "path": "certora/specs/VestingWalletCliff.spec",
+              "size": 859
             }
           ]
         }
@@ -113,6 +176,48 @@
       "type": "folder",
       "children": [
         {
+          "name": "almost.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/almost.txt",
+          "size": 13001
+        },
+        {
+          "name": "analysis.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/analysis.txt",
+          "size": 17530
+        },
+        {
+          "name": "closer.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/closer.txt",
+          "size": 20009
+        },
+        {
+          "name": "counter.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/counter.txt",
+          "size": 16732
+        },
+        {
+          "name": "counterexample_report.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/counterexample_report.txt",
+          "size": 3326
+        },
+        {
+          "name": "deepfake.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/deepfake.txt",
+          "size": 12583
+        },
+        {
           "name": "form.txt",
           "type": "file",
           "icon": "text",
@@ -120,11 +225,46 @@
           "size": 10700
         },
         {
+          "name": "gimme.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/gimme.txt",
+          "size": 18799
+        },
+        {
+          "name": "hmmm.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/hmmm.txt",
+          "size": 13103
+        },
+        {
           "name": "improve.txt",
           "type": "file",
           "icon": "text",
           "path": "console_exports/improve.txt",
           "size": 15704
+        },
+        {
+          "name": "knowing.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/knowing.txt",
+          "size": 17257
+        },
+        {
+          "name": "lint.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/lint.txt",
+          "size": 12583
+        },
+        {
+          "name": "newway.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/newway.txt",
+          "size": 10535
         },
         {
           "name": "now.txt",
@@ -155,11 +295,60 @@
           "size": 3504
         },
         {
+          "name": "requirements.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/requirements.txt",
+          "size": 155
+        },
+        {
+          "name": "same.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/same.txt",
+          "size": 16398
+        },
+        {
+          "name": "seven.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/seven.txt",
+          "size": 12121
+        },
+        {
           "name": "statev.txt",
           "type": "file",
           "icon": "text",
           "path": "console_exports/statev.txt",
-          "size": 33250
+          "size": 16150
+        },
+        {
+          "name": "sun.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/sun.txt",
+          "size": 11836
+        },
+        {
+          "name": "unknown.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/unknown.txt",
+          "size": 18840
+        },
+        {
+          "name": "using.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/using.txt",
+          "size": 12282
+        },
+        {
+          "name": "whatwhy.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/whatwhy.txt",
+          "size": 11155
         },
         {
           "name": "zara.txt",
@@ -175,6 +364,589 @@
       "type": "folder",
       "children": [
         {
+          "name": "images",
+          "type": "folder",
+          "children": [
+            {
+              "name": "defi_guardian.ico",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian.ico",
+              "size": 150
+            },
+            {
+              "name": "defi_guardian.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian.png",
+              "size": 3265
+            },
+            {
+              "name": "defi_guardian_128.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_128.png",
+              "size": 3265
+            },
+            {
+              "name": "defi_guardian_128x128.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_128x128.png",
+              "size": 3265
+            },
+            {
+              "name": "defi_guardian_16.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_16.png",
+              "size": 128
+            },
+            {
+              "name": "defi_guardian_16x16.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_16x16.png",
+              "size": 128
+            },
+            {
+              "name": "defi_guardian_22.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_22.png",
+              "size": 160
+            },
+            {
+              "name": "defi_guardian_22x22.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_22x22.png",
+              "size": 160
+            },
+            {
+              "name": "defi_guardian_24.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_24.png",
+              "size": 195
+            },
+            {
+              "name": "defi_guardian_24x24.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_24x24.png",
+              "size": 195
+            },
+            {
+              "name": "defi_guardian_256.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_256.png",
+              "size": 6631
+            },
+            {
+              "name": "defi_guardian_256x256.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_256x256.png",
+              "size": 6631
+            },
+            {
+              "name": "defi_guardian_32.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_32.png",
+              "size": 242
+            },
+            {
+              "name": "defi_guardian_32x32.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_32x32.png",
+              "size": 242
+            },
+            {
+              "name": "defi_guardian_48.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_48.png",
+              "size": 323
+            },
+            {
+              "name": "defi_guardian_48x48.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_48x48.png",
+              "size": 323
+            },
+            {
+              "name": "defi_guardian_512.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_512.png",
+              "size": 13719
+            },
+            {
+              "name": "defi_guardian_64.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_64.png",
+              "size": 1207
+            },
+            {
+              "name": "defi_guardian_64x64.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/defi_guardian_64x64.png",
+              "size": 1207
+            },
+            {
+              "name": "state_diagram_1777654041.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777654041.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777654101.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777654101.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777654161.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777654161.png",
+              "size": 496030
+            },
+            {
+              "name": "state_diagram_1777654678.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777654678.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777911635.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777911635.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777911661.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777911661.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777911951.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777911951.png",
+              "size": 496030
+            },
+            {
+              "name": "state_diagram_1777913911.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777913911.png",
+              "size": 453309
+            },
+            {
+              "name": "state_diagram_1777914089.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777914089.png",
+              "size": 453309
+            },
+            {
+              "name": "state_diagram_1777915636.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777915636.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777916760.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777916760.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777916797.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777916797.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777917210.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777917210.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777917696.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777917696.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777917848.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777917848.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777918178.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777918178.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777918229.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777918229.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777918254.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777918254.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777918365.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777918365.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777918605.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777918605.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777918908.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777918908.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777919090.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777919090.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777919426.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777919426.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777919638.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777919638.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777920118.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777920118.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777920874.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777920874.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777921268.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777921268.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777921643.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777921643.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777922416.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777922416.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777922600.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777922600.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777968826.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777968826.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777969838.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777969838.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777971846.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777971846.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777971872.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777971872.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777971880.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777971880.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777971908.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777971908.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777972735.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777972735.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777972842.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777972842.png",
+              "size": 496030
+            },
+            {
+              "name": "state_diagram_1777972926.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777972926.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777973054.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777973054.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777973651.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777973651.png",
+              "size": 452933
+            },
+            {
+              "name": "state_diagram_1777974440.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1777974440.png",
+              "size": 452933
+            }
+          ]
+        },
+        {
+          "name": "models",
+          "type": "folder",
+          "children": [
+            {
+              "name": "Account_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/Account_translated.pml",
+              "size": 2394
+            },
+            {
+              "name": "burn_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/burn_translated.pml",
+              "size": 2409
+            },
+            {
+              "name": "IERC1363Spender_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/IERC1363Spender_translated.pml",
+              "size": 2366
+            },
+            {
+              "name": "IERC3156FlashBorrower_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/IERC3156FlashBorrower_translated.pml",
+              "size": 2366
+            },
+            {
+              "name": "lending_pool_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/lending_pool_translated.pml",
+              "size": 1664
+            },
+            {
+              "name": "lib_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/lib_translated.pml",
+              "size": 1206
+            },
+            {
+              "name": "SimpleLending_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/SimpleLending_translated.pml",
+              "size": 2638
+            },
+            {
+              "name": "test_contract_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/test_contract_translated.pml",
+              "size": 1206
+            },
+            {
+              "name": "test_vault_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/test_vault_translated.pml",
+              "size": 2550
+            },
+            {
+              "name": "translated_output.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/translated_output.pml",
+              "size": 2418
+            },
+            {
+              "name": "user_lending_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/user_lending_translated.pml",
+              "size": 1184
+            },
+            {
+              "name": "VestingWallet_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/VestingWallet_translated.pml",
+              "size": 2408
+            },
+            {
+              "name": "VestingWalletCliff_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/VestingWalletCliff_translated.pml",
+              "size": 2366
+            }
+          ]
+        },
+        {
+          "name": "reports",
+          "type": "folder",
+          "children": [
+            {
+              "name": "traces",
+              "type": "folder",
+              "children": []
+            },
+            {
+              "name": "active_file.txt",
+              "type": "file",
+              "icon": "text",
+              "path": "generated/reports/active_file.txt",
+              "size": 25
+            },
+            {
+              "name": "audit_log.json",
+              "type": "file",
+              "icon": "json",
+              "path": "generated/reports/audit_log.json",
+              "size": 26075
+            },
+            {
+              "name": "file_tree.json",
+              "type": "file",
+              "icon": "json",
+              "path": "generated/reports/file_tree.json",
+              "size": 6623488
+            },
+            {
+              "name": "state_graph.json",
+              "type": "file",
+              "icon": "json",
+              "path": "generated/reports/state_graph.json",
+              "size": 548
+            },
+            {
+              "name": "verification_report.pdf",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/reports/verification_report.pdf",
+              "size": 2931
+            },
+            {
+              "name": "verification_state.json",
+              "type": "file",
+              "icon": "json",
+              "path": "generated/reports/verification_state.json",
+              "size": 10296
+            }
+          ]
+        },
+        {
           "name": "verification_state.json",
           "type": "file",
           "icon": "json",
@@ -184,750 +956,1322 @@
       ]
     },
     {
+      "name": "images",
+      "type": "folder",
+      "children": [
+        {
+          "name": "benchmarks",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "name": "diagrams",
+          "type": "folder",
+          "children": []
+        }
+      ]
+    },
+    {
       "name": "logs",
       "type": "folder",
       "children": [
         {
-          "name": "coq_verification_20260409_143100.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260409_143100.log",
-          "size": 172
-        },
-        {
-          "name": "coq_verification_20260409_151124.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260409_151124.log",
-          "size": 164
-        },
-        {
-          "name": "coq_verification_20260409_152152.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260409_152152.log",
-          "size": 178
-        },
-        {
-          "name": "coq_verification_20260409_153907.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260409_153907.log",
-          "size": 164
-        },
-        {
-          "name": "coq_verification_20260411_161029.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260411_161029.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260411_165539.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260411_165539.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260412_130922.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260412_130922.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260412_144515.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260412_144515.log",
-          "size": 164
-        },
-        {
-          "name": "coq_verification_20260412_144934.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260412_144934.log",
-          "size": 164
-        },
-        {
-          "name": "coq_verification_20260412_162618.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260412_162618.log",
-          "size": 164
-        },
-        {
-          "name": "coq_verification_20260412_163406.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260412_163406.log",
-          "size": 166
-        },
-        {
-          "name": "coq_verification_20260417_164354.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260417_164354.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260417_165327.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260417_165327.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260417_220038.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260417_220038.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260419_113805.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260419_113805.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260419_121755.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260419_121755.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260419_121800.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260419_121800.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260419_125312.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260419_125312.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260419_125318.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260419_125318.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260419_130821.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260419_130821.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260419_131555.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260419_131555.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260419_132836.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260419_132836.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260419_135759.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260419_135759.log",
-          "size": 180
-        },
-        {
-          "name": "coq_verification_20260419_144345.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/coq_verification_20260419_144345.log",
-          "size": 180
-        },
-        {
-          "name": "creusot_verification_20260408_214122.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260408_214122.log",
-          "size": 3835
-        },
-        {
-          "name": "creusot_verification_20260408_220600.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260408_220600.log",
-          "size": 1036
-        },
-        {
-          "name": "creusot_verification_20260409_131844.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260409_131844.log",
-          "size": 2054
-        },
-        {
-          "name": "creusot_verification_20260409_133807.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260409_133807.log",
-          "size": 20472
-        },
-        {
-          "name": "creusot_verification_20260409_152602.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260409_152602.log",
-          "size": 34130
-        },
-        {
-          "name": "creusot_verification_20260411_161415.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260411_161415.log",
-          "size": 1260
-        },
-        {
-          "name": "creusot_verification_20260411_165642.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260411_165642.log",
-          "size": 1260
-        },
-        {
-          "name": "creusot_verification_20260412_131231.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260412_131231.log",
-          "size": 1260
-        },
-        {
-          "name": "creusot_verification_20260417_165738.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260417_165738.log",
-          "size": 1337
-        },
-        {
-          "name": "creusot_verification_20260417_220830.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260417_220830.log",
-          "size": 1043
-        },
-        {
-          "name": "creusot_verification_20260419_114112.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260419_114112.log",
-          "size": 1260
-        },
-        {
-          "name": "creusot_verification_20260419_121924.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260419_121924.log",
-          "size": 1260
-        },
-        {
-          "name": "creusot_verification_20260419_125504.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260419_125504.log",
-          "size": 1260
-        },
-        {
-          "name": "creusot_verification_20260419_131009.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260419_131009.log",
-          "size": 1260
-        },
-        {
-          "name": "creusot_verification_20260419_131633.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260419_131633.log",
-          "size": 1260
-        },
-        {
-          "name": "creusot_verification_20260419_132952.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260419_132952.log",
-          "size": 1260
-        },
-        {
-          "name": "creusot_verification_20260419_135858.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260419_135858.log",
-          "size": 1260
-        },
-        {
-          "name": "creusot_verification_20260419_143334.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260419_143334.log",
-          "size": 1260
-        },
-        {
-          "name": "creusot_verification_20260419_144457.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/creusot_verification_20260419_144457.log",
-          "size": 1260
-        },
-        {
-          "name": "kani_verification_20260409_133823.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260409_133823.log",
-          "size": 18495
-        },
-        {
-          "name": "kani_verification_20260411_161451.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260411_161451.log",
-          "size": 410
-        },
-        {
-          "name": "kani_verification_20260411_165557.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260411_165557.log",
-          "size": 410
-        },
-        {
-          "name": "kani_verification_20260412_131247.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260412_131247.log",
-          "size": 410
-        },
-        {
-          "name": "kani_verification_20260412_132641.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260412_132641.log",
-          "size": 410
-        },
-        {
-          "name": "kani_verification_20260412_133304.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260412_133304.log",
-          "size": 6977
-        },
-        {
-          "name": "kani_verification_20260417_165433.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260417_165433.log",
-          "size": 7051
-        },
-        {
-          "name": "kani_verification_20260417_220856.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260417_220856.log",
-          "size": 7059
-        },
-        {
-          "name": "kani_verification_20260419_114153.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260419_114153.log",
-          "size": 7050
-        },
-        {
-          "name": "kani_verification_20260419_125509.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260419_125509.log",
-          "size": 7057
-        },
-        {
-          "name": "kani_verification_20260419_125519.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260419_125519.log",
-          "size": 7060
-        },
-        {
-          "name": "kani_verification_20260419_131020.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260419_131020.log",
-          "size": 7061
-        },
-        {
-          "name": "kani_verification_20260419_131640.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260419_131640.log",
-          "size": 7057
-        },
-        {
-          "name": "kani_verification_20260419_133009.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260419_133009.log",
-          "size": 7057
-        },
-        {
-          "name": "kani_verification_20260419_140025.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260419_140025.log",
-          "size": 7061
-        },
-        {
-          "name": "kani_verification_20260419_143351.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260419_143351.log",
-          "size": 7059
-        },
-        {
-          "name": "kani_verification_20260419_144517.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260419_144517.log",
-          "size": 7059
-        },
-        {
-          "name": "kani_verification_20260419_151411.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/kani_verification_20260419_151411.log",
-          "size": 7059
-        },
-        {
-          "name": "lean_verification_20260411_165833.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/lean_verification_20260411_165833.log",
-          "size": 323
-        },
-        {
-          "name": "lean_verification_20260412_130955.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/lean_verification_20260412_130955.log",
-          "size": 323
-        },
-        {
-          "name": "lean_verification_20260412_132454.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/lean_verification_20260412_132454.log",
-          "size": 329
-        },
-        {
-          "name": "lean_verification_20260412_132603.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/lean_verification_20260412_132603.log",
-          "size": 323
-        },
-        {
-          "name": "lean_verification_20260412_144554.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/lean_verification_20260412_144554.log",
-          "size": 307
-        },
-        {
-          "name": "lean_verification_20260412_144930.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/lean_verification_20260412_144930.log",
-          "size": 307
-        },
-        {
-          "name": "lean_verification_20260412_162657.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/lean_verification_20260412_162657.log",
-          "size": 307
-        },
-        {
-          "name": "lean_verification_20260412_163447.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/lean_verification_20260412_163447.log",
-          "size": 309
-        },
-        {
-          "name": "lean_verification_20260417_220120.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/lean_verification_20260417_220120.log",
-          "size": 414
-        },
-        {
-          "name": "lean_verification_20260419_132230.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/lean_verification_20260419_132230.log",
-          "size": 246
-        },
-        {
-          "name": "lean_verification_20260419_132846.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/lean_verification_20260419_132846.log",
-          "size": 166
-        },
-        {
-          "name": "prusti_verification_20260417_165408.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/prusti_verification_20260417_165408.log",
-          "size": 645
-        },
-        {
-          "name": "prusti_verification_20260417_220814.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/prusti_verification_20260417_220814.log",
-          "size": 645
-        },
-        {
-          "name": "prusti_verification_20260419_125346.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/prusti_verification_20260419_125346.log",
-          "size": 645
-        },
-        {
-          "name": "prusti_verification_20260419_130844.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/prusti_verification_20260419_130844.log",
-          "size": 645
-        },
-        {
-          "name": "prusti_verification_20260419_131704.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/prusti_verification_20260419_131704.log",
-          "size": 645
-        },
-        {
-          "name": "prusti_verification_20260419_132904.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/prusti_verification_20260419_132904.log",
-          "size": 645
-        },
-        {
-          "name": "spin_verification_20260409_143057.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260409_143057.log",
-          "size": 9426
-        },
-        {
-          "name": "spin_verification_20260409_145930.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260409_145930.log",
-          "size": 4141
-        },
-        {
-          "name": "spin_verification_20260409_151123.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260409_151123.log",
-          "size": 4141
-        },
-        {
-          "name": "spin_verification_20260409_152146.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260409_152146.log",
-          "size": 4155
-        },
-        {
-          "name": "spin_verification_20260409_153913.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260409_153913.log",
-          "size": 4141
-        },
-        {
-          "name": "spin_verification_20260411_161024.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260411_161024.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260411_165528.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260411_165528.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260412_130859.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260412_130859.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260412_132428.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260412_132428.log",
-          "size": 4163
-        },
-        {
-          "name": "spin_verification_20260412_132558.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260412_132558.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260412_133239.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260412_133239.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260412_144511.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260412_144511.log",
-          "size": 4141
-        },
-        {
-          "name": "spin_verification_20260412_162612.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260412_162612.log",
-          "size": 4141
-        },
-        {
-          "name": "spin_verification_20260412_163358.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260412_163358.log",
-          "size": 9420
-        },
-        {
-          "name": "spin_verification_20260417_164336.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260417_164336.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260417_165318.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260417_165318.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260417_220026.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260417_220026.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260417_220926.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260417_220926.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260419_113757.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260419_113757.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260419_121733.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260419_121733.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260419_125223.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260419_125223.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260419_130706.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260419_130706.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260419_131530.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260419_131530.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260419_132830.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260419_132830.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260419_135749.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260419_135749.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260419_143202.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260419_143202.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260419_144332.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260419_144332.log",
-          "size": 4157
-        },
-        {
-          "name": "spin_verification_20260419_151402.log",
-          "type": "file",
-          "icon": "log",
-          "path": "logs/spin_verification_20260419_151402.log",
-          "size": 4157
+          "name": "certora",
+          "type": "folder",
+          "children": [
+            {
+              "name": "certora_verification_20260427_225151.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/certora/certora_verification_20260427_225151.log",
+              "size": 310
+            },
+            {
+              "name": "certora_verification_20260501_190253.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/certora/certora_verification_20260501_190253.log",
+              "size": 298
+            },
+            {
+              "name": "certora_verification_20260501_190254.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/certora/certora_verification_20260501_190254.log",
+              "size": 298
+            },
+            {
+              "name": "certora_verification_20260504_195103.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/certora/certora_verification_20260504_195103.log",
+              "size": 293
+            },
+            {
+              "name": "certora_verification_20260504_202548.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/certora/certora_verification_20260504_202548.log",
+              "size": 310
+            },
+            {
+              "name": "certora_verification_20260504_205245.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/certora/certora_verification_20260504_205245.log",
+              "size": 298
+            },
+            {
+              "name": "certora_verification_20260504_211219.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/certora/certora_verification_20260504_211219.log",
+              "size": 303
+            },
+            {
+              "name": "certora_verification_20260505_111307.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/certora/certora_verification_20260505_111307.log",
+              "size": 310
+            }
+          ]
+        },
+        {
+          "name": "coq",
+          "type": "folder",
+          "children": [
+            {
+              "name": "coq_verification_20260409_143100.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260409_143100.log",
+              "size": 172
+            },
+            {
+              "name": "coq_verification_20260409_151124.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260409_151124.log",
+              "size": 164
+            },
+            {
+              "name": "coq_verification_20260409_152152.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260409_152152.log",
+              "size": 178
+            },
+            {
+              "name": "coq_verification_20260409_153907.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260409_153907.log",
+              "size": 164
+            },
+            {
+              "name": "coq_verification_20260411_161029.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260411_161029.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260411_165539.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260411_165539.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260412_130922.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260412_130922.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260412_144515.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260412_144515.log",
+              "size": 164
+            },
+            {
+              "name": "coq_verification_20260412_144934.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260412_144934.log",
+              "size": 164
+            },
+            {
+              "name": "coq_verification_20260412_162618.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260412_162618.log",
+              "size": 164
+            },
+            {
+              "name": "coq_verification_20260412_163406.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260412_163406.log",
+              "size": 166
+            },
+            {
+              "name": "coq_verification_20260417_164354.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260417_164354.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260417_165327.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260417_165327.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260417_220038.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260417_220038.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260419_113805.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260419_113805.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260419_121755.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260419_121755.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260419_121800.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260419_121800.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260419_125312.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260419_125312.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260419_125318.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260419_125318.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260419_130821.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260419_130821.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260419_131555.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260419_131555.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260419_132836.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260419_132836.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260419_135759.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260419_135759.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260419_144345.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260419_144345.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260420_171135.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260420_171135.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260420_174411.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260420_174411.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260420_180731.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260420_180731.log",
+              "size": 164
+            },
+            {
+              "name": "coq_verification_20260420_190316.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260420_190316.log",
+              "size": 182
+            },
+            {
+              "name": "coq_verification_20260422_115429.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260422_115429.log",
+              "size": 180
+            },
+            {
+              "name": "coq_verification_20260422_182710.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260422_182710.log",
+              "size": 183
+            },
+            {
+              "name": "coq_verification_20260422_194147.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260422_194147.log",
+              "size": 172
+            },
+            {
+              "name": "coq_verification_20260422_195155.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260422_195155.log",
+              "size": 172
+            },
+            {
+              "name": "coq_verification_20260422_200754.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260422_200754.log",
+              "size": 172
+            },
+            {
+              "name": "coq_verification_20260422_210932.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260422_210932.log",
+              "size": 178
+            },
+            {
+              "name": "coq_verification_20260424_162925.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260424_162925.log",
+              "size": 172
+            },
+            {
+              "name": "coq_verification_20260424_172822.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260424_172822.log",
+              "size": 172
+            },
+            {
+              "name": "coq_verification_20260427_103645.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260427_103645.log",
+              "size": 272
+            },
+            {
+              "name": "coq_verification_20260427_224107.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260427_224107.log",
+              "size": 271
+            },
+            {
+              "name": "coq_verification_20260427_224437.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260427_224437.log",
+              "size": 276
+            },
+            {
+              "name": "coq_verification_20260504_191516.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260504_191516.log",
+              "size": 276
+            },
+            {
+              "name": "coq_verification_20260504_195054.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260504_195054.log",
+              "size": 268
+            },
+            {
+              "name": "coq_verification_20260504_202551.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260504_202551.log",
+              "size": 276
+            },
+            {
+              "name": "coq_verification_20260504_205251.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260504_205251.log",
+              "size": 524
+            },
+            {
+              "name": "coq_verification_20260505_111222.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260505_111222.log",
+              "size": 564
+            }
+          ]
+        },
+        {
+          "name": "creusot",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "name": "kani",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "name": "lean",
+          "type": "folder",
+          "children": [
+            {
+              "name": "lean_verification_20260411_165833.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260411_165833.log",
+              "size": 323
+            },
+            {
+              "name": "lean_verification_20260412_130955.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260412_130955.log",
+              "size": 323
+            },
+            {
+              "name": "lean_verification_20260412_132454.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260412_132454.log",
+              "size": 329
+            },
+            {
+              "name": "lean_verification_20260412_132603.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260412_132603.log",
+              "size": 323
+            },
+            {
+              "name": "lean_verification_20260412_144554.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260412_144554.log",
+              "size": 307
+            },
+            {
+              "name": "lean_verification_20260412_144930.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260412_144930.log",
+              "size": 307
+            },
+            {
+              "name": "lean_verification_20260412_162657.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260412_162657.log",
+              "size": 307
+            },
+            {
+              "name": "lean_verification_20260412_163447.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260412_163447.log",
+              "size": 309
+            },
+            {
+              "name": "lean_verification_20260417_220120.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260417_220120.log",
+              "size": 414
+            },
+            {
+              "name": "lean_verification_20260419_132230.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260419_132230.log",
+              "size": 246
+            },
+            {
+              "name": "lean_verification_20260419_132846.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260419_132846.log",
+              "size": 166
+            }
+          ]
+        },
+        {
+          "name": "prusti",
+          "type": "folder",
+          "children": []
+        },
+        {
+          "name": "rust_tools",
+          "type": "folder",
+          "children": [
+            {
+              "name": "creusot_verification_20260408_214122.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260408_214122.log",
+              "size": 3835
+            },
+            {
+              "name": "creusot_verification_20260408_220600.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260408_220600.log",
+              "size": 1036
+            },
+            {
+              "name": "creusot_verification_20260409_131844.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260409_131844.log",
+              "size": 2054
+            },
+            {
+              "name": "creusot_verification_20260409_133807.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260409_133807.log",
+              "size": 20472
+            },
+            {
+              "name": "creusot_verification_20260409_152602.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260409_152602.log",
+              "size": 34130
+            },
+            {
+              "name": "creusot_verification_20260411_161415.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260411_161415.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260411_165642.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260411_165642.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260412_131231.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260412_131231.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260417_165738.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260417_165738.log",
+              "size": 1337
+            },
+            {
+              "name": "creusot_verification_20260417_220830.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260417_220830.log",
+              "size": 1043
+            },
+            {
+              "name": "creusot_verification_20260419_114112.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260419_114112.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260419_121924.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260419_121924.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260419_125504.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260419_125504.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260419_131009.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260419_131009.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260419_131633.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260419_131633.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260419_132952.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260419_132952.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260419_135858.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260419_135858.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260419_143334.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260419_143334.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260419_144457.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260419_144457.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260420_171432.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260420_171432.log",
+              "size": 1260
+            },
+            {
+              "name": "creusot_verification_20260420_174520.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260420_174520.log",
+              "size": 1260
+            },
+            {
+              "name": "kani_verification_20260409_133823.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260409_133823.log",
+              "size": 18495
+            },
+            {
+              "name": "kani_verification_20260411_161451.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260411_161451.log",
+              "size": 410
+            },
+            {
+              "name": "kani_verification_20260411_165557.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260411_165557.log",
+              "size": 410
+            },
+            {
+              "name": "kani_verification_20260412_131247.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260412_131247.log",
+              "size": 410
+            },
+            {
+              "name": "kani_verification_20260412_132641.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260412_132641.log",
+              "size": 410
+            },
+            {
+              "name": "kani_verification_20260412_133304.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260412_133304.log",
+              "size": 6977
+            },
+            {
+              "name": "kani_verification_20260417_165433.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260417_165433.log",
+              "size": 7051
+            },
+            {
+              "name": "kani_verification_20260417_220856.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260417_220856.log",
+              "size": 7059
+            },
+            {
+              "name": "kani_verification_20260419_114153.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260419_114153.log",
+              "size": 7050
+            },
+            {
+              "name": "kani_verification_20260419_125509.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260419_125509.log",
+              "size": 7057
+            },
+            {
+              "name": "kani_verification_20260419_125519.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260419_125519.log",
+              "size": 7060
+            },
+            {
+              "name": "kani_verification_20260419_131020.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260419_131020.log",
+              "size": 7061
+            },
+            {
+              "name": "kani_verification_20260419_131640.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260419_131640.log",
+              "size": 7057
+            },
+            {
+              "name": "kani_verification_20260419_133009.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260419_133009.log",
+              "size": 7057
+            },
+            {
+              "name": "kani_verification_20260419_140025.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260419_140025.log",
+              "size": 7061
+            },
+            {
+              "name": "kani_verification_20260419_143351.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260419_143351.log",
+              "size": 7059
+            },
+            {
+              "name": "kani_verification_20260419_144517.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260419_144517.log",
+              "size": 7059
+            },
+            {
+              "name": "kani_verification_20260419_151411.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260419_151411.log",
+              "size": 7059
+            },
+            {
+              "name": "kani_verification_20260420_124657.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260420_124657.log",
+              "size": 7054
+            },
+            {
+              "name": "kani_verification_20260420_171513.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260420_171513.log",
+              "size": 7060
+            },
+            {
+              "name": "kani_verification_20260420_174540.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260420_174540.log",
+              "size": 7061
+            },
+            {
+              "name": "kani_verification_20260422_115604.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260422_115604.log",
+              "size": 7062
+            },
+            {
+              "name": "prusti_verification_20260417_165408.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/prusti_verification_20260417_165408.log",
+              "size": 645
+            },
+            {
+              "name": "prusti_verification_20260417_220814.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/prusti_verification_20260417_220814.log",
+              "size": 645
+            },
+            {
+              "name": "prusti_verification_20260419_125346.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/prusti_verification_20260419_125346.log",
+              "size": 645
+            },
+            {
+              "name": "prusti_verification_20260419_130844.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/prusti_verification_20260419_130844.log",
+              "size": 645
+            },
+            {
+              "name": "prusti_verification_20260419_131704.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/prusti_verification_20260419_131704.log",
+              "size": 645
+            },
+            {
+              "name": "prusti_verification_20260419_132904.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/prusti_verification_20260419_132904.log",
+              "size": 645
+            },
+            {
+              "name": "prusti_verification_20260420_171259.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/prusti_verification_20260420_171259.log",
+              "size": 645
+            },
+            {
+              "name": "prusti_verification_20260422_115459.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/prusti_verification_20260422_115459.log",
+              "size": 645
+            }
+          ]
+        },
+        {
+          "name": "spin",
+          "type": "folder",
+          "children": [
+            {
+              "name": "pan",
+              "type": "file",
+              "icon": "file",
+              "path": "logs/spin/pan",
+              "size": 148392
+            },
+            {
+              "name": "spin_verification_20260409_143057.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260409_143057.log",
+              "size": 9426
+            },
+            {
+              "name": "spin_verification_20260409_145930.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260409_145930.log",
+              "size": 4141
+            },
+            {
+              "name": "spin_verification_20260409_151123.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260409_151123.log",
+              "size": 4141
+            },
+            {
+              "name": "spin_verification_20260409_152146.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260409_152146.log",
+              "size": 4155
+            },
+            {
+              "name": "spin_verification_20260409_153913.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260409_153913.log",
+              "size": 4141
+            },
+            {
+              "name": "spin_verification_20260411_161024.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260411_161024.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260411_165528.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260411_165528.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260412_130859.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260412_130859.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260412_132428.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260412_132428.log",
+              "size": 4163
+            },
+            {
+              "name": "spin_verification_20260412_132558.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260412_132558.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260412_133239.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260412_133239.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260412_144511.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260412_144511.log",
+              "size": 4141
+            },
+            {
+              "name": "spin_verification_20260412_162612.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260412_162612.log",
+              "size": 4141
+            },
+            {
+              "name": "spin_verification_20260412_163358.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260412_163358.log",
+              "size": 9420
+            },
+            {
+              "name": "spin_verification_20260417_164336.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260417_164336.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260417_165318.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260417_165318.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260417_220026.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260417_220026.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260417_220926.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260417_220926.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260419_113757.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_113757.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260419_121733.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_121733.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260419_125223.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_125223.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260419_130706.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_130706.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260419_131530.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_131530.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260419_132830.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_132830.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260419_135749.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_135749.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260419_143202.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_143202.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260419_144332.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_144332.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260419_151402.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_151402.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260419_154152.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_154152.log",
+              "size": 4158
+            },
+            {
+              "name": "spin_verification_20260419_164412.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_164412.log",
+              "size": 4227
+            },
+            {
+              "name": "spin_verification_20260419_170626.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260419_170626.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260420_124606.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260420_124606.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260420_171130.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260420_171130.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260420_174352.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260420_174352.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260420_175333.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260420_175333.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260420_180701.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260420_180701.log",
+              "size": 4141
+            },
+            {
+              "name": "spin_verification_20260420_190258.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260420_190258.log",
+              "size": 3268
+            },
+            {
+              "name": "spin_verification_20260420_201550.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260420_201550.log",
+              "size": 9426
+            },
+            {
+              "name": "spin_verification_20260420_203000.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260420_203000.log",
+              "size": 9420
+            },
+            {
+              "name": "spin_verification_20260422_115414.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260422_115414.log",
+              "size": 4157
+            },
+            {
+              "name": "spin_verification_20260422_122543.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260422_122543.log",
+              "size": 9426
+            },
+            {
+              "name": "spin_verification_20260422_135221.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260422_135221.log",
+              "size": 9432
+            },
+            {
+              "name": "spin_verification_20260422_182657.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260422_182657.log",
+              "size": 9437
+            },
+            {
+              "name": "spin_verification_20260422_195124.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260422_195124.log",
+              "size": 9426
+            },
+            {
+              "name": "spin_verification_20260422_200732.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260422_200732.log",
+              "size": 9426
+            },
+            {
+              "name": "spin_verification_20260422_210922.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260422_210922.log",
+              "size": 9435
+            },
+            {
+              "name": "spin_verification_20260422_215039.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260422_215039.log",
+              "size": 9426
+            },
+            {
+              "name": "spin_verification_20260424_162917.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260424_162917.log",
+              "size": 9426
+            },
+            {
+              "name": "spin_verification_20260424_172751.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260424_172751.log",
+              "size": 9426
+            },
+            {
+              "name": "spin_verification_20260424_182107.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260424_182107.log",
+              "size": 9432
+            },
+            {
+              "name": "spin_verification_20260424_182224.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260424_182224.log",
+              "size": 9432
+            },
+            {
+              "name": "spin_verification_20260424_195432.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260424_195432.log",
+              "size": 9440
+            },
+            {
+              "name": "spin_verification_20260427_120359.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260427_120359.log",
+              "size": 9426
+            },
+            {
+              "name": "spin_verification_20260427_120804.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260427_120804.log",
+              "size": 9435
+            },
+            {
+              "name": "spin_verification_20260427_223835.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260427_223835.log",
+              "size": 4158
+            },
+            {
+              "name": "spin_verification_20260427_225141.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260427_225141.log",
+              "size": 9440
+            },
+            {
+              "name": "spin_verification_20260427_230349.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260427_230349.log",
+              "size": 9432
+            },
+            {
+              "name": "spin_verification_20260501_190224.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260501_190224.log",
+              "size": 9434
+            },
+            {
+              "name": "spin_verification_20260504_191440.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260504_191440.log",
+              "size": 9681
+            },
+            {
+              "name": "spin_verification_20260504_195042.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260504_195042.log",
+              "size": 9670
+            },
+            {
+              "name": "spin_verification_20260504_202537.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260504_202537.log",
+              "size": 9678
+            },
+            {
+              "name": "spin_verification_20260504_205225.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260504_205225.log",
+              "size": 9672
+            },
+            {
+              "name": "spin_verification_20260505_111045.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260505_111045.log",
+              "size": 9678
+            },
+            {
+              "name": "translated_output.pml.trail",
+              "type": "file",
+              "icon": "file",
+              "path": "logs/spin/translated_output.pml.trail",
+              "size": 150
+            }
+          ]
         }
       ]
     },
@@ -1059,6 +2403,17 @@
           "icon": "file",
           "path": "outputs/translated_output.pml.trail",
           "size": 150
+        }
+      ]
+    },
+    {
+      "name": "reports",
+      "type": "folder",
+      "children": [
+        {
+          "name": "counterexamples",
+          "type": "folder",
+          "children": []
         }
       ]
     },
@@ -120788,32 +122143,11 @@
       "size": 1983
     },
     {
-      "name": "Account_translated.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "Account_translated.pml",
-      "size": 2394
-    },
-    {
-      "name": "active_file.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "active_file.txt",
-      "size": 17
-    },
-    {
       "name": "aeneas_integration.py",
       "type": "file",
       "icon": "python",
       "path": "aeneas_integration.py",
       "size": 2150
-    },
-    {
-      "name": "almost.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "almost.txt",
-      "size": 13001
     },
     {
       "name": "annotated_output.rs",
@@ -120827,21 +122161,7 @@
       "type": "file",
       "icon": "python",
       "path": "app.py",
-      "size": 139900
-    },
-    {
-      "name": "burn_translated.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "burn_translated.pml",
-      "size": 2409
-    },
-    {
-      "name": "certora_verification_20260427_225151.log",
-      "type": "file",
-      "icon": "log",
-      "path": "certora_verification_20260427_225151.log",
-      "size": 310
+      "size": 119558
     },
     {
       "name": "check_tools.py",
@@ -120858,137 +122178,18 @@
       "size": 0
     },
     {
-      "name": "closer.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "closer.txt",
-      "size": 20009
-    },
-    {
-      "name": "coq_verification_20260420_171135.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260420_171135.log",
-      "size": 180
-    },
-    {
-      "name": "coq_verification_20260420_174411.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260420_174411.log",
-      "size": 180
-    },
-    {
-      "name": "coq_verification_20260420_180731.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260420_180731.log",
-      "size": 164
-    },
-    {
-      "name": "coq_verification_20260420_190316.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260420_190316.log",
-      "size": 182
-    },
-    {
-      "name": "coq_verification_20260422_115429.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260422_115429.log",
-      "size": 180
-    },
-    {
-      "name": "coq_verification_20260422_182710.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260422_182710.log",
-      "size": 183
-    },
-    {
-      "name": "coq_verification_20260422_194147.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260422_194147.log",
-      "size": 172
-    },
-    {
-      "name": "coq_verification_20260422_195155.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260422_195155.log",
-      "size": 172
-    },
-    {
-      "name": "coq_verification_20260422_200754.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260422_200754.log",
-      "size": 172
-    },
-    {
-      "name": "coq_verification_20260422_210932.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260422_210932.log",
-      "size": 178
-    },
-    {
-      "name": "coq_verification_20260424_162925.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260424_162925.log",
-      "size": 172
-    },
-    {
-      "name": "coq_verification_20260424_172822.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260424_172822.log",
-      "size": 172
-    },
-    {
-      "name": "coq_verification_20260427_103645.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260427_103645.log",
-      "size": 272
-    },
-    {
-      "name": "coq_verification_20260427_224107.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260427_224107.log",
-      "size": 271
-    },
-    {
-      "name": "coq_verification_20260427_224437.log",
-      "type": "file",
-      "icon": "log",
-      "path": "coq_verification_20260427_224437.log",
-      "size": 276
-    },
-    {
       "name": "coq_verifier.py",
       "type": "file",
       "icon": "python",
       "path": "coq_verifier.py",
-      "size": 21255
+      "size": 22399
     },
     {
       "name": "counterexample_analyzer.py",
       "type": "file",
       "icon": "python",
       "path": "counterexample_analyzer.py",
-      "size": 5563
-    },
-    {
-      "name": "counterexample_report.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "counterexample_report.txt",
-      "size": 3326
+      "size": 7686
     },
     {
       "name": "create_custom_icon.py",
@@ -121005,165 +122206,11 @@
       "size": 1471
     },
     {
-      "name": "creusot_verification_20260420_171432.log",
-      "type": "file",
-      "icon": "log",
-      "path": "creusot_verification_20260420_171432.log",
-      "size": 1260
-    },
-    {
-      "name": "creusot_verification_20260420_174520.log",
-      "type": "file",
-      "icon": "log",
-      "path": "creusot_verification_20260420_174520.log",
-      "size": 1260
-    },
-    {
-      "name": "deepfake.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "deepfake.txt",
-      "size": 12583
-    },
-    {
       "name": "defi-guardian.desktop",
       "type": "file",
       "icon": "file",
       "path": "defi-guardian.desktop",
       "size": 606
-    },
-    {
-      "name": "defi_guardian.ico",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian.ico",
-      "size": 150
-    },
-    {
-      "name": "defi_guardian.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian.png",
-      "size": 3265
-    },
-    {
-      "name": "defi_guardian_128.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_128.png",
-      "size": 3265
-    },
-    {
-      "name": "defi_guardian_128x128.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_128x128.png",
-      "size": 3265
-    },
-    {
-      "name": "defi_guardian_16.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_16.png",
-      "size": 128
-    },
-    {
-      "name": "defi_guardian_16x16.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_16x16.png",
-      "size": 128
-    },
-    {
-      "name": "defi_guardian_22.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_22.png",
-      "size": 160
-    },
-    {
-      "name": "defi_guardian_22x22.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_22x22.png",
-      "size": 160
-    },
-    {
-      "name": "defi_guardian_24.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_24.png",
-      "size": 195
-    },
-    {
-      "name": "defi_guardian_24x24.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_24x24.png",
-      "size": 195
-    },
-    {
-      "name": "defi_guardian_256.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_256.png",
-      "size": 6631
-    },
-    {
-      "name": "defi_guardian_256x256.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_256x256.png",
-      "size": 6631
-    },
-    {
-      "name": "defi_guardian_32.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_32.png",
-      "size": 242
-    },
-    {
-      "name": "defi_guardian_32x32.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_32x32.png",
-      "size": 242
-    },
-    {
-      "name": "defi_guardian_48.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_48.png",
-      "size": 323
-    },
-    {
-      "name": "defi_guardian_48x48.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_48x48.png",
-      "size": 323
-    },
-    {
-      "name": "defi_guardian_512.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_512.png",
-      "size": 13719
-    },
-    {
-      "name": "defi_guardian_64.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_64.png",
-      "size": 1207
-    },
-    {
-      "name": "defi_guardian_64x64.png",
-      "type": "file",
-      "icon": "file",
-      "path": "defi_guardian_64x64.png",
-      "size": 1207
     },
     {
       "name": "defi_vault.rs",
@@ -121184,7 +122231,7 @@
       "type": "file",
       "icon": "python",
       "path": "desktop_app.py",
-      "size": 164332
+      "size": 182275
     },
     {
       "name": "Dockerfile",
@@ -121198,7 +122245,7 @@
       "type": "file",
       "icon": "json",
       "path": "file_tree.json",
-      "size": 6623303
+      "size": 6654704
     },
     {
       "name": "formal-verification.yml",
@@ -121206,27 +122253,6 @@
       "icon": "file",
       "path": "formal-verification.yml",
       "size": 10445
-    },
-    {
-      "name": "hmmm.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "hmmm.txt",
-      "size": 13103
-    },
-    {
-      "name": "IERC1363Spender_translated.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "IERC1363Spender_translated.pml",
-      "size": 1119
-    },
-    {
-      "name": "IERC3156FlashBorrower_translated.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "IERC3156FlashBorrower_translated.pml",
-      "size": 2366
     },
     {
       "name": "install.sh",
@@ -121241,34 +122267,6 @@
       "icon": "file",
       "path": "install_icons.sh",
       "size": 1561
-    },
-    {
-      "name": "kani_verification_20260420_124657.log",
-      "type": "file",
-      "icon": "log",
-      "path": "kani_verification_20260420_124657.log",
-      "size": 7054
-    },
-    {
-      "name": "kani_verification_20260420_171513.log",
-      "type": "file",
-      "icon": "log",
-      "path": "kani_verification_20260420_171513.log",
-      "size": 7060
-    },
-    {
-      "name": "kani_verification_20260420_174540.log",
-      "type": "file",
-      "icon": "log",
-      "path": "kani_verification_20260420_174540.log",
-      "size": 7061
-    },
-    {
-      "name": "kani_verification_20260422_115604.log",
-      "type": "file",
-      "icon": "log",
-      "path": "kani_verification_20260422_115604.log",
-      "size": 7062
     },
     {
       "name": "launch.sh",
@@ -121290,27 +122288,6 @@
       "icon": "python",
       "path": "lean_verifier.py",
       "size": 5818
-    },
-    {
-      "name": "lending_pool_translated.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "lending_pool_translated.pml",
-      "size": 1664
-    },
-    {
-      "name": "lib_translated.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "lib_translated.pml",
-      "size": 1206
-    },
-    {
-      "name": "lint.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "lint.txt",
-      "size": 12583
     },
     {
       "name": "llm_spec_generator.py",
@@ -121341,13 +122318,6 @@
       "size": 1103
     },
     {
-      "name": "newway.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "newway.txt",
-      "size": 10535
-    },
-    {
       "name": "pan.b",
       "type": "file",
       "icon": "file",
@@ -121355,11 +122325,25 @@
       "size": 1824
     },
     {
+      "name": "pan.c",
+      "type": "file",
+      "icon": "file",
+      "path": "pan.c",
+      "size": 344118
+    },
+    {
+      "name": "pan.h",
+      "type": "file",
+      "icon": "file",
+      "path": "pan.h",
+      "size": 20337
+    },
+    {
       "name": "pan.m",
       "type": "file",
       "icon": "file",
       "path": "pan.m",
-      "size": 26797
+      "size": 27018
     },
     {
       "name": "pan.p",
@@ -121383,32 +122367,11 @@
       "size": 1397
     },
     {
-      "name": "prusti_verification_20260420_171259.log",
-      "type": "file",
-      "icon": "log",
-      "path": "prusti_verification_20260420_171259.log",
-      "size": 645
-    },
-    {
-      "name": "prusti_verification_20260422_115459.log",
-      "type": "file",
-      "icon": "log",
-      "path": "prusti_verification_20260422_115459.log",
-      "size": 645
-    },
-    {
       "name": "README.md",
       "type": "file",
       "icon": "file",
       "path": "README.md",
       "size": 587
-    },
-    {
-      "name": "requirements.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "requirements.txt",
-      "size": 155
     },
     {
       "name": "run_defi_guardian.sh",
@@ -121425,249 +122388,11 @@
       "size": 36521
     },
     {
-      "name": "seven.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "seven.txt",
-      "size": 12121
-    },
-    {
       "name": "SimpleLending.sol",
       "type": "file",
       "icon": "solidity",
       "path": "SimpleLending.sol",
       "size": 4115
-    },
-    {
-      "name": "SimpleLending_translated.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "SimpleLending_translated.pml",
-      "size": 2638
-    },
-    {
-      "name": "spin_verification_20260419_154152.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260419_154152.log",
-      "size": 4158
-    },
-    {
-      "name": "spin_verification_20260419_164412.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260419_164412.log",
-      "size": 4227
-    },
-    {
-      "name": "spin_verification_20260419_170626.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260419_170626.log",
-      "size": 4157
-    },
-    {
-      "name": "spin_verification_20260420_124606.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260420_124606.log",
-      "size": 4157
-    },
-    {
-      "name": "spin_verification_20260420_171130.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260420_171130.log",
-      "size": 4157
-    },
-    {
-      "name": "spin_verification_20260420_174352.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260420_174352.log",
-      "size": 4157
-    },
-    {
-      "name": "spin_verification_20260420_175333.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260420_175333.log",
-      "size": 4157
-    },
-    {
-      "name": "spin_verification_20260420_180701.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260420_180701.log",
-      "size": 4141
-    },
-    {
-      "name": "spin_verification_20260420_190258.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260420_190258.log",
-      "size": 3268
-    },
-    {
-      "name": "spin_verification_20260420_201550.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260420_201550.log",
-      "size": 9426
-    },
-    {
-      "name": "spin_verification_20260420_203000.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260420_203000.log",
-      "size": 9420
-    },
-    {
-      "name": "spin_verification_20260422_115414.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260422_115414.log",
-      "size": 4157
-    },
-    {
-      "name": "spin_verification_20260422_122543.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260422_122543.log",
-      "size": 9426
-    },
-    {
-      "name": "spin_verification_20260422_135221.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260422_135221.log",
-      "size": 9432
-    },
-    {
-      "name": "spin_verification_20260422_182657.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260422_182657.log",
-      "size": 9437
-    },
-    {
-      "name": "spin_verification_20260422_195124.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260422_195124.log",
-      "size": 9426
-    },
-    {
-      "name": "spin_verification_20260422_200732.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260422_200732.log",
-      "size": 9426
-    },
-    {
-      "name": "spin_verification_20260422_210922.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260422_210922.log",
-      "size": 9435
-    },
-    {
-      "name": "spin_verification_20260422_215039.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260422_215039.log",
-      "size": 9426
-    },
-    {
-      "name": "spin_verification_20260424_162917.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260424_162917.log",
-      "size": 9426
-    },
-    {
-      "name": "spin_verification_20260424_172751.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260424_172751.log",
-      "size": 9426
-    },
-    {
-      "name": "spin_verification_20260424_182107.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260424_182107.log",
-      "size": 9432
-    },
-    {
-      "name": "spin_verification_20260424_182224.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260424_182224.log",
-      "size": 9432
-    },
-    {
-      "name": "spin_verification_20260424_195432.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260424_195432.log",
-      "size": 9440
-    },
-    {
-      "name": "spin_verification_20260427_120359.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260427_120359.log",
-      "size": 9426
-    },
-    {
-      "name": "spin_verification_20260427_120804.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260427_120804.log",
-      "size": 9435
-    },
-    {
-      "name": "spin_verification_20260427_223835.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260427_223835.log",
-      "size": 4158
-    },
-    {
-      "name": "spin_verification_20260427_225141.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260427_225141.log",
-      "size": 9440
-    },
-    {
-      "name": "spin_verification_20260427_230349.log",
-      "type": "file",
-      "icon": "log",
-      "path": "spin_verification_20260427_230349.log",
-      "size": 9432
-    },
-    {
-      "name": "state_graph.json",
-      "type": "file",
-      "icon": "json",
-      "path": "state_graph.json",
-      "size": 540
-    },
-    {
-      "name": "statev.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "statev.txt",
-      "size": 16150
-    },
-    {
-      "name": "sun.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "sun.txt",
-      "size": 11836
     },
     {
       "name": "test.v",
@@ -121684,13 +122409,6 @@
       "size": 1487
     },
     {
-      "name": "test_contract_translated.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "test_contract_translated.pml",
-      "size": 1206
-    },
-    {
       "name": "test_import.py",
       "type": "file",
       "icon": "python",
@@ -121705,13 +122423,6 @@
       "size": 748
     },
     {
-      "name": "test_vault_translated.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "test_vault_translated.pml",
-      "size": 2550
-    },
-    {
       "name": "theme_config.json",
       "type": "file",
       "icon": "json",
@@ -121724,13 +122435,6 @@
       "icon": "python",
       "path": "themes.py",
       "size": 2997
-    },
-    {
-      "name": "translated_output.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "translated_output.pml",
-      "size": 2408
     },
     {
       "name": "translated_output.pml.trail",
@@ -121754,32 +122458,11 @@
       "size": 12701
     },
     {
-      "name": "unknown.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "unknown.txt",
-      "size": 18840
-    },
-    {
       "name": "user_lending.rs",
       "type": "file",
       "icon": "rust",
       "path": "user_lending.rs",
       "size": 941
-    },
-    {
-      "name": "user_lending_translated.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "user_lending_translated.pml",
-      "size": 1184
-    },
-    {
-      "name": "using.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "using.txt",
-      "size": 12282
     },
     {
       "name": "verification_cache.py",
@@ -121789,18 +122472,11 @@
       "size": 1397
     },
     {
-      "name": "verification_report.pdf",
-      "type": "file",
-      "icon": "file",
-      "path": "verification_report.pdf",
-      "size": 2862
-    },
-    {
       "name": "verification_state.json",
       "type": "file",
       "icon": "json",
       "path": "verification_state.json",
-      "size": 10049
+      "size": 22611
     },
     {
       "name": "verifier_plugins.py",
@@ -121817,6 +122493,13 @@
       "size": 2080
     },
     {
+      "name": "verify_rust.py",
+      "type": "file",
+      "icon": "python",
+      "path": "verify_rust.py",
+      "size": 785
+    },
+    {
       "name": "verus_integration.py",
       "type": "file",
       "icon": "python",
@@ -121824,32 +122507,11 @@
       "size": 2307
     },
     {
-      "name": "VestingWallet_translated.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "VestingWallet_translated.pml",
-      "size": 2408
-    },
-    {
-      "name": "VestingWalletCliff_translated.pml",
-      "type": "file",
-      "icon": "promela",
-      "path": "VestingWalletCliff_translated.pml",
-      "size": 2394
-    },
-    {
       "name": "websocket_server.py",
       "type": "file",
       "icon": "python",
       "path": "websocket_server.py",
       "size": 1012
-    },
-    {
-      "name": "whatwhy.txt",
-      "type": "file",
-      "icon": "text",
-      "path": "whatwhy.txt",
-      "size": 11155
     }
   ]
 }
