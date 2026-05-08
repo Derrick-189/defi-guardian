@@ -4,35 +4,65 @@
 
 {% block extra_css %}
 <style>
-    /* Layout & Base */
-    body {
-        overflow: hidden; /* Main page won't scroll, panels will */
+    /* ── Design tokens (from JULES redesign) ── */
+    :root {
+        --ce-bg:          #0d1117;
+        --ce-panel:       #161b22;
+        --ce-border:      #30363d;
+        --ce-text:        #c9d1d9;
+        --ce-text-bright: #f0f6fc;
+        --ce-muted:       #8b949e;
+        --ce-accent:      #58a6ff;
+        --ce-success:     #3fb950;
+        --ce-danger:      #f85149;
+        --ce-warning:     #d29922;
+        --ce-hover:       #21262d;
+        --ce-active-tab:  #f78166;
+        --ce-selection:   rgba(31, 111, 235, 0.1);
     }
-    .report-wrapper {
-        display: flex;
-        flex-direction: column;
-        height: calc(100vh - 100px); /* Adjust for nav and auth toolbar */
-        margin-top: 100px;
-        background: #0d1117;
-        color: #c9d1d9;
+
+    body {
+        background-color: var(--ce-bg);
+        color: var(--ce-text);
+        overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     }
 
-    /* Header */
+    /* ── Wrapper ── */
+    .report-wrapper {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 100px);
+        margin-top: 100px;
+    }
+
+    /* ── Header ── */
     .report-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 12px 20px;
-        background: #161b22;
-        border-bottom: 1px solid #30363d;
+        padding: 12px 24px;
+        background: var(--ce-panel);
+        border-bottom: 1px solid var(--ce-border);
         flex-shrink: 0;
     }
-    .header-left {
-        display: flex;
-        align-items: center;
-        gap: 15px;
+    .header-info h1 {
+        font-size: 1.1rem;
+        margin: 0;
+        color: var(--ce-text-bright);
+        font-weight: 600;
     }
+    .header-info .subtitle {
+        font-size: 0.85rem;
+        color: var(--ce-muted);
+    }
+    .header-stats {
+        display: flex;
+        gap: 24px;
+        font-size: 0.85rem;
+    }
+    .stat-item .label { color: var(--ce-muted); margin-right: 4px; }
+    .stat-item .value { color: var(--ce-text-bright); font-weight: 500; }
     .badge-tool {
         background: #238636;
         color: white;
@@ -41,34 +71,10 @@
         font-size: 0.75rem;
         font-weight: 600;
         text-transform: uppercase;
-    }
-    .header-title-group h2 {
-        font-size: 1.1rem;
-        font-weight: 600;
-        margin: 0;
-        color: #f0f6fc;
-    }
-    .rule-subtitle {
-        font-size: 0.85rem;
-        color: #8b949e;
-    }
-    .job-meta {
-        display: flex;
-        gap: 20px;
-    }
-    .meta-item {
-        font-size: 0.85rem;
-    }
-    .meta-label {
-        color: #8b949e;
-        margin-right: 5px;
-    }
-    .meta-value {
-        color: #f0f6fc;
-        font-weight: 500;
+        margin-right: 10px;
     }
 
-    /* Main Grid */
+    /* ── Main 3-column grid ── */
     .main-layout {
         display: grid;
         grid-template-columns: 280px 1fr 320px;
@@ -76,76 +82,88 @@
         overflow: hidden;
     }
 
-    /* Panel Styles */
+    /* ── Panels ── */
     .panel {
         display: flex;
         flex-direction: column;
-        background: #0d1117;
-        border-right: 1px solid #30363d;
+        background: var(--ce-bg);
+        border-right: 1px solid var(--ce-border);
         overflow: hidden;
     }
-    .panel:last-child {
-        border-right: none;
-    }
+    .panel:last-child { border-right: none; }
+
     .panel-header {
-        padding: 10px 15px;
-        background: #161b22;
-        border-bottom: 1px solid #30363d;
-        font-size: 0.85rem;
+        padding: 10px 16px;
+        background: var(--ce-panel);
+        border-bottom: 1px solid var(--ce-border);
+        font-size: 0.8rem;
         font-weight: 600;
-        color: #f0f6fc;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--ce-muted);
         display: flex;
         align-items: center;
+        gap: 6px;
     }
     .panel-body {
         flex-grow: 1;
         overflow-y: auto;
         padding: 15px;
     }
+    .panel-body.p-0 { padding: 0; }
 
-    /* Left Sidebar: Rules */
-    .rules-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
+    /* ── Rules list (left panel) ── */
+    .rules-list { list-style: none; padding: 0; margin: 0; }
     .rule-item {
-        padding: 10px 15px;
-        border-bottom: 1px solid #21262d;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--ce-border);
         cursor: pointer;
         font-size: 0.85rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        transition: background 0.2s;
+        transition: background 0.15s;
     }
-    .rule-item:hover {
-        background: #161b22;
-    }
+    .rule-item:hover { background: var(--ce-hover); }
     .rule-item.active {
-        background: #1f6feb22;
-        border-left: 3px solid #1f6feb;
+        background: var(--ce-selection);
+        border-left: 3px solid var(--ce-accent);
     }
-    .rule-status {
-        font-size: 1rem;
-    }
-    .status-pass { color: #3fb950; }
-    .status-fail { color: #f85149; }
 
-    /* Center Panel: Tabs & Trace */
-    .center-workspace {
-        background: #0d1117;
+    .status-badge {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: bold;
+        flex-shrink: 0;
     }
+    .status-pass {
+        background: rgba(63, 185, 80, 0.15);
+        color: var(--ce-success);
+        border: 1px solid var(--ce-success);
+    }
+    .status-fail {
+        background: rgba(248, 81, 73, 0.15);
+        color: var(--ce-danger);
+        border: 1px solid var(--ce-danger);
+    }
+
+    /* ── Center panel tabs ── */
     .panel-tabs {
         display: flex;
-        background: #161b22;
-        border-bottom: 1px solid #30363d;
+        background: var(--ce-panel);
+        border-bottom: 1px solid var(--ce-border);
         padding: 0 10px;
+        flex-shrink: 0;
     }
     .tab-btn {
         background: transparent;
         border: none;
-        color: #8b949e;
+        color: var(--ce-muted);
         padding: 10px 15px;
         font-size: 0.85rem;
         font-weight: 500;
@@ -153,12 +171,10 @@
         border-bottom: 2px solid transparent;
         transition: all 0.2s;
     }
-    .tab-btn:hover {
-        color: #f0f6fc;
-    }
+    .tab-btn:hover { color: var(--ce-text-bright); }
     .tab-btn.active {
-        color: #f0f6fc;
-        border-bottom-color: #f78166;
+        color: var(--ce-text-bright);
+        border-bottom-color: var(--ce-active-tab);
     }
     .tab-container {
         flex-grow: 1;
@@ -170,20 +186,18 @@
         height: 100%;
         overflow-y: auto;
     }
-    .tab-pane.active {
-        display: block;
-    }
+    .tab-pane.active { display: block; }
 
-    /* Call Trace Tree */
+    /* ── Call trace tree ── */
     .trace-tree {
-        padding: 20px;
-        font-family: var(--font-mono);
+        padding: 16px 20px;
+        font-family: 'Fira Code', 'Consolas', monospace;
         font-size: 0.85rem;
     }
     .trace-node {
         position: relative;
         padding-left: 20px;
-        margin-bottom: 4px;
+        margin-bottom: 3px;
     }
     .node-content {
         display: flex;
@@ -191,34 +205,23 @@
         padding: 4px 8px;
         border-radius: 4px;
         cursor: pointer;
-        white-space: nowrap;
         gap: 8px;
+        border-left: 2px solid transparent;
+        transition: background 0.15s;
     }
-    .node-content:hover {
-        background: #161b22;
-    }
+    .node-content:hover { background: var(--ce-hover); }
     .node-content.selected {
-        background: #1f6feb22;
-        color: #58a6ff;
+        background: var(--ce-selection);
+        border-left-color: var(--ce-accent);
+        color: var(--ce-accent);
     }
-    .node-icon {
-        width: 16px;
-        text-align: center;
-        font-size: 0.8rem;
-    }
-    .node-action {
-        color: #f0f6fc;
-    }
-    .node-file-info {
-        color: #8b949e;
-        font-size: 0.75rem;
-    }
+    .node-icon { width: 16px; text-align: center; font-size: 0.8rem; }
+    .node-action { color: var(--ce-text-bright); white-space: pre-wrap; word-break: break-all; }
+    .node-file-info { color: var(--ce-muted); font-size: 0.75rem; margin-left: auto; padding-left: 10px; }
     .node-children {
-        border-left: 1px solid #30363d;
+        border-left: 1px solid var(--ce-border);
         margin-left: 7px;
     }
-
-    /* Connectors for tree */
     .trace-node::before {
         content: "";
         position: absolute;
@@ -226,96 +229,112 @@
         top: 12px;
         width: 15px;
         height: 1px;
-        background: #30363d;
+        background: var(--ce-border);
     }
 
-    /* Variables Panel */
-    .var-section {
-        margin-bottom: 20px;
-    }
+    /* ── Variables panel (right) ── */
+    .var-section { margin-bottom: 20px; }
     .section-title {
         font-size: 0.75rem;
         text-transform: uppercase;
-        color: #8b949e;
+        color: var(--ce-muted);
         letter-spacing: 0.05em;
         margin-bottom: 10px;
-        border-bottom: 1px solid #21262d;
+        border-bottom: 1px solid var(--ce-border);
         padding-bottom: 5px;
     }
-    .var-row {
-        display: grid;
-        grid-template-columns: 1fr auto 1fr;
-        gap: 10px;
-        padding: 6px 0;
-        font-size: 0.8rem;
-        border-bottom: 1px solid #161b22;
-        align-items: center;
+
+    /* Card-style variable display (from JULES) */
+    .variable-card {
+        background: var(--ce-panel);
+        border: 1px solid var(--ce-border);
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
     }
     .var-name {
-        color: #58a6ff;
-        font-family: var(--font-mono);
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .var-val {
-        font-family: var(--font-mono);
-        color: #c9d1d9;
-        background: #161b22;
-        padding: 2px 4px;
-        border-radius: 3px;
-    }
-    .var-arrow {
-        color: #8b949e;
-        font-size: 0.7rem;
-    }
-    .val-changed {
-        color: #ffa657;
+        color: var(--ce-accent);
         font-weight: 600;
+        font-family: 'Fira Code', monospace;
+        font-size: 0.85rem;
+        display: block;
+        margin-bottom: 6px;
     }
+    .var-values { display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; }
+    .val-line {
+        display: flex;
+        justify-content: space-between;
+        font-family: 'Fira Code', monospace;
+    }
+    .val-label { color: var(--ce-muted); }
+    .val-data { color: var(--ce-text-bright); }
+    .val-changed { color: var(--ce-warning); font-weight: bold; }
 
-    /* Spinner & Loading */
+    /* ── Loading overlay ── */
+    .loading-overlay {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(13, 17, 23, 0.85);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+    }
     .loading-state {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         height: 100px;
-        color: #8b949e;
+        color: var(--ce-muted);
     }
-    .text-accent { color: #58a6ff !important; }
+    .text-accent { color: var(--ce-accent) !important; }
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        color: var(--ce-muted);
+        text-align: center;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="report-wrapper">
-    <!-- Job Header -->
+
+    <!-- ── Job Header ── -->
     <header class="report-header">
-        <div class="header-left">
+        <div class="header-info" style="display:flex;align-items:center;">
             <span class="badge-tool" id="toolTypeBadge">-</span>
-            <div class="header-title-group">
-                <h2 id="contractName">Loading...</h2>
-                <span class="rule-subtitle" id="ruleNameDisplay">-</span>
+            <div>
+                <h1 id="contractName">Loading...</h1>
+                <div class="subtitle" id="ruleNameDisplay">-</div>
             </div>
         </div>
-        <div class="header-right">
-            <div class="job-meta">
-                <div class="meta-item">
-                    <span class="meta-label">Job ID:</span>
-                    <span class="meta-value" id="auditIdDisplay">#{{ audit_id }}</span>
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">Counterexample:</span>
-                    <span class="meta-value" id="ceNumberDisplay">1</span>
-                </div>
+        <div class="header-stats">
+            <div class="stat-item">
+                <span class="label">Job ID:</span>
+                <span class="value">#{{ audit_id }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">Counterexample:</span>
+                <span class="value" id="ceNumberDisplay">1</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">Tool:</span>
+                <span class="value" id="toolNameDisplay">-</span>
             </div>
         </div>
     </header>
 
-    <div class="main-layout">
-        <!-- Left Panel: Rules Sidebar -->
-        <aside class="panel rules-sidebar">
+    <div class="main-layout" style="position:relative;">
+
+        <!-- ── Left: Rules ── -->
+        <aside class="panel">
             <div class="panel-header">
-                <i class="fas fa-list-check me-2"></i> Rules
+                <i class="fas fa-list-check"></i> Rules
             </div>
             <div class="panel-body p-0">
                 <ul class="rules-list" id="rulesList">
@@ -327,16 +346,14 @@
             </div>
         </aside>
 
-        <!-- Center Panel: Call Trace and Tabs -->
-        <main class="panel center-workspace">
+        <!-- ── Center: Trace + Tabs ── -->
+        <main class="panel" style="display:flex;flex-direction:column;">
             <div class="panel-tabs">
                 <button class="tab-btn active" data-tab="callTraceTab">Call Trace</button>
                 <button class="tab-btn" data-tab="resolutionsTab">Rule Call Resolutions</button>
                 <button class="tab-btn" data-tab="variablesTab">Variables</button>
             </div>
-
             <div class="tab-container">
-                <!-- Call Trace Tab -->
                 <div id="callTraceTab" class="tab-pane active">
                     <div class="trace-tree" id="traceTree">
                         <div class="loading-state p-4">
@@ -345,260 +362,254 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Resolutions Tab -->
                 <div id="resolutionsTab" class="tab-pane">
-                    <div class="resolutions-content" id="resolutionsContent">
-                        <div class="empty-state">
-                            <i class="fas fa-info-circle mb-2"></i>
-                            <p>No rule call resolutions available for this audit.</p>
-                        </div>
+                    <div class="empty-state">
+                        <i class="fas fa-info-circle mb-2"></i>
+                        <p>No rule call resolutions available for this audit.</p>
                     </div>
                 </div>
-
-                <!-- Variables Full Tab -->
                 <div id="variablesTab" class="tab-pane">
-                    <div class="variables-full-view" id="variablesFullView">
-                        <div class="empty-state">
-                            <i class="fas fa-mouse-pointer mb-2"></i>
-                            <p>Select a step in the Call Trace to view all state variables.</p>
-                        </div>
+                    <div id="variablesFullView" class="empty-state">
+                        <i class="fas fa-mouse-pointer mb-2"></i>
+                        <p>Select a step in the Call Trace to view all state variables.</p>
                     </div>
                 </div>
             </div>
         </main>
 
-        <!-- Right Panel: Variables Sidebar -->
-        <aside class="panel variables-sidebar">
+        <!-- ── Right: Variables ── -->
+        <aside class="panel">
             <div class="panel-header">
-                <i class="fas fa-microchip me-2"></i> Variables
+                <i class="fas fa-microchip"></i> Variables
             </div>
             <div class="panel-body">
                 <section class="var-section">
                     <h4 class="section-title">Local Variables</h4>
-                    <div class="var-comparison-list" id="localVariablesList">
+                    <div id="localVariablesList">
                         <p class="text-muted small">Select a step in the trace to see before/after values.</p>
                     </div>
                 </section>
-
                 <section class="var-section mt-4">
                     <h4 class="section-title">Storage Changes</h4>
-                    <div class="var-comparison-list" id="storageChangesList">
+                    <div id="storageChangesList">
                         <p class="text-muted small">No storage changes recorded for this state.</p>
                     </div>
                 </section>
             </div>
         </aside>
+
+        <!-- Loading overlay (covers the 3-column grid while fetching) -->
+        <div id="loadingOverlay" class="loading-overlay" style="position:absolute;top:0;left:0;right:0;bottom:0;">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    let auditData = null;
-    let traceData = [];
-    let selectedStepIndex = -1;
+    let auditData   = null;
+    let traceData   = [];
+    let selectedIdx = -1;
 
-    async function fetchData() {
+    // ── Bootstrap ──────────────────────────────────────────────────────
+    async function init() {
         try {
-            // Fetch basic audit info and counterexample details
-            const ceResponse = await fetch(`/api/counterexample/{{ audit_id }}`);
-            auditData = await ceResponse.json();
+            const [ceRes, traceRes] = await Promise.all([
+                fetch(`/api/counterexample/{{ audit_id }}`),
+                fetch(`/api/trace/{{ audit_id }}`)
+            ]);
 
-            if (auditData.error) {
-                showError(auditData.error);
-                return;
-            }
+            auditData = await ceRes.json();
+            if (auditData.error) { showError(auditData.error); return; }
 
-            // Fetch full execution trace
-            const traceResponse = await fetch(`/api/trace/{{ audit_id }}`);
-            const traceJson = await traceResponse.json();
+            const traceJson = await traceRes.json();
             traceData = traceJson.trace || [];
 
-            updateHeader();
+            renderHeader();
             renderRules();
+            renderTrace();
 
-            // Initialization for next steps
-            initializeTrace();
+            document.getElementById('loadingOverlay').style.display = 'none';
 
-        } catch (err) {
-            console.error("Fetch error:", err);
-            showError("Failed to load audit data");
+            // Auto-select the error step, or the last step
+            if (traceData.length > 0) {
+                const errIdx = traceData.findIndex(s => s.is_error);
+                selectStep(errIdx >= 0 ? errIdx : traceData.length - 1);
+            }
+        } catch (e) {
+            showError(`Failed to load audit data: ${e.message}`);
         }
     }
 
-    function updateHeader() {
-        document.getElementById('contractName').textContent = auditData.filename || "Contract";
-        document.getElementById('toolTypeBadge').textContent = auditData.tool_type || auditData.tool || "SPIN";
-        document.getElementById('auditIdDisplay').textContent = `#{{ audit_id }}`;
+    // ── Header ─────────────────────────────────────────────────────────
+    function renderHeader() {
+        document.getElementById('contractName').textContent   = auditData.filename  || 'Contract';
+        document.getElementById('toolTypeBadge').textContent  = auditData.tool_type || auditData.tool || 'SPIN';
+        document.getElementById('toolNameDisplay').textContent = auditData.tool_type || auditData.tool || 'SPIN';
 
-        // Find if any rule failed to show in subtitle
-        const failedRule = (auditData.ltl_properties || []).find(r => r.status === 'FAIL');
-        document.getElementById('ruleNameDisplay').textContent = failedRule ? failedRule.name : (auditData.tool_type + " Audit");
+        const failedRule = (auditData.ltl_properties || []).find(p => p.status === 'FAIL');
+        document.getElementById('ruleNameDisplay').textContent =
+            failedRule ? `Rule: ${failedRule.name}` : (auditData.tool_type || 'SPIN') + ' Audit';
     }
 
+    // ── Rules list ─────────────────────────────────────────────────────
     function renderRules() {
-        const list = document.getElementById('rulesList');
+        const list  = document.getElementById('rulesList');
         const props = auditData.ltl_properties || [];
 
         if (props.length === 0) {
-            list.innerHTML = `<li class="rule-item"><span>Generic Check</span> <span class="rule-status ${auditData.status === 'PASS' ? 'status-pass' : 'status-fail'}">${auditData.status === 'PASS' ? '✓' : '✗'}</span></li>`;
+            list.innerHTML = `
+                <li class="rule-item active">
+                    <span>Verification Check</span>
+                    <span class="status-badge ${auditData.status === 'PASS' ? 'status-pass' : 'status-fail'}">
+                        ${auditData.status === 'PASS' ? '✓' : '✗'}
+                    </span>
+                </li>`;
             return;
         }
 
-        list.innerHTML = props.map(prop => `
-            <li class="rule-item ${prop.status === 'FAIL' ? 'active' : ''}">
-                <span class="rule-name">${escHtml(prop.name)}</span>
-                <span class="rule-status ${prop.status === 'PASS' ? 'status-pass' : 'status-fail'}">
-                    ${prop.status === 'PASS' ? '✓' : '✗'}
+        list.innerHTML = props.map(p => `
+            <li class="rule-item ${p.status === 'FAIL' ? 'active' : ''}">
+                <span>${esc(p.name)}</span>
+                <span class="status-badge ${p.status === 'PASS' ? 'status-pass' : 'status-fail'}">
+                    ${p.status === 'PASS' ? '✓' : '✗'}
                 </span>
             </li>
         `).join('');
     }
 
-    function showError(msg) {
-        document.querySelector('.main-layout').innerHTML = `
-            <div class="col-12 p-5 text-center">
-                <div class="alert alert-danger">${msg}</div>
-            </div>
-        `;
-    }
-
-    function escHtml(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
-
-    function initializeTrace() {
-        const treeContainer = document.getElementById('traceTree');
+    // ── Call trace ─────────────────────────────────────────────────────
+    function renderTrace() {
+        const container = document.getElementById('traceTree');
         if (traceData.length === 0) {
-            treeContainer.innerHTML = '<div class="p-4 text-muted">No execution trace found.</div>';
+            container.innerHTML = '<div class="empty-state"><p>No execution trace found.</p></div>';
             return;
         }
 
-        // Simplistic tree rendering: each step is a node.
-        // In a real Certora report, steps are grouped by depth.
-        // We will simulate indentation for better visual structure.
-        let html = '';
-        let currentDepth = 0;
-
-        traceData.forEach((step, index) => {
-            // Determine icons based on action
+        let depth = 0;
+        container.innerHTML = traceData.map((step, idx) => {
+            const action = (step.action || '').toLowerCase();
             let icon = 'fa-code';
-            const action = (step.action || "").toLowerCase();
-            if (action.includes('storage')) icon = 'fa-database';
+            if (action.includes('storage'))                         icon = 'fa-database';
             if (action.includes('call') || action.includes('trans')) icon = 'fa-arrow-right-to-bracket';
-            if (step.is_error) icon = 'fa-circle-xmark status-fail';
+            if (step.is_error)                                       icon = 'fa-circle-xmark';
 
-            // Fake some depth changes based on "call" actions for visual flair
-            if (action.includes('call')) currentDepth++;
-            if (action.includes('return')) currentDepth = Math.max(0, currentDepth - 1);
+            if (action.includes('call'))   depth++;
+            const indent = Math.max(0, depth - 1) * 15;
+            if (action.includes('return')) depth = Math.max(0, depth - 1);
 
-            html += `
-                <div class="trace-node" style="margin-left: ${currentDepth * 15}px">
-                    <div class="node-content" onclick="selectStep(${index})" id="step-${index}">
-                        <span class="node-icon"><i class="fas ${icon}"></i></span>
-                        <span class="node-action">${escHtml(step.action || step.transition || "Step " + step.step)}</span>
-                        ${step.file ? `<span class="node-file-info">${escHtml(step.file)}:${step.line}</span>` : ''}
+            const errorClass = step.is_error ? 'style="color:var(--ce-danger)"' : '';
+
+            return `
+                <div class="trace-node" style="margin-left:${indent}px">
+                    <div class="node-content" id="step-${idx}" onclick="selectStep(${idx})">
+                        <span class="node-icon" ${errorClass}><i class="fas ${icon}"></i></span>
+                        <span class="node-action">${esc(step.action || step.transition || 'Step ' + step.step)}</span>
+                        ${step.file
+                            ? `<span class="node-file-info">${esc(step.file)}:${step.line}</span>`
+                            : ''}
                     </div>
-                </div>
-            `;
-        });
-
-        treeContainer.innerHTML = html;
-
-        // Auto-select the last step (usually the error)
-        if (traceData.length > 0) {
-            selectStep(traceData.length - 1);
-        }
+                </div>`;
+        }).join('');
     }
 
-    window.selectStep = function(index) {
-        selectedStepIndex = index;
+    // ── Step selection ─────────────────────────────────────────────────
+    window.selectStep = function(idx) {
+        if (idx < 0 || idx >= traceData.length) return;
+        selectedIdx = idx;
 
-        // UI Highlight
         document.querySelectorAll('.node-content').forEach(el => el.classList.remove('selected'));
-        const selectedEl = document.getElementById(`step-${index}`);
-        if (selectedEl) {
-            selectedEl.classList.add('selected');
-            selectedEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const el = document.getElementById(`step-${idx}`);
+        if (el) {
+            el.classList.add('selected');
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
-        if (window.updateVariables) window.updateVariables(index);
+        updateVariables(idx);
     };
 
-    window.updateVariables = function(index) {
-        const step = traceData[index];
-        const prevStep = index > 0 ? traceData[index - 1] : { variables: {} };
+    // ── Variable panels ────────────────────────────────────────────────
+    function updateVariables(idx) {
+        const step     = traceData[idx];
+        const prevStep = idx > 0 ? traceData[idx - 1] : { variables: {} };
+        const vars     = step.variables     || {};
+        const prevVars = prevStep.variables || {};
+        const keys     = Object.keys(vars).sort();
+
+        // Right panel — card style (from JULES)
         const localList = document.getElementById('localVariablesList');
-
-        const variables = step.variables || {};
-        const prevVariables = prevStep.variables || {};
-
-        let html = '';
-        const keys = Object.keys(variables).sort();
-
         if (keys.length === 0) {
-            localList.innerHTML = '<p class="text-muted small">No variables found in this state.</p>';
-            return;
+            localList.innerHTML = '<p class="text-muted small">No variables in this state.</p>';
+        } else {
+            localList.innerHTML = keys.map(k => {
+                const val     = vars[k];
+                const prev    = prevVars[k];
+                const changed = prev !== undefined && val !== prev;
+                return `
+                    <div class="variable-card">
+                        <span class="var-name">${esc(k)}</span>
+                        <div class="var-values">
+                            <div class="val-line">
+                                <span class="val-label">before</span>
+                                <span class="val-data">${esc(String(prev !== undefined ? prev : '—'))}</span>
+                            </div>
+                            <div class="val-line">
+                                <span class="val-label">after</span>
+                                <span class="val-data ${changed ? 'val-changed' : ''}">${esc(String(val))}</span>
+                            </div>
+                        </div>
+                    </div>`;
+            }).join('');
         }
 
-        keys.forEach(key => {
-            const val = variables[key];
-            const prevVal = prevVariables[key];
-            const changed = prevVal !== undefined && val !== prevVal;
-
-            html += `
-                <div class="var-row">
-                    <span class="var-name" title="${escHtml(key)}">${escHtml(key)}</span>
-                    <span class="var-arrow">→</span>
-                    <span class="var-val ${changed ? 'val-changed' : ''}">${escHtml(String(val))}</span>
-                </div>
-            `;
-        });
-
-        localList.innerHTML = html;
-
-        // Also update the full variables tab
+        // Full variables tab — table style
         const fullView = document.getElementById('variablesFullView');
-        fullView.innerHTML = `
-            <div class="p-3">
+        fullView.innerHTML = keys.length === 0
+            ? '<div class="empty-state"><p>No variables in this state.</p></div>'
+            : `<div class="p-3">
                 <table class="table table-dark table-sm table-hover">
-                    <thead>
-                        <tr><th>Variable</th><th>Value</th><th>Previous</th></tr>
-                    </thead>
+                    <thead><tr><th>Variable</th><th>Value</th><th>Previous</th></tr></thead>
                     <tbody>
                         ${keys.map(k => {
-                            const changed = prevVariables[k] !== undefined && variables[k] !== prevVariables[k];
+                            const changed = prevVars[k] !== undefined && vars[k] !== prevVars[k];
                             return `<tr>
-                                <td class="text-info">${escHtml(k)}</td>
-                                <td class="${changed ? 'text-warning fw-bold' : ''}">${escHtml(String(variables[k]))}</td>
-                                <td class="text-muted">${escHtml(String(prevVariables[k] || "-"))}</td>
+                                <td class="text-info font-monospace">${esc(k)}</td>
+                                <td class="${changed ? 'text-warning fw-bold' : ''} font-monospace">${esc(String(vars[k]))}</td>
+                                <td class="text-muted font-monospace">${esc(String(prevVars[k] !== undefined ? prevVars[k] : '—'))}</td>
                             </tr>`;
                         }).join('')}
                     </tbody>
                 </table>
-            </div>
-        `;
-    };
+               </div>`;
+    }
 
-    // Tab Switching Logic
+    // ── Tab switching ──────────────────────────────────────────────────
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const target = btn.getAttribute('data-tab');
-
-            // Switch buttons
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            // Switch panes
             document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
             document.getElementById(target).classList.add('active');
         });
     });
 
-    document.addEventListener('DOMContentLoaded', fetchData);
+    // ── Utilities ──────────────────────────────────────────────────────
+    function showError(msg) {
+        document.getElementById('loadingOverlay').style.display = 'none';
+        document.querySelector('.main-layout').innerHTML = `
+            <div style="padding:40px;width:100%;">
+                <div class="alert alert-danger">${esc(msg)}</div>
+            </div>`;
+    }
+
+    function esc(s) {
+        const d = document.createElement('div');
+        d.textContent = String(s || '');
+        return d.innerHTML;
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
 </script>
 {% endblock %}

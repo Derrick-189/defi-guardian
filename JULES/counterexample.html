@@ -1,0 +1,452 @@
+{% extends 'base.html' %}
+
+{% block title %}Counterexample Analysis - {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --certora-bg: #0d1117;
+        --certora-panel: #161b22;
+        --certora-border: #30363d;
+        --certora-text: #c9d1d9;
+        --certora-header-text: #f0f6fc;
+        --certora-muted: #8b949e;
+        --certora-accent: #58a6ff;
+        --certora-success: #3fb950;
+        --certora-danger: #f85149;
+        --certora-warning: #d29922;
+        --certora-hover: #21262d;
+        --certora-active-tab: #f78166;
+    }
+
+    body {
+        background-color: var(--certora-bg);
+        color: var(--certora-text);
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    .report-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 100px);
+        margin-top: 100px;
+    }
+
+    /* Header Styling */
+    .report-header {
+        background-color: var(--certora-panel);
+        border-bottom: 1px solid var(--certora-border);
+        padding: 12px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .header-info h1 {
+        font-size: 1.1rem;
+        margin: 0;
+        color: var(--certora-header-text);
+        font-weight: 600;
+    }
+
+    .header-info .subtitle {
+        font-size: 0.85rem;
+        color: var(--certora-muted);
+    }
+
+    .header-stats {
+        display: flex;
+        gap: 24px;
+        font-size: 0.85rem;
+    }
+
+    .stat-item .label { color: var(--certora-muted); margin-right: 4px; }
+    .stat-item .value { color: var(--certora-header-text); font-weight: 500; }
+
+    /* Main Layout */
+    .report-main {
+        display: grid;
+        grid-template-columns: 260px 1fr 340px;
+        flex-grow: 1;
+        overflow: hidden;
+    }
+
+    .panel {
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--certora-border);
+        background-color: var(--certora-bg);
+    }
+
+    .panel:last-child { border-right: none; }
+
+    .panel-header {
+        background-color: var(--certora-panel);
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--certora-border);
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--certora-muted);
+    }
+
+    .panel-content {
+        flex-grow: 1;
+        overflow-y: auto;
+    }
+
+    /* Left Panel: Rules */
+    .rules-list { list-style: none; padding: 0; margin: 0; }
+    .rule-item {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--certora-border);
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background 0.2s;
+    }
+    .rule-item:hover { background-color: var(--certora-hover); }
+    .rule-item.active { background-color: rgba(31, 111, 235, 0.1); border-left: 4px solid var(--certora-accent); }
+    
+    .status-badge {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: bold;
+    }
+    .status-pass { background-color: rgba(63, 185, 80, 0.15); color: var(--certora-success); border: 1px solid var(--certora-success); }
+    .status-fail { background-color: rgba(248, 81, 73, 0.15); color: var(--certora-danger); border: 1px solid var(--certora-danger); }
+
+    /* Center Panel: Tabs */
+    .center-panel { background-color: var(--certora-bg); }
+    .nav-tabs-certora {
+        display: flex;
+        background-color: var(--certora-panel);
+        border-bottom: 1px solid var(--certora-border);
+        padding: 0 16px;
+    }
+    .tab-item {
+        padding: 12px 16px;
+        font-size: 0.9rem;
+        color: var(--certora-muted);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+    }
+    .tab-item:hover { color: var(--certora-header-text); }
+    .tab-item.active { color: var(--certora-header-text); border-bottom-color: var(--certora-active-tab); }
+
+    .tab-content { padding: 20px; flex-grow: 1; overflow-y: auto; position: relative; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* Call Trace Styling */
+    .trace-tree { font-family: 'Fira Code', monospace; font-size: 0.85rem; }
+    .trace-step { padding: 4px 8px; border-radius: 4px; display: flex; align-items: flex-start; gap: 8px; cursor: pointer; border-left: 2px solid transparent; }
+    .trace-step:hover { background-color: var(--certora-hover); }
+    .trace-step.selected { background-color: rgba(88, 166, 255, 0.1); border-left-color: var(--certora-accent); }
+    .step-icon { width: 16px; text-align: center; margin-top: 2px; }
+    .step-text { white-space: pre-wrap; word-break: break-all; }
+    .step-loc { color: var(--certora-muted); font-size: 0.75rem; margin-left: auto; padding-left: 10px; }
+
+    /* Right Panel: Variables */
+    .variable-section { margin-bottom: 24px; }
+    .variable-section h3 { font-size: 0.8rem; color: var(--certora-muted); text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid var(--certora-border); padding-bottom: 4px; }
+    
+    .variable-card {
+        background-color: var(--certora-panel);
+        border: 1px solid var(--certora-border);
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 8px;
+    }
+    .var-name { color: var(--certora-accent); font-weight: 600; font-family: 'Fira Code', monospace; font-size: 0.85rem; display: block; margin-bottom: 8px; }
+    .var-values { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; }
+    .val-line { display: flex; justify-content: space-between; font-family: 'Fira Code', monospace; }
+    .val-label { color: var(--certora-muted); }
+    .val-data { color: var(--certora-header-text); }
+    .val-changed { color: var(--certora-warning); font-weight: bold; }
+
+    /* Icons */
+    .icon-pass::before { content: '✓'; }
+    .icon-fail::before { content: '✗'; }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(13, 17, 23, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="report-container">
+    <header class="report-header">
+        <div class="header-info">
+            <h1 id="contractName">Loading...</h1>
+            <div class="subtitle" id="activeRuleName">Rule: -</div>
+        </div>
+        <div class="header-stats">
+            <div class="stat-item">
+                <span class="label">Job ID:</span>
+                <span class="value">#{{ audit_id }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">Counterexample:</span>
+                <span class="value">1</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">Tool:</span>
+                <span class="value" id="toolName">-</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="report-main">
+        <!-- Left: Rules -->
+        <section class="panel">
+            <div class="panel-header">Rules</div>
+            <div class="panel-content">
+                <ul class="rules-list" id="rulesList">
+                    <!-- Loaded via JS -->
+                </ul>
+            </div>
+        </section>
+
+        <!-- Center: Trace/Tabs -->
+        <section class="panel center-panel">
+            <div class="nav-tabs-certora">
+                <div class="tab-item active" onclick="switchTab('callTrace')">Call Trace</div>
+                <div class="tab-item" onclick="switchTab('resolutions')">Rule Call Resolutions</div>
+                <div class="tab-item" onclick="switchTab('variablesFull')">Variables</div>
+            </div>
+            <div class="panel-content tab-content" id="mainTabContent">
+                <div id="callTraceView" class="tab-pane active">
+                    <div class="trace-tree" id="traceTree">
+                        <!-- Loaded via JS -->
+                    </div>
+                </div>
+                <div id="resolutionsView" class="tab-pane">
+                    <p class="text-muted">No rule call resolutions available.</p>
+                </div>
+                <div id="variablesFullView" class="tab-pane">
+                    <!-- Full variable list -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Right: State Variables -->
+        <section class="panel">
+            <div class="panel-header">Variables</div>
+            <div class="panel-content p-3">
+                <div class="variable-section">
+                    <h3>Local Variables</h3>
+                    <div id="localVariablesList">
+                        <p class="text-muted small">Select a step in the trace to see values.</p>
+                    </div>
+                </div>
+                <div class="variable-section">
+                    <h3>Storage Changes</h3>
+                    <div id="storageChangesList">
+                        <p class="text-muted small">No storage changes in this state.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner-border text-primary" role="status"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let auditData = null;
+    let traceData = [];
+    let selectedStepIdx = -1;
+
+    async function init() {
+        try {
+            const auditRes = await fetch(`/api/counterexample/{{ audit_id }}`);
+            auditData = await auditRes.json();
+            
+            const traceRes = await fetch(`/api/trace/{{ audit_id }}`);
+            const traceJson = await traceRes.json();
+            traceData = traceJson.trace || [];
+
+            renderHeader();
+            renderRules();
+            renderTrace();
+            
+            document.getElementById('loadingOverlay').style.display = 'none';
+
+            // Auto-select last step if error
+            if (traceData.length > 0) {
+                const errorIdx = traceData.findIndex(s => s.is_error);
+                selectStep(errorIdx >= 0 ? errorIdx : traceData.length - 1);
+            }
+        } catch (e) {
+            console.error("Initialization failed", e);
+            document.getElementById('loadingOverlay').innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
+        }
+    }
+
+    function renderHeader() {
+        document.getElementById('contractName').textContent = auditData.filename || 'Contract';
+        document.getElementById('toolName').textContent = auditData.tool_type || 'SPIN';
+        
+        const failedRule = (auditData.ltl_properties || []).find(p => p.status === 'FAIL');
+        document.getElementById('activeRuleName').textContent = `Rule: ${failedRule ? failedRule.name : 'Unknown'}`;
+    }
+
+    function renderRules() {
+        const container = document.getElementById('rulesList');
+        const props = auditData.ltl_properties || [];
+        
+        if (props.length === 0) {
+            container.innerHTML = `<li class="rule-item active">
+                <span>Verification Check</span>
+                <span class="status-badge ${auditData.status === 'PASS' ? 'status-pass' : 'status-fail'}">
+                    ${auditData.status === 'PASS' ? '✓' : '✗'}
+                </span>
+            </li>`;
+            return;
+        }
+
+        container.innerHTML = props.map(p => `
+            <li class="rule-item ${p.status === 'FAIL' ? 'active' : ''}">
+                <span>${p.name}</span>
+                <span class="status-badge ${p.status === 'PASS' ? 'status-pass' : 'status-fail'}">
+                    ${p.status === 'PASS' ? '✓' : '✗'}
+                </span>
+            </li>
+        `).join('');
+    }
+
+    function renderTrace() {
+        const container = document.getElementById('traceTree');
+        let currentDepth = 0;
+        
+        container.innerHTML = traceData.map((step, idx) => {
+            const action = (step.action || "").toLowerCase();
+            if (action.includes("call")) currentDepth++;
+            
+            const indent = Math.max(0, currentDepth - 1) * 20;
+            const icon = step.is_error ? 'fa-circle-xmark text-danger' : 
+                         (action.includes("call") ? 'fa-arrow-right-to-bracket' : 'fa-code');
+            
+            if (action.includes("return")) currentDepth = Math.max(0, currentDepth - 1);
+
+            return `
+                <div class="trace-step" id="step-${idx}" onclick="selectStep(${idx})" style="padding-left: ${indent}px">
+                    <span class="step-icon"><i class="fas ${icon}"></i></span>
+                    <span class="step-text">${esc(step.action || step.transition || "Step " + step.step)}</span>
+                    <span class="step-loc">${step.file ? esc(step.file) + ':' + step.line : ''}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function selectStep(idx) {
+        if (idx < 0 || idx >= traceData.length) return;
+        
+        selectedStepIdx = idx;
+        
+        // Highlight in tree
+        document.querySelectorAll('.trace-step').forEach(el => el.classList.remove('selected'));
+        const el = document.getElementById(`step-${idx}`);
+        if (el) {
+            el.classList.add('selected');
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        updateVariables(idx);
+    }
+
+    function updateVariables(idx) {
+        const step = traceData[idx];
+        const prevStep = idx > 0 ? traceData[idx - 1] : { variables: {} };
+        const localList = document.getElementById('localVariablesList');
+        
+        const currentVars = step.variables || {};
+        const prevVars = prevStep.variables || {};
+        const keys = Object.keys(currentVars).sort();
+
+        if (keys.length === 0) {
+            localList.innerHTML = '<p class="text-muted small">No variables in this state.</p>';
+        } else {
+            localList.innerHTML = keys.map(key => {
+                const val = currentVars[key];
+                const pVal = prevVars[key];
+                const changed = pVal !== undefined && val !== pVal;
+                
+                return `
+                    <div class="variable-card">
+                        <span class="var-name">${esc(key)}</span>
+                        <div class="var-values">
+                            <div class="val-line">
+                                <span class="val-label">before</span>
+                                <span class="val-data">${esc(String(pVal !== undefined ? pVal : '-'))}</span>
+                            </div>
+                            <div class="val-line">
+                                <span class="val-label">after</span>
+                                <span class="val-data ${changed ? 'val-changed' : ''}">${esc(String(val))}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+        
+        event.target.classList.add('active');
+        
+        if (tabId === 'callTrace') document.getElementById('callTraceView').classList.add('active');
+        if (tabId === 'resolutions') document.getElementById('resolutionsView').classList.add('active');
+        if (tabId === 'variablesFull') {
+            document.getElementById('variablesFullView').classList.add('active');
+            renderFullVariables();
+        }
+    }
+
+    function renderFullVariables() {
+        if (selectedStepIdx === -1) return;
+        const step = traceData[selectedStepIdx];
+        const container = document.getElementById('variablesFullView');
+        const vars = step.variables || {};
+        
+        let html = '<table class="table table-dark table-sm"><thead><tr><th>Variable</th><th>Value</th></tr></thead><tbody>';
+        for (const [k, v] of Object.entries(vars).sort()) {
+            html += `<tr><td>${esc(k)}</td><td>${esc(String(v))}</td></tr>`;
+        }
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    function esc(s) {
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+</script>
+{% endblock %}

@@ -274,6 +274,13 @@
           "size": 12583
         },
         {
+          "name": "failing.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/failing.txt",
+          "size": 8104
+        },
+        {
           "name": "flash.txt",
           "type": "file",
           "icon": "text",
@@ -975,6 +982,20 @@
               "icon": "file",
               "path": "generated/images/state_diagram_1778235076.png",
               "size": 318363
+            },
+            {
+              "name": "state_diagram_1778254399.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1778254399.png",
+              "size": 206877
+            },
+            {
+              "name": "state_diagram_1778254431.png",
+              "type": "file",
+              "icon": "file",
+              "path": "generated/images/state_diagram_1778254431.png",
+              "size": 206877
             }
           ]
         },
@@ -1057,7 +1078,7 @@
               "type": "file",
               "icon": "promela",
               "path": "generated/models/translated_output.pml",
-              "size": 1226
+              "size": 2034
             },
             {
               "name": "user_lending_translated.pml",
@@ -1103,7 +1124,7 @@
               "type": "file",
               "icon": "json",
               "path": "generated/reports/audit_log.json",
-              "size": 190387
+              "size": 202459
             },
             {
               "name": "file_tree.json",
@@ -1117,7 +1138,7 @@
               "type": "file",
               "icon": "json",
               "path": "generated/reports/state_graph.json",
-              "size": 393
+              "size": 305
             },
             {
               "name": "verification_report.pdf",
@@ -1131,7 +1152,7 @@
               "type": "file",
               "icon": "json",
               "path": "generated/reports/verification_state.json",
-              "size": 10125
+              "size": 2617
             }
           ]
         },
@@ -1740,6 +1761,20 @@
               "icon": "log",
               "path": "logs/coq/coq_verification_20260508_154120.log",
               "size": 525
+            },
+            {
+              "name": "coq_verification_20260508_160649.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260508_160649.log",
+              "size": 156
+            },
+            {
+              "name": "coq_verification_20260508_183020.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260508_183020.log",
+              "size": 148
             }
           ]
         },
@@ -1846,6 +1881,20 @@
               "type": "file",
               "icon": "log",
               "path": "logs/lean/lean_verification_20260508_154146.log",
+              "size": 271
+            },
+            {
+              "name": "lean_verification_20260508_160700.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260508_160700.log",
+              "size": 272
+            },
+            {
+              "name": "lean_verification_20260508_183028.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260508_183028.log",
               "size": 271
             }
           ]
@@ -2014,6 +2063,13 @@
               "size": 34131
             },
             {
+              "name": "creusot_verification_20260508_183133.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260508_183133.log",
+              "size": 1260
+            },
+            {
               "name": "kani_verification_20260409_133823.log",
               "type": "file",
               "icon": "log",
@@ -2175,6 +2231,13 @@
               "size": 7059
             },
             {
+              "name": "kani_verification_20260508_183032.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260508_183032.log",
+              "size": 7056
+            },
+            {
               "name": "prusti_verification_20260417_165408.log",
               "type": "file",
               "icon": "log",
@@ -2236,6 +2299,13 @@
               "icon": "log",
               "path": "logs/rust_tools/prusti_verification_20260508_154213.log",
               "size": 619
+            },
+            {
+              "name": "prusti_verification_20260508_183038.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/prusti_verification_20260508_183038.log",
+              "size": 619
             }
           ]
         },
@@ -2248,7 +2318,7 @@
               "type": "file",
               "icon": "file",
               "path": "logs/spin/pan",
-              "size": 129552
+              "size": 103448
             },
             {
               "name": "spin_verification_20260409_143057.log",
@@ -2825,6 +2895,20 @@
               "size": 4327
             },
             {
+              "name": "spin_verification_20260508_160546.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260508_160546.log",
+              "size": 4328
+            },
+            {
+              "name": "spin_verification_20260508_183016.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260508_183016.log",
+              "size": 1155
+            },
+            {
               "name": "translated_output.pml.trail",
               "type": "file",
               "icon": "file",
@@ -2845,7 +2929,7 @@
           "type": "file",
           "icon": "log",
           "path": "logs/streamlit_server.log",
-          "size": 1303
+          "size": 2418
         }
       ]
     },
@@ -165801,7 +165885,7 @@
               "type": "file",
               "icon": "file",
               "path": "web_portal/templates/counterexample.html",
-              "size": 15897
+              "size": 19208
             },
             {
               "name": "dashboard.html",
@@ -165906,7 +165990,7 @@
           "type": "file",
           "icon": "python",
           "path": "web_portal/app.py",
-          "size": 48524
+          "size": 48835
         },
         {
           "name": "defi_guardian.db",
@@ -166055,7 +166139,7 @@
       "type": "file",
       "icon": "json",
       "path": "file_tree.json",
-      "size": 8885839
+      "size": 8886587
     },
     {
       "name": "formal-verification.yml",
@@ -166132,14 +166216,14 @@
       "type": "file",
       "icon": "file",
       "path": "pan.b",
-      "size": 1224
+      "size": 845
     },
     {
       "name": "pan.m",
       "type": "file",
       "icon": "file",
       "path": "pan.m",
-      "size": 10928
+      "size": 5429
     },
     {
       "name": "pan.p",
@@ -166153,7 +166237,7 @@
       "type": "file",
       "icon": "file",
       "path": "pan.t",
-      "size": 22199
+      "size": 20027
     },
     {
       "name": "property_inference.py",
@@ -166349,7 +166433,7 @@
       "type": "file",
       "icon": "json",
       "path": "verification_state.json",
-      "size": 23809
+      "size": 15794
     },
     {
       "name": "verifier_plugins.py",
