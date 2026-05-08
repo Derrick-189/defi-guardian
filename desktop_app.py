@@ -1336,11 +1336,6 @@ class FormalVerifierApp(ctk.CTk):
         )
         self.stop_creusot_btn = self._sidebar_stop_button("creusot")
 
-        self.verus_btn = self._sidebar_item_button(
-            "Verus Verifier", self.verify_with_verus, icon="✓", tag="verus"
-        )
-        self.stop_verus_btn = self._sidebar_stop_button("verus")
-
         # ── VISUALIZATION ────────────────────────────────────────────
         self._sidebar_section("VISUALIZATION")
 
@@ -1503,7 +1498,6 @@ class FormalVerifierApp(ctk.CTk):
             "creusot": self.stop_creusot_btn,
             "kani":    self.stop_kani_btn,
             "certora": self.stop_certora_btn,
-            "verus":   self.stop_verus_btn,
         }
 
         self.sidebar_inner.bind_mousewheel()
@@ -1988,7 +1982,7 @@ class FormalVerifierApp(ctk.CTk):
         # Update buttons
         buttons_to_update = []
         for attr in ['load_btn', 'verify_btn', 'coq_btn', 'verify_with_certora_btn', 'dash_btn', 
-                     'kani_btn', 'prusti_btn', 'creusot_btn', 'verus_btn', 'lean_btn']:
+                     'kani_btn', 'prusti_btn', 'creusot_btn', 'lean_btn']:
             if hasattr(self, attr):
                 buttons_to_update.append(getattr(self, attr))
         

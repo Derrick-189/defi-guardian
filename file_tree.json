@@ -323,6 +323,13 @@
           "size": 12583
         },
         {
+          "name": "lworks.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/lworks.txt",
+          "size": 12461
+        },
+        {
           "name": "newway.txt",
           "type": "file",
           "icon": "text",
@@ -391,6 +398,13 @@
           "icon": "text",
           "path": "console_exports/sun.txt",
           "size": 11836
+        },
+        {
+          "name": "tryit.txt",
+          "type": "file",
+          "icon": "text",
+          "path": "console_exports/tryit.txt",
+          "size": 14460
         },
         {
           "name": "unknown.txt",
@@ -983,6 +997,13 @@
               "size": 2409
             },
             {
+              "name": "defi_vault_translated.pml",
+              "type": "file",
+              "icon": "promela",
+              "path": "generated/models/defi_vault_translated.pml",
+              "size": 1184
+            },
+            {
               "name": "IERC1363Spender_translated.pml",
               "type": "file",
               "icon": "promela",
@@ -1082,7 +1103,7 @@
               "type": "file",
               "icon": "json",
               "path": "generated/reports/audit_log.json",
-              "size": 179392
+              "size": 190387
             },
             {
               "name": "file_tree.json",
@@ -1705,6 +1726,20 @@
               "icon": "log",
               "path": "logs/coq/coq_verification_20260508_130743.log",
               "size": 430
+            },
+            {
+              "name": "coq_verification_20260508_142702.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260508_142702.log",
+              "size": 473
+            },
+            {
+              "name": "coq_verification_20260508_154120.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/coq/coq_verification_20260508_154120.log",
+              "size": 525
             }
           ]
         },
@@ -1805,6 +1840,13 @@
               "icon": "log",
               "path": "logs/lean/lean_verification_20260508_131138.log",
               "size": 323
+            },
+            {
+              "name": "lean_verification_20260508_154146.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/lean/lean_verification_20260508_154146.log",
+              "size": 271
             }
           ]
         },
@@ -1965,6 +2007,13 @@
               "size": 1260
             },
             {
+              "name": "creusot_verification_20260508_143215.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/creusot_verification_20260508_143215.log",
+              "size": 34131
+            },
+            {
               "name": "kani_verification_20260409_133823.log",
               "type": "file",
               "icon": "log",
@@ -2119,6 +2168,13 @@
               "size": 7062
             },
             {
+              "name": "kani_verification_20260508_154203.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/kani_verification_20260508_154203.log",
+              "size": 7059
+            },
+            {
               "name": "prusti_verification_20260417_165408.log",
               "type": "file",
               "icon": "log",
@@ -2173,6 +2229,13 @@
               "icon": "log",
               "path": "logs/rust_tools/prusti_verification_20260422_115459.log",
               "size": 645
+            },
+            {
+              "name": "prusti_verification_20260508_154213.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/rust_tools/prusti_verification_20260508_154213.log",
+              "size": 619
             }
           ]
         },
@@ -2745,6 +2808,20 @@
               "type": "file",
               "icon": "log",
               "path": "logs/spin/spin_verification_20260508_130713.log",
+              "size": 4327
+            },
+            {
+              "name": "spin_verification_20260508_142640.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260508_142640.log",
+              "size": 4328
+            },
+            {
+              "name": "spin_verification_20260508_154023.log",
+              "type": "file",
+              "icon": "log",
+              "path": "logs/spin/spin_verification_20260508_154023.log",
               "size": 4327
             },
             {
@@ -165836,7 +165913,7 @@
           "type": "file",
           "icon": "file",
           "path": "web_portal/defi_guardian.db",
-          "size": 49152
+          "size": 53248
         }
       ]
     },
@@ -165873,7 +165950,7 @@
       "type": "file",
       "icon": "python",
       "path": "check_tools.py",
-      "size": 7581
+      "size": 7607
     },
     {
       "name": "check_tools.sh",
@@ -165894,7 +165971,7 @@
       "type": "file",
       "icon": "python",
       "path": "coq_verifier.py",
-      "size": 24932
+      "size": 24959
     },
     {
       "name": "counterexample_analyzer.py",
@@ -165925,6 +166002,13 @@
       "size": 47886
     },
     {
+      "name": "DeFi Guardian final report draft 1.docx",
+      "type": "file",
+      "icon": "file",
+      "path": "DeFi Guardian final report draft 1.docx",
+      "size": 3631094
+    },
+    {
       "name": "defi-guardian.desktop",
       "type": "file",
       "icon": "file",
@@ -165950,7 +166034,7 @@
       "type": "file",
       "icon": "python",
       "path": "desktop_app.py",
-      "size": 252706
+      "size": 258936
     },
     {
       "name": "desktop_console.log",
@@ -165971,7 +166055,7 @@
       "type": "file",
       "icon": "json",
       "path": "file_tree.json",
-      "size": 8881203
+      "size": 8885839
     },
     {
       "name": "formal-verification.yml",
@@ -166104,7 +166188,7 @@
       "type": "file",
       "icon": "python",
       "path": "rust_verifiers.py",
-      "size": 36521
+      "size": 36702
     },
     {
       "name": "rustc-ice-2026-05-07T18:22:54.204893131Z-2231088.txt",
@@ -166160,6 +166244,13 @@
       "type": "file",
       "icon": "text",
       "path": "rustc-ice-2026-05-07T18:33:15.875956403Z-2313217.txt",
+      "size": 10351
+    },
+    {
+      "name": "rustc-ice-2026-05-08T11:56:29.921647515Z-593100.txt",
+      "type": "file",
+      "icon": "text",
+      "path": "rustc-ice-2026-05-08T11:56:29.921647515Z-593100.txt",
       "size": 10351
     },
     {
@@ -166258,7 +166349,7 @@
       "type": "file",
       "icon": "json",
       "path": "verification_state.json",
-      "size": 15838
+      "size": 23809
     },
     {
       "name": "verifier_plugins.py",
