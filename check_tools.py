@@ -41,16 +41,16 @@ TOOLS = {
 def check_tool(name, command):
     """Check if a tool is installed"""
     try:
-        # Split command for subprocess
         cmd_parts = command.split()
-        result = subprocess.run(cmd_parts, 
-                               capture_output=True, 
-                               text=True, 
-                               timeout=5)
+        # Lean needs a longer timeout — elan may need a moment on first call
+        timeout = 30 if name == "Lean" else 5
+        result = subprocess.run(cmd_parts,
+                               capture_output=True,
+                               text=True,
+                               timeout=timeout)
         if result.returncode == 0:
-            # Get first line of output
             output = result.stdout.split('\n')[0].strip()
-            return True, output[:80]  # Truncate long output
+            return True, output[:80]
         return False, result.stderr[:80] if result.stderr else "Unknown error"
     except FileNotFoundError:
         return False, "Not found"

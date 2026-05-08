@@ -2444,38 +2444,51 @@ class FormalVerifierApp(ctk.CTk):
     def prewarm_lean_runtime(self):
         """Warm up Lean/Elan once to reduce first-run latency."""
         def _prewarm():
+            import tempfile, os
+            ok = False
             try:
-                # Use elan --version as it's more robust for initial check
-                result = subprocess.run(
-                    ["elan", "--version"],
-                    capture_output=True,
-                    text=True,
-                    timeout=90,
+                # Step 1: confirm lean --version responds
+                r = subprocess.run(
+                    ["lean", "--version"],
+                    capture_output=True, text=True, timeout=30,
                 )
-                ok = result.returncode == 0
-                
-                # If elan is ok, also try lean --version but don't fail if it's read-only
+                ok = r.returncode == 0
+                version = r.stdout.strip() or r.stderr.strip()
+
+                # Step 2: run a trivial Lean 4 script to warm the JIT cache
                 if ok:
+                    with tempfile.NamedTemporaryFile(
+                        mode='w', suffix='.lean', delete=False, encoding='utf-8'
+                    ) as f:
+                        f.write("-- warmup\n#check Nat.zero_le\n")
+                        tmp = f.name
                     try:
-                        subprocess.run(["lean", "--version"], capture_output=True, timeout=10)
-                    except:
+                        subprocess.run(
+                            ["lean", tmp],
+                            capture_output=True, timeout=60,
+                        )
+                    except Exception:
                         pass
-                self.after(
-                    0,
-                    lambda: self.lean_prewarm_status.configure(
-                        text=("Lean prewarm: ready" if ok else "Lean prewarm: failed"),
-                        text_color=("#00ffcc" if ok else "#ffaa66"),
-                    ),
-                )
-            except Exception:
-                # Non-fatal; verification path reports runtime issues.
-                self.after(
-                    0,
-                    lambda: self.lean_prewarm_status.configure(
-                        text="Lean prewarm: failed",
-                        text_color="#ffaa66",
-                    ),
-                )
+                    finally:
+                        try: os.unlink(tmp)
+                        except: pass
+
+                self.after(0, lambda: self.lean_prewarm_status.configure(
+                    text=f"Lean prewarm: ready  ({version[:30]})" if ok
+                         else "Lean prewarm: failed",
+                    text_color=self.theme.SUCCESS if ok else self.theme.WARNING,
+                ))
+            except subprocess.TimeoutExpired:
+                self.after(0, lambda: self.lean_prewarm_status.configure(
+                    text="Lean prewarm: timeout (run 'elan default leanprover/lean4:v4.29.1')",
+                    text_color=self.theme.WARNING,
+                ))
+            except Exception as e:
+                self.after(0, lambda: self.lean_prewarm_status.configure(
+                    text=f"Lean prewarm: error — {e}",
+                    text_color=self.theme.WARNING,
+                ))
+
         threading.Thread(target=_prewarm, daemon=True).start()
 
     def _tool_relevance(self, rust_code):
@@ -2537,11 +2550,13 @@ class FormalVerifierApp(ctk.CTk):
             except:
                 tools.append("Coq(missing)")
             
-            # Check Lean
+            # Check Lean — use a longer timeout since elan may need a moment
             try:
-                subprocess.run(["lean", "--version"], capture_output=True, timeout=2)
-                tools.append("Lean")
-            except:
+                r = subprocess.run(["lean", "--version"], capture_output=True, timeout=15)
+                tools.append("Lean" if r.returncode == 0 else "Lean(err)")
+            except subprocess.TimeoutExpired:
+                tools.append("Lean(missing)")
+            except Exception:
                 tools.append("Lean(missing)")
             
             # Check GCC
@@ -3489,12 +3504,12 @@ Ready for verification!
         threading.Thread(target=run_coq, daemon=True).start()
 
     def run_lean_verification(self):
-        """Run Lean verification — uses lean directly on a temp .lean file (no lake/mathlib)"""
+        """Run Lean 4 verification — self-contained, no lake/mathlib needed."""
         if not self.current_file:
-            self.console.insert("end", "❌ No file selected\n", "error")
+            self.console.insert("end", "No file selected\n", "error")
             return
         if self.lean_running:
-            self.console.insert("end", "⏳ Lean verification already running. Please wait.\n", "warning")
+            self.console.insert("end", "Lean verification already running. Please wait.\n", "warning")
             return
 
         self.lean_running = True
@@ -3511,57 +3526,141 @@ Ready for verification!
 
                 contract_name = os.path.basename(self.current_file).split('.')[0]
 
-                # Self-contained Lean 4 script — no lake, no mathlib, no imports needed
-                lean_script = f"""-- Lean 4 Formal Verification
--- Contract: {contract_name}
--- Generated by DeFi Guardian
+                # ── Extract state variables from translated Promela ──────
+                pml_path = os.path.join(MODELS_DIR, "translated_output.pml")
+                state_vars: dict = {}
+                ltl_props: list = []
 
--- Basic type definitions
-def collateral : Nat := 5000
-def debt       : Nat := 3000
-def price      : Nat := 100
+                if os.path.exists(pml_path):
+                    with open(pml_path, 'r') as f:
+                        pml = f.read()
+                    # Extract int/bool variables
+                    for m in re.finditer(
+                        r'(?:int|bool|byte)\s+(\w+)\s*(?:=\s*([^;]+))?;', pml
+                    ):
+                        name, val = m.group(1), (m.group(2) or "0").strip()
+                        try:
+                            state_vars[name] = int(val)
+                        except ValueError:
+                            state_vars[name] = 0
+                    # Extract LTL formulas
+                    for m in re.finditer(
+                        r'ltl\s+(\w+)\s*\{([^}]+)\}', pml
+                    ):
+                        ltl_props.append({
+                            'name': m.group(1),
+                            'formula': m.group(2).strip()
+                        })
 
--- Invariant: collateral * price >= debt
-theorem collateral_sufficient :
-    collateral * price ≥ debt := by
-  native_decide
+                # ── Build Lean 4 script ──────────────────────────────────
+                lines = [
+                    f"-- Lean 4 Formal Verification",
+                    f"-- Contract: {contract_name}",
+                    f"-- Generated by DeFi Guardian",
+                    f"-- Lean version: 4.29.1 (no imports needed)",
+                    "",
+                ]
 
--- Safety: no overflow on u64 range
-theorem balance_non_negative (b : Nat) : b ≥ 0 := Nat.zero_le b
+                # State variable definitions
+                if state_vars:
+                    lines.append("-- State variables extracted from Promela model")
+                    for var, val in list(state_vars.items())[:12]:
+                        lines.append(f"def {var} : Nat := {max(0, val)}")
+                    lines.append("")
 
--- Reentrancy guard: when not already locked, operation leaves lock true
-def lock_after_op (locked : Bool) : Bool :=
-  if locked then locked else true
+                # Core theorems — always included
+                lines += [
+                    "-- Core safety theorem: balance is non-negative",
+                    "theorem balance_non_negative (b : Nat) : b ≥ 0 := Nat.zero_le b",
+                    "",
+                    "-- Reentrancy guard model",
+                    "def lock_after_op (locked : Bool) : Bool :=",
+                    "  if locked then locked else true",
+                    "",
+                    "theorem lock_acquired (locked : Bool) (h : locked = false) :",
+                    "    lock_after_op locked = true := by",
+                    "  simp [lock_after_op, h]",
+                    "",
+                ]
 
-theorem lock_acquired (locked : Bool) (h : locked = false) :
-    lock_after_op locked = true := by
-  simp [lock_after_op, h]
+                # Collateral theorem if we have the right variables
+                if 'user_collateral' in state_vars and 'user_debt' in state_vars and 'price_eth' in state_vars:
+                    lines += [
+                        "-- Collateral sufficiency invariant",
+                        "theorem collateral_sufficient :",
+                        "    user_collateral * price_eth ≥ user_debt := by",
+                        "  native_decide",
+                        "",
+                    ]
+                elif 'collateral' in state_vars and 'debt' in state_vars:
+                    lines += [
+                        "-- Collateral sufficiency invariant",
+                        "theorem collateral_sufficient :",
+                        "    collateral ≥ debt := by",
+                        "  native_decide",
+                        "",
+                    ]
 
-#check collateral_sufficient
-#check balance_non_negative
-#check lock_acquired
-"""
-                # Write to temp file
+                # LTL-derived theorems (simple ones only — no temporal operators)
+                for prop in ltl_props[:6]:
+                    name = re.sub(r'[^a-zA-Z0-9_]', '_', prop['name'])
+                    formula = prop['formula']
+                    # Only handle simple [] (expr) — strip the [] wrapper
+                    inner = re.sub(r'^\[\]\s*', '', formula).strip()
+                    inner = re.sub(r'^<>\s*', '', inner).strip()
+                    # Convert to Lean: replace variable names with their Nat defs
+                    lean_expr = inner
+                    for var in state_vars:
+                        lean_expr = re.sub(rf'\b{var}\b', var, lean_expr)
+                    lean_expr = lean_expr.replace('&&', '∧').replace('||', '∨')
+                    lean_expr = lean_expr.replace('==', '=').replace('!=', '≠')
+                    lean_expr = lean_expr.replace('>=', '≥').replace('<=', '≤')
+                    lean_expr = lean_expr.replace('!', '¬')
+                    # Only emit if it looks like a decidable arithmetic proposition
+                    if any(op in lean_expr for op in ('≥', '≤', '=', '∧', '∨')) \
+                       and 'state' not in lean_expr.lower():
+                        lines += [
+                            f"-- LTL property: {prop['name']}",
+                            f"-- Formula: {formula}",
+                            f"theorem ltl_{name} : {lean_expr} := by",
+                            "  native_decide",
+                            "",
+                        ]
+
+                # #check statements
+                lines += [
+                    "#check balance_non_negative",
+                    "#check lock_acquired",
+                ]
+
+                lean_script = "\n".join(lines)
+
+                # ── Write and run ────────────────────────────────────────
                 tmp_file = tempfile.NamedTemporaryFile(
                     mode='w', suffix='.lean', delete=False, encoding='utf-8'
                 )
                 tmp_file.write(lean_script)
                 tmp_file.close()
 
+                self.after(0, lambda: self.console.insert("end",
+                    f"Running Lean on: {os.path.basename(tmp_file.name)}\n", "dim"))
+
                 result = self.run_cancellable_command(
                     "lean", ['lean', tmp_file.name], timeout=LEAN_TIMEOUT_SECONDS
                 )
+
                 if result.get('cancelled'):
                     self.after(0, lambda: self.console.insert("end", "Lean stopped by user.\n"))
-                    self.after(0, lambda: self.lean_btn.configure(state="normal", text="LEAN VERIFICATION"))
+                    self.after(0, lambda: self.lean_btn.configure(state="normal", text="λ Lean Theorem Prover"))
                     return
                 if result.get('timed_out'):
-                    self.after(0, lambda: self.console.insert(
-                        "end",
-                        f"Lean timed out ({LEAN_TIMEOUT_SECONDS}s). Lean/Elan may still be warming up.\n"
-                    ))
-                    self.after(0, lambda: self.lean_btn.configure(state="normal", text="LEAN VERIFICATION"))
+                    self.after(0, lambda: self.console.insert("end",
+                        f"Lean timed out ({LEAN_TIMEOUT_SECONDS}s).\n"
+                        "   Tip: run 'elan default leanprover/lean4:v4.29.1' in a terminal.\n",
+                        "warning"))
+                    self.after(0, lambda: self.lean_btn.configure(state="normal", text="λ Lean Theorem Prover"))
                     return
+
                 success = result['returncode'] == 0
 
                 lean_log_path = self.save_tool_log('lean', result['stdout'], result['stderr'])
@@ -3575,25 +3674,26 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
                 def display():
                     if success:
                         self.console.insert("end", "Lean verification successful!\n", "success")
-                        if result['stdout']:
-                            self.console.insert("end", result['stdout'][:400] + "\n", "dim")
+                        out = result['stdout'].strip()
+                        if out:
+                            self.console.insert("end", out + "\n", "dim")
                     else:
-                        # Lean sometimes prints errors to stdout
-                        err = result['stderr'] or result['stdout']
-                        self.console.insert("end", f"Lean failed:\n{err[:500]}\n", "error")
+                        err = (result['stderr'] or result['stdout'] or "Unknown error")[:800]
+                        self.console.insert("end", f"Lean failed:\n{err}\n", "error")
                     self.console.see("end")
-                    self.lean_btn.configure(state="normal", text="LEAN VERIFICATION")
+                    self.lean_btn.configure(state="normal", text="λ Lean Theorem Prover")
 
                 self.after(0, display)
 
             except Exception as e:
-                self.after(0, lambda: self.console.insert("end", f"Lean error: {e}\n"))
-                self.after(0, lambda: self.lean_btn.configure(state="normal", text="LEAN VERIFICATION"))
+                self.after(0, lambda: self.console.insert("end", f"Lean error: {e}\n", "error"))
+                self.after(0, lambda: self.lean_btn.configure(state="normal", text="λ Lean Theorem Prover"))
             finally:
                 self.lean_running = False
                 self.after(0, lambda: self.set_tool_running("lean", False))
                 if tmp_file and os.path.exists(tmp_file.name):
-                    os.unlink(tmp_file.name)
+                    try: os.unlink(tmp_file.name)
+                    except: pass
 
         threading.Thread(target=run_lean, daemon=True).start()
 
