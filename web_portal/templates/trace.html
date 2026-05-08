@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+
+{% block title %}Trace Viewer - DeFi Guardian{% endblock %}
+
+{% block extra_css %}
+<style>
+    .trace-container {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .trace-timeline {
+        position: relative;
+        padding-left: 3rem;
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    .trace-timeline::before {
+        content: '';
+        position: absolute;
+        left: 1rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--border);
+    }
+    .trace-step {
+        position: relative;
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: var(--bg);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        transition: all 0.3s ease;
+    }
+    .trace-step:hover {
+        border-color: var(--accent);
+        box-shadow: 0 4px 12px rgba(0,255,204,0.1);
+    }
+    .trace-step::before {
+        content: '';
+        position: absolute;
+        left: -2.25rem;
+        top: 1.5rem;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: 2px solid var(--panel);
+    }
+    .trace-step.error::before {
+        background: #da3633;
+    }
+    .step-number {
+        position: absolute;
+        left: -1.5rem;
+        top: 0.5rem;
+        width: 24px;
+        height: 24px;
+        background: var(--accent);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: bold;
+        color: var(--bg);
+    }
+    .trace-step.error .step-number {
+        background: #da3633;
+    }
+    .step-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+    .step-state {
+        font-family: 'Monaco', 'Courier New', monospace;
+        background: var(--panel);
+        padding: 0.5rem;
+        border-radius: 4px;
+        margin: 0.5rem 0;
+        font-size: 0.85rem;
+    }
+    .step-transition {
+        color: var(--accent);
+        font-style: italic;
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+    }
+    .variable-changes {
+        background: rgba(0,255,204,0.05);
+        border: 1px solid rgba(0,255,204,0.2);
+        border-radius: 4px;
+        padding: 0.5rem;
+        margin-top: 0.5rem;
+        font-family: 'Monaco', 'Courier New', monospace;
+        font-size: 0.8rem;
+    }
+    .trace-controls {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .playback-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    .playback-btn {
+        background: var(--accent);
+        color: var(--bg);
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .playback-btn:hover {
+        background: #00ccaa;
+    }
+    .playback-btn:disabled {
+        background: var(--dim);
+        cursor: not-allowed;
+    }
+    .speed-control {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .trace-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .stat-item {
+        text-align: center;
+        padding: 0.75rem;
+        background: var(--bg);
+        border-radius: 6px;
+        border: 1px solid var(--border);
+    }
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--accent);
+    }
+    .stat-label {
+        font-size: 0.85rem;
+        color: var(--dim);
+        margin-top: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>Execution Trace Viewer</h1>
+        <p>Interactive trace analysis for audit #{{ audit_id }}</p>
+    </div>
+</section>
+
+<section class="trace-content">
+    <div class="container">
+        <!-- Playback Controls -->
+        <div class="trace-controls">
+            <h4><i class="fas fa-play-circle text-accent me-2"></i>Trace Playback</h4>
+            <div class="playback-controls">
+                <button class="playback-btn" id="playBtn" onclick="togglePlayback()">
+                    <i class="fas fa-play me-1"></i> Play
+                </button>
+                <button class="playback-btn" id="stepBackBtn" onclick="stepBackward()">
+                    <i class="fas fa-step-backward"></i>
+                </button>
+                <button class="playback-btn" id="stepForwardBtn" onclick="stepForward()">
+                    <i class="fas fa-step-forward"></i>
+                </button>
+                <button class="playback-btn" id="resetBtn" onclick="resetPlayback()">
+                    <i class="fas fa-redo"></i>
+                </button>
+                
+                <div class="speed-control">
+                    <label>Speed:</label>
+                    <input type="range" id="speedSlider" min="100" max="2000" value="1000" step="100">
+                    <span id="speedValue">1.0x</span>
+                </div>
+            </div>
+            
+            <div class="trace-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalSteps">-</div>
+                    <div class="stat-label">Total Steps</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="currentStep">0</div>
+                    <div class="stat-label">Current Step</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="errorStates">-</div>
+                    <div class="stat-label">Error States</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="transitions">-</div>
+                    <div class="stat-label">Transitions</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trace Timeline -->
+        <div class="trace-container">
+            <h4><i class="fas fa-stream text-accent me-2"></i>Execution Timeline</h4>
+            <div class="trace-timeline" id="traceTimeline">
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm me-2"></div>
+                    Loading trace...
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let traceData = [];
+let currentStepIndex = 0;
+let isPlaying = false;
+let playbackInterval = null;
+
+async function loadTrace() {
+    try {
+        const response = await fetch(`/api/trace/{{ audit_id }}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            document.getElementById('traceTimeline').innerHTML = 
+                `<div class="alert alert-danger">${data.error}</div>`;
+            return;
+        }
+        
+        traceData = data.trace || [];
+        displayTrace();
+        updateStats();
+        
+    } catch (error) {
+        console.error('Error loading trace:', error);
+        document.getElementById('traceTimeline').innerHTML = 
+            `<div class="alert alert-danger">Failed to load trace</div>`;
+    }
+}
+
+function displayTrace() {
+    const container = document.getElementById('traceTimeline');
+    
+    if (traceData.length === 0) {
+        container.innerHTML = '<p class="text-muted">No trace data available</p>';
+        return;
+    }
+    
+    let html = '';
+    traceData.forEach((step, index) => {
+        // Support both old format (state/transition strings) and new rich format
+        const isError = step.is_error ||
+            (step.state  && (step.state.toLowerCase().includes('error') || step.state === 'violation')) ||
+            (step.action && (step.action.toLowerCase().includes('assert') || step.action.toLowerCase().includes('violation')));
+
+        const proc      = step.proc      || '';
+        const lineNum   = step.line      || '';
+        const stateId   = step.state     || '';
+        const action    = step.action    || step.transition || '';
+        const variables = step.variables || {};
+        const updates   = step.updates   || {};
+        const hasVars   = Object.keys(variables).length > 0;
+        const hasUpdates = Object.keys(updates).length > 0;
+
+        // Build variable table
+        let varHtml = '';
+        if (hasVars) {
+            varHtml = '<div class="variable-changes mt-2"><table style="width:100%;font-size:0.78rem;">';
+            varHtml += '<tr><th style="text-align:left;color:var(--dim);padding-right:1rem;">Variable</th><th style="text-align:left;color:var(--dim);">Value</th></tr>';
+            for (const [k, v] of Object.entries(variables)) {
+                const changed = updates.hasOwnProperty(k);
+                varHtml += `<tr>
+                    <td style="padding-right:1rem;${changed ? 'color:var(--accent);font-weight:600;' : ''}">${escHtml(k)}</td>
+                    <td style="${changed ? 'color:var(--accent);font-weight:600;' : ''}">${escHtml(String(v))}</td>
+                </tr>`;
+            }
+            varHtml += '</table></div>';
+        }
+
+        html += `
+            <div class="trace-step ${isError ? 'error' : ''}" data-step="${index}">
+                <div class="step-number">${index + 1}</div>
+                <div class="step-header">
+                    <span>
+                        <strong>Step ${escHtml(String(step.step))}</strong>
+                        ${proc ? `<span class="text-muted ms-2" style="font-size:0.85rem;">${escHtml(proc)}</span>` : ''}
+                        ${lineNum ? `<span class="text-muted ms-2" style="font-size:0.8rem;">line ${escHtml(String(lineNum))}</span>` : ''}
+                    </span>
+                    <span class="badge ${isError ? 'bg-danger' : 'bg-primary'} ms-auto">
+                        ${isError ? 'Error' : 'Normal'}
+                    </span>
+                </div>
+                ${stateId ? `<div class="step-state"><strong>State:</strong> ${escHtml(String(stateId))}</div>` : ''}
+                ${action ? `<div class="step-transition"><i class="fas fa-arrow-right me-1"></i>${escHtml(action)}</div>` : ''}
+                ${varHtml}
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    highlightCurrentStep();
+}
+
+function updateStats() {
+    const totalSteps = traceData.length;
+    const errorStates = traceData.filter(step =>
+        step.is_error ||
+        (step.state && (step.state.toLowerCase().includes('error') || step.state === 'violation')) ||
+        (step.action && step.action.toLowerCase().includes('assert'))
+    ).length;
+    const transitions = traceData.filter(step => step.transition || step.action).length;
+    
+    document.getElementById('totalSteps').textContent = totalSteps;
+    document.getElementById('currentStep').textContent = currentStepIndex + 1;
+    document.getElementById('errorStates').textContent = errorStates;
+    document.getElementById('transitions').textContent = transitions;
+}
+
+function highlightCurrentStep() {
+    const steps = document.querySelectorAll('.trace-step');
+    steps.forEach((step, index) => {
+        if (index === currentStepIndex) {
+            step.style.borderColor = 'var(--accent)';
+            step.style.boxShadow = '0 4px 12px rgba(0,255,204,0.2)';
+            step.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            step.style.borderColor = '';
+            step.style.boxShadow = '';
+        }
+    });
+    
+    document.getElementById('currentStep').textContent = currentStepIndex + 1;
+}
+
+function togglePlayback() {
+    const playBtn = document.getElementById('playBtn');
+    
+    if (isPlaying) {
+        pausePlayback();
+    } else {
+        startPlayback();
+    }
+}
+
+function startPlayback() {
+    if (currentStepIndex >= traceData.length) {
+        currentStepIndex = 0;
+    }
+    
+    isPlaying = true;
+    document.getElementById('playBtn').innerHTML = '<i class="fas fa-pause me-1"></i> Pause';
+    
+    const speed = 2100 - parseInt(document.getElementById('speedSlider').value);
+    
+    playbackInterval = setInterval(() => {
+        if (currentStepIndex < traceData.length - 1) {
+            currentStepIndex++;
+            highlightCurrentStep();
+        } else {
+            pausePlayback();
+        }
+    }, speed);
+}
+
+function pausePlayback() {
+    isPlaying = false;
+    document.getElementById('playBtn').innerHTML = '<i class="fas fa-play me-1"></i> Play';
+    
+    if (playbackInterval) {
+        clearInterval(playbackInterval);
+        playbackInterval = null;
+    }
+}
+
+function stepForward() {
+    if (currentStepIndex < traceData.length - 1) {
+        currentStepIndex++;
+        highlightCurrentStep();
+    }
+}
+
+function stepBackward() {
+    if (currentStepIndex > 0) {
+        currentStepIndex--;
+        highlightCurrentStep();
+    }
+}
+
+function resetPlayback() {
+    pausePlayback();
+    currentStepIndex = 0;
+    highlightCurrentStep();
+}
+
+// Speed control
+document.getElementById('speedSlider').addEventListener('input', function(e) {
+    const speed = (2100 - parseInt(e.target.value)) / 1000;
+    document.getElementById('speedValue').textContent = speed.toFixed(1) + 'x';
+    
+    if (isPlaying) {
+        pausePlayback();
+        startPlayback();
+    }
+});
+
+// Keyboard controls
+document.addEventListener('keydown', function(e) {
+    switch(e.key) {
+        case ' ':
+            e.preventDefault();
+            togglePlayback();
+            break;
+        case 'ArrowRight':
+            stepForward();
+            break;
+        case 'ArrowLeft':
+            stepBackward();
+            break;
+        case 'r':
+            resetPlayback();
+            break;
+    }
+});
+
+// Load trace when page loads
+document.addEventListener('DOMContentLoaded', loadTrace);
+</script>
+{% endblock %}

@@ -1,0 +1,439 @@
+{% extends "base.html" %}
+
+{% block title %}Counterexample Analysis - DeFi Guardian{% endblock %}
+
+{% block extra_css %}
+<style>
+    .counterexample-container {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .state-transition {
+        display: flex;
+        align-items: center;
+        margin: 1rem 0;
+        padding: 1rem;
+        background: var(--bg);
+        border-radius: 8px;
+        border-left: 4px solid var(--accent);
+    }
+    .state-box {
+        flex: 1;
+        padding: 0.75rem;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        text-align: center;
+    }
+    .transition-arrow {
+        margin: 0 1rem;
+        color: var(--accent);
+        font-size: 1.5rem;
+    }
+    .error-highlight {
+        background: rgba(218,54,51,0.1);
+        border-left-color: #da3633;
+    }
+    .variable-changes {
+        margin-top: 0.5rem;
+        font-family: 'Monaco', 'Courier New', monospace;
+        font-size: 0.85rem;
+        color: var(--dim);
+    }
+    .timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 0.5rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--border);
+    }
+    .timeline-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        background: var(--bg);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+    }
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -1.75rem;
+        top: 1.5rem;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: 2px solid var(--panel);
+    }
+    .timeline-item.error::before {
+        background: #da3633;
+    }
+    .state-graph {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        min-height: 400px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>Counterexample Analysis</h1>
+        <p>Detailed analysis of verification failure</p>
+    </div>
+</section>
+
+<section class="counterexample-content">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8">
+                <!-- Counterexample Details -->
+                <div class="counterexample-container">
+                    <h3><i class="fas fa-bug text-accent me-2"></i>Counterexample Trace</h3>
+                    <div id="counterexampleContent">
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm me-2"></div>
+                            Loading counterexample...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- State Graph -->
+                <div class="counterexample-container">
+                    <h3><i class="fas fa-project-diagram text-accent me-2"></i>State Transition Graph</h3>
+                    <div class="state-graph" id="stateGraph">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-project-diagram fa-3x mb-3"></i>
+                            <p>State graph visualization will appear here</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <!-- Analysis Summary -->
+                <div class="counterexample-container">
+                    <h4><i class="fas fa-chart-pie text-accent me-2"></i>Analysis Summary</h4>
+                    <div id="analysisSummary">
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm me-2"></div>
+                            Analyzing...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Property Violations -->
+                <div class="counterexample-container">
+                    <h4><i class="fas fa-exclamation-triangle text-accent me-2"></i>Property Violations</h4>
+                    <div id="propertyViolations">
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm me-2"></div>
+                            Loading violations...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recommendations -->
+                <div class="counterexample-container">
+                    <h4><i class="fas fa-lightbulb text-accent me-2"></i>Recommendations</h4>
+                    <div id="recommendations">
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm me-2"></div>
+                            Generating recommendations...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function loadCounterexample() {
+    try {
+        const response = await fetch(`/api/counterexample/{{ audit_id }}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            document.getElementById('counterexampleContent').innerHTML = 
+                `<div class="alert alert-danger">${data.error}</div>`;
+            return;
+        }
+        
+        // Display counterexample
+        displayCounterexample(data.counterexample, data.output);
+        
+        // Display analysis summary
+        displayAnalysisSummary(data);
+        
+        // Display property violations
+        displayPropertyViolations(data);
+        
+        // Generate recommendations
+        generateRecommendations(data);
+        
+        // Create state graph
+        createStateGraph(data);
+        
+    } catch (error) {
+        console.error('Error loading counterexample:', error);
+        document.getElementById('counterexampleContent').innerHTML = 
+            `<div class="alert alert-danger">Failed to load counterexample</div>`;
+    }
+}
+
+function displayCounterexample(counterexample, output) {
+    const container = document.getElementById('counterexampleContent');
+
+    // If we have parsed steps, show them as a timeline
+    if (counterexample && counterexample.length > 0) {
+        let html = '<div class="timeline">';
+        counterexample.forEach((line, index) => {
+            if (!line.trim()) return;
+            const isError = line.startsWith('❌') || line.startsWith('⚠️') ||
+                           line.toLowerCase().includes('error') ||
+                           line.toLowerCase().includes('violation') ||
+                           line.toLowerCase().includes('assert');
+            html += `
+                <div class="timeline-item ${isError ? 'error' : ''}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <strong>Step ${index + 1}</strong>
+                        <span class="badge ${isError ? 'bg-danger' : 'bg-primary'}">
+                            ${isError ? 'Error' : 'Normal'}
+                        </span>
+                    </div>
+                    <div class="font-monospace small" style="white-space:pre-wrap;">${escHtml(line)}</div>
+                </div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+        return;
+    }
+
+    // Fall back to showing the raw log output
+    if (output && output.trim()) {
+        container.innerHTML = `
+            <pre class="font-monospace small p-3 rounded" style="background:var(--bg);max-height:400px;overflow-y:auto;white-space:pre-wrap;">${escHtml(output)}</pre>`;
+        return;
+    }
+
+    container.innerHTML = '<p class="text-muted">No counterexample available</p>';
+}
+
+function displayAnalysisSummary(data) {
+    const container = document.getElementById('analysisSummary');
+    
+    const steps = data.counterexample ? data.counterexample.filter(l => l.trim()).length : 0;
+    const errors = data.counterexample ?
+        data.counterexample.filter(line =>
+            line.startsWith('❌') || line.startsWith('⚠️') ||
+            line.toLowerCase().includes('error') ||
+            line.toLowerCase().includes('violation') ||
+            line.toLowerCase().includes('assert')
+        ).length : 0;
+    const severity = errors > 2 ? 'High' : errors > 0 ? 'Medium' : 'Low';
+    const sevColor = errors > 2 ? 'text-danger' : errors > 0 ? 'text-warning' : 'text-success';
+    
+    container.innerHTML = `
+        <div class="mb-3">
+            <div class="d-flex justify-content-between mb-2">
+                <span>Total Steps</span>
+                <strong>${steps}</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span>Error States</span>
+                <strong class="text-danger">${errors}</strong>
+            </div>
+            <div class="d-flex justify-content-between">
+                <span>Severity</span>
+                <strong class="${sevColor}">${severity}</strong>
+            </div>
+        </div>
+        ${steps > 0 ? `
+        <div class="progress" style="height: 6px;">
+            <div class="progress-bar bg-danger" style="width: ${Math.round((errors/steps)*100)}%"></div>
+        </div>` : ''}
+    `;
+}
+
+function displayPropertyViolations(data) {
+    const container = document.getElementById('propertyViolations');
+    
+    const violations = [];
+    if (data.counterexample) {
+        data.counterexample.forEach(line => {
+            if (line.startsWith('⚠️') || line.startsWith('❌') ||
+                line.toLowerCase().includes('violation') ||
+                line.toLowerCase().includes('assertion') ||
+                line.toLowerCase().includes('acceptance cycle')) {
+                violations.push(line);
+            }
+        });
+    }
+    // Also check raw output for LTL violation lines
+    if (data.output) {
+        data.output.split('\n').forEach(line => {
+            const low = line.toLowerCase();
+            if ((low.includes('ltl') && low.includes('violated')) ||
+                low.includes('acceptance cycle') ||
+                low.includes('assertion violated')) {
+                const clean = line.trim();
+                if (clean && !violations.includes(clean)) violations.push(clean);
+            }
+        });
+    }
+    
+    if (violations.length === 0) {
+        container.innerHTML = '<p class="text-muted small">No property violations detected</p>';
+        return;
+    }
+    
+    let html = '';
+    violations.forEach((violation, index) => {
+        html += `
+            <div class="alert alert-danger small mb-2 py-2">
+                <strong>Violation ${index + 1}:</strong><br>
+                <span class="font-monospace">${escHtml(violation)}</span>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function generateRecommendations(data) {
+    const container = document.getElementById('recommendations');
+    
+    // Use API-provided recommendations if available
+    const recs = data.recommendations || [
+        'Review the state transition that led to the error',
+        'Check for race conditions in concurrent operations',
+        'Verify invariants are properly maintained',
+        'Consider adding additional safety checks'
+    ];
+    
+    // Tool-specific header
+    const toolLabel = data.tool ? data.tool.toUpperCase() : 'VERIFICATION';
+    const isNonSpin = data.is_non_spin;
+
+    let html = '';
+    if (isNonSpin) {
+        html += `<div class="alert alert-info small mb-3 py-2">
+            <strong>${toolLabel} failure</strong> — no SPIN trail available.
+            The analysis below is based on the tool's error log.
+        </div>`;
+    }
+
+    recs.forEach(rec => {
+        html += `
+            <div class="d-flex align-items-start mb-2">
+                <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                <span class="small">${escHtml(rec)}</span>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function createStateGraph(data) {
+    const container = document.getElementById('stateGraph');
+
+    // Use state_graph from counterexample API response, or fetch separately
+    const graphData = data.state_graph;
+    if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-project-diagram fa-3x mb-3 d-block"></i>
+                <p>No state graph data available for this run.</p>
+            </div>`;
+        return;
+    }
+
+    // Build a simple SVG-based graph using D3 force layout via CDN
+    container.innerHTML = '<div id="graphCanvas" style="width:100%;height:400px;"></div>';
+
+    const script = document.createElement('script');
+    script.src = 'https://d3js.org/d3.v7.min.js';
+    script.onload = () => renderD3Graph(graphData);
+    document.head.appendChild(script);
+}
+
+function renderD3Graph(graphData) {
+    const el = document.getElementById('graphCanvas');
+    if (!el) return;
+
+    const width = el.clientWidth || 600;
+    const height = 400;
+
+    const nodes = graphData.nodes.map(n => ({ id: typeof n === 'string' ? n : n.id || n }));
+    const links = (graphData.edges || []).map(e => ({
+        source: e.from || e.source,
+        target: e.to || e.target,
+        label: e.label || e.lab || ''
+    }));
+
+    const svg = d3.select('#graphCanvas').append('svg')
+        .attr('width', width).attr('height', height)
+        .style('background', 'var(--bg)');
+
+    // Arrow marker
+    svg.append('defs').append('marker')
+        .attr('id', 'arrow').attr('viewBox', '0 -5 10 10')
+        .attr('refX', 20).attr('refY', 0)
+        .attr('markerWidth', 6).attr('markerHeight', 6)
+        .attr('orient', 'auto')
+        .append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', '#00ffcc');
+
+    const sim = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+        .force('charge', d3.forceManyBody().strength(-300))
+        .force('center', d3.forceCenter(width / 2, height / 2));
+
+    const link = svg.append('g').selectAll('line').data(links).join('line')
+        .attr('stroke', '#00ffcc55').attr('stroke-width', 1.5)
+        .attr('marker-end', 'url(#arrow)');
+
+    const node = svg.append('g').selectAll('circle').data(nodes).join('circle')
+        .attr('r', 18).attr('fill', '#1a2a3a').attr('stroke', '#00ffcc').attr('stroke-width', 2)
+        .call(d3.drag()
+            .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+            .on('drag',  (e, d) => { d.fx = e.x; d.fy = e.y; })
+            .on('end',   (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }));
+
+    const label = svg.append('g').selectAll('text').data(nodes).join('text')
+        .text(d => d.id.length > 12 ? d.id.slice(0, 12) + '…' : d.id)
+        .attr('font-size', 9).attr('fill', '#e6edf3').attr('text-anchor', 'middle').attr('dy', 4);
+
+    node.append('title').text(d => d.id);
+
+    sim.on('tick', () => {
+        link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+        node.attr('cx', d => d.x).attr('cy', d => d.y);
+        label.attr('x', d => d.x).attr('y', d => d.y);
+    });
+}
+
+// Load counterexample when page loads
+document.addEventListener('DOMContentLoaded', loadCounterexample);
+</script>
+{% endblock %}

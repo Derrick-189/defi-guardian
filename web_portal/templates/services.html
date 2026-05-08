@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Our Services - DeFi Guardian{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>Our Services</h1>
+        <p>Choose the right level of protection for your smart contracts</p>
+    </div>
+</section>
+
+<section class="services-content">
+    <div class="container">
+        <div class="row">
+            {% for plan in plans %}
+            <div class="col-lg-4 mb-4">
+                <div class="service-card {% if plan.name == 'Professional' %}featured{% endif %}">
+                    {% if plan.name == 'Professional' %}
+                        <div class="featured-badge">Recommended</div>
+                    {% endif %}
+                    <h3>{{ plan.name }}</h3>
+                    <div class="price">{{ plan.price }}</div>
+                    <ul class="features-list">
+                        {% for feature in plan.features %}
+                        <li><i class="fas fa-check"></i> {{ feature }}</li>
+                        {% endfor %}
+                    </ul>
+                    <div class="d-grid mt-auto">
+                        <a href="{{ url_for('register') }}" class="btn btn-{% if plan.name == 'Professional' %}primary{% else %}outline-light{% endif %}">
+                            Get Started
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="row mt-5">
+            <div class="col-12 text-center">
+                <h3>Need a Custom Solution?</h3>
+                <p>We offer specialized verification services for complex DeFi protocols and institutional clients.</p>
+                <a href="{{ url_for('contact') }}" class="btn btn-outline-accent">Contact Our Security Experts</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

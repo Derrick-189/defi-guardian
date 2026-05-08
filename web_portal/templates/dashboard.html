@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - DeFi Guardian{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>Dashboard</h1>
+        <p>Welcome back, {{ current_user.username }}</p>
+    </div>
+</section>
+
+<section class="dashboard-content">
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <h3>{{ audits|length }}</h3>
+                    <p>Total Audits</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <h3>{{ audits|selectattr('4', 'equalto', 'PASS')|list|length }}</h3>
+                    <p>Passed</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <h3>
+                        {% if audits|length > 0 %}
+                            {{ (audits|selectattr('4', 'equalto', 'PASS')|list|length / audits|length * 100)|round(1) }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </h3>
+                    <p>Success Rate</p>
+                </div>
+            </div>
+        </div>
+        
+        <h2>Your Audit History</h2>
+        {% if audits %}
+        <div class="table-responsive">
+            <table class="table table-dark">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>File</th>
+                        <th>Type</th>
+                        <th>Tool</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for audit in audits %}
+                    <tr>
+                        <td>{{ audit[0] }}</td>
+                        <td><code>{{ audit[2] }}</code></td>
+                        <td>{{ audit[3] }}</td>
+                        <td>{{ audit[4] }}</td>
+                        <td>
+                            {% if audit[5] == 'PASS' %}
+                                <span class="badge bg-success">PASS</span>
+                            {% else %}
+                                <span class="badge bg-danger">FAIL</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ url_for('counterexample_analysis', audit_id=audit[0]) }}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-bug"></i> Counterexample
+                                </a>
+                                <a href="{{ url_for('trace_viewer', audit_id=audit[0]) }}" class="btn btn-outline-info btn-sm">
+                                    <i class="fas fa-stream"></i> Trace
+                                </a>
+                            </div>
+                        </td>
+                        <td>{{ audit[12][:10] if audit[12] else 'N/A' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-clipboard-list"></i>
+            <h3>No audits yet</h3>
+            <p>Run your first verification to see results here.</p>
+            <a href="#" class="btn btn-primary">Run Verification</a>
+        </div>
+        {% endif %}
+
+        <h2 class="mt-5">Local Desktop Runs</h2>
+        <div id="desktop-runs-container">
+            <p class="text-muted">Loading...</p>
+        </div>
+    </div>
+</section>
+
+<script>
+fetch('/api/desktop-runs')
+    .then(r => r.json())
+    .then(runs => {
+        const el = document.getElementById('desktop-runs-container');
+        if (!Array.isArray(runs) || runs.length === 0) {
+            el.innerHTML = '<div class="empty-state"><i class="fas fa-desktop"></i><h3>No desktop runs found</h3><p>Run a verification from the desktop app to see results here.</p></div>';
+            return;
+        }
+        const rows = runs.map(r => `
+            <tr>
+                <td><code>${r.id.slice(0,8)}</code></td>
+                <td><code>${r.file}</code></td>
+                <td>${r.tool}</td>
+                <td>${r.status === 'SUCCESS' || r.status === 'PASS'
+                    ? '<span class="badge bg-success">PASS</span>'
+                    : '<span class="badge bg-danger">FAIL</span>'}</td>
+                <td>${r.states}</td>
+                <td>${r.depth}</td>
+                <td>${r.timestamp}</td>
+            </tr>`).join('');
+        el.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-dark">
+                    <thead><tr>
+                        <th>ID</th><th>File</th><th>Tool</th><th>Status</th>
+                        <th>States</th><th>Depth</th><th>Timestamp</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>`;
+    })
+    .catch(() => {
+        document.getElementById('desktop-runs-container').innerHTML =
+            '<p class="text-danger">Failed to load desktop runs.</p>';
+    });
+</script>
+{% endblock %}

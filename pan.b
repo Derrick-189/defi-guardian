@@ -2,65 +2,13 @@
 	default: Uerror("bad return move");
 	case  0: goto R999; /* nothing to undo */
 
-		 /* CLAIM reachability_liquidation */
-;
-		;
-		;
-		;
-		
-	case 5: // STATE 13
-		;
-		p_restor(II);
-		;
-		;
-		goto R999;
-
-		 /* CLAIM fairness */
-;
-		;
-		;
-		;
-		
-	case 8: // STATE 13
-		;
-		p_restor(II);
-		;
-		;
-		goto R999;
-
-		 /* CLAIM stability */
-;
-		;
-		;
-		;
-		
-	case 11: // STATE 13
-		;
-		p_restor(II);
-		;
-		;
-		goto R999;
-
-		 /* CLAIM response_price_drop */
-;
-		;
-		;
-		;
-		
-	case 14: // STATE 13
-		;
-		p_restor(II);
-		;
-		;
-		goto R999;
-
-		 /* CLAIM invariant_collateral */
+		 /* CLAIM invariant_balance */
 ;
 		
-	case 15: // STATE 1
+	case 3: // STATE 1
 		goto R999;
 
-	case 16: // STATE 10
+	case 4: // STATE 10
 		;
 		p_restor(II);
 		;
@@ -71,20 +19,7 @@
 ;
 		;
 		
-	case 18: // STATE 6
-		;
-		p_restor(II);
-		;
-		;
-		goto R999;
-
-		 /* CLAIM safety_reentrancy */
-;
-		
-	case 19: // STATE 1
-		goto R999;
-
-	case 20: // STATE 10
+	case 6: // STATE 6
 		;
 		p_restor(II);
 		;
@@ -94,34 +29,19 @@
 		 /* CLAIM safety_no_overflow */
 ;
 		
-	case 21: // STATE 1
+	case 7: // STATE 1
 		goto R999;
 
-	case 22: // STATE 10
+	case 8: // STATE 10
 		;
 		p_restor(II);
 		;
 		;
 		goto R999;
 
-		 /* CLAIM never_0 */
-;
-		;
-		;
-		;
-		;
-		;
-		
-	case 26: // STATE 10
-		;
-		p_restor(II);
-		;
-		;
-		goto R999;
+		 /* PROC Program */
 
-		 /* PROC Contract */
-
-	case 27: // STATE 2
+	case 9: // STATE 2
 		;
 		now.state = trpt->bup.oval;
 		;
@@ -129,40 +49,44 @@
 ;
 		;
 		
-	case 29: // STATE 8
+	case 11: // STATE 6
 		;
-		now.health_factor = trpt->bup.oval;
+		lock = trpt->bup.oval;
 		;
 		goto R999;
 
-	case 30: // STATE 18
+	case 12: // STATE 16
 		;
 		now.state = trpt->bup.ovals[2];
-		now.state = trpt->bup.ovals[1];
-		now.liquidation_executed = trpt->bup.ovals[0];
+		lock = trpt->bup.ovals[1];
+		now.balance = trpt->bup.ovals[0];
 		;
 		ungrab_ints(trpt->bup.ovals, 3);
 		goto R999;
 
-	case 31: // STATE 18
+	case 13: // STATE 16
 		;
-		now.state = trpt->bup.oval;
+		now.state = trpt->bup.ovals[1];
+		lock = trpt->bup.ovals[0];
 		;
+		ungrab_ints(trpt->bup.ovals, 2);
 		goto R999;
 
-	case 32: // STATE 18
+	case 14: // STATE 16
 		;
-		now.state = trpt->bup.oval;
+		now.state = trpt->bup.ovals[1];
+		lock = trpt->bup.ovals[0];
 		;
+		ungrab_ints(trpt->bup.ovals, 2);
 		goto R999;
 ;
 		;
 		;
 		
-	case 34: // STATE 21
+	case 16: // STATE 20
 		goto R999;
 
-	case 35: // STATE 27
+	case 17: // STATE 26
 		;
 		p_restor(II);
 		;

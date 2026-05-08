@@ -20,8 +20,18 @@ import numpy as np
 import json
 from PIL import Image
 import io
-import graphviz
-import networkx as nx
+import sqlite3
+import hashlib
+import hmac
+try:
+    import graphviz
+except ImportError:
+    graphviz = None
+
+try:
+    import networkx as nx
+except ImportError:
+    nx = None
 import time
 
 # Project directory for file I/O
@@ -49,6 +59,267 @@ except ImportError:
     # Fallback if streamlit-extras is not installed
     def stylable_container(key, css_styles):
         return st.container()
+
+# ==================== USER ACCOUNT HELPERS ====================
+# Reuse the same SQLite database as the web portal when available.
+
+_WEB_PORTAL_DB = os.path.join(PROJECT_DIR, "web_portal", "defi_guardian.db")
+_FALLBACK_DB   = os.path.join(REPORTS_DIR, "dashboard_users.db")
+
+def _get_db_path() -> str:
+    """Return the best available user database path."""
+    if os.path.exists(_WEB_PORTAL_DB):
+        return _WEB_PORTAL_DB
+    return _FALLBACK_DB
+
+def _ensure_user_tables():
+    """Create user tables if they don't exist (fallback DB only)."""
+    db = _get_db_path()
+    conn = sqlite3.connect(db)
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            organization TEXT,
+            role TEXT DEFAULT 'user',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_login TIMESTAMP
+        )
+    ''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS audit_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            filename TEXT NOT NULL,
+            file_type TEXT,
+            tool_used TEXT,
+            status TEXT,
+            states_explored INTEGER,
+            transitions INTEGER,
+            depth_reached INTEGER,
+            vulnerabilities_found TEXT,
+            ltl_properties TEXT,
+            verification_output TEXT,
+            audit_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            report_path TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+_ensure_user_tables()
+
+def _hash_password(password: str) -> str:
+    """Return a SHA-256 hex digest of the password (matches werkzeug pbkdf2 only for new accounts)."""
+    # Use a simple but consistent scheme for dashboard-created accounts.
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def _verify_password(stored_hash: str, password: str) -> bool:
+    """Verify password against stored hash (supports both werkzeug and sha256)."""
+    # Try werkzeug-style hash first (web portal accounts)
+    try:
+        from werkzeug.security import check_password_hash
+        if stored_hash.startswith("pbkdf2:") or stored_hash.startswith("scrypt:"):
+            return check_password_hash(stored_hash, password)
+    except ImportError:
+        pass
+    # Fallback: plain sha256
+    return hmac.compare_digest(stored_hash, _hash_password(password))
+
+def db_login(username: str, password: str):
+    """Return user dict on success, None on failure."""
+    db = _get_db_path()
+    conn = sqlite3.connect(db)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, username, email, password_hash, organization, role FROM users WHERE username = ?",
+        (username,)
+    )
+    row = cur.fetchone()
+    if row and _verify_password(row[3], password):
+        cur.execute("UPDATE users SET last_login = ? WHERE id = ?", (datetime.now().isoformat(), row[0]))
+        conn.commit()
+        conn.close()
+        return {"id": row[0], "username": row[1], "email": row[2], "organization": row[4], "role": row[5]}
+    conn.close()
+    return None
+
+def db_register(username: str, email: str, password: str, organization: str = "") -> tuple:
+    """Register a new user. Returns (True, user_dict) or (False, error_message)."""
+    if len(password) < 6:
+        return False, "Password must be at least 6 characters."
+    db = _get_db_path()
+    conn = sqlite3.connect(db)
+    cur = conn.cursor()
+    try:
+        # Use werkzeug if available for consistency with web portal
+        try:
+            from werkzeug.security import generate_password_hash
+            pw_hash = generate_password_hash(password)
+        except ImportError:
+            pw_hash = _hash_password(password)
+        cur.execute(
+            "INSERT INTO users (username, email, password_hash, organization) VALUES (?, ?, ?, ?)",
+            (username.strip(), email.strip().lower(), pw_hash, organization.strip())
+        )
+        conn.commit()
+        user_id = cur.lastrowid
+        conn.close()
+        return True, {"id": user_id, "username": username, "email": email, "organization": organization, "role": "user"}
+    except sqlite3.IntegrityError as e:
+        conn.close()
+        if "username" in str(e):
+            return False, "Username already taken."
+        if "email" in str(e):
+            return False, "Email already registered."
+        return False, str(e)
+
+def db_get_user_audit_history(user_id: int, limit: int = 50):
+    """Return audit history rows for a user (includes shared/anonymous rows)."""
+    db = _get_db_path()
+    conn = sqlite3.connect(db)
+    cur = conn.cursor()
+    cur.execute('''
+        SELECT filename, file_type, tool_used, status,
+               states_explored, transitions, depth_reached,
+               audit_date, report_path, verification_output
+        FROM audit_history
+        WHERE user_id = ? OR user_id IS NULL
+        ORDER BY audit_date DESC
+        LIMIT ?
+    ''', (user_id, limit))
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def db_get_user_stats(user_id: int) -> dict:
+    """Return aggregate stats for a user's verification history."""
+    db = _get_db_path()
+    conn = sqlite3.connect(db)
+    cur = conn.cursor()
+    cur.execute('''
+        SELECT COUNT(*), SUM(CASE WHEN status='PASS' THEN 1 ELSE 0 END),
+               SUM(states_explored), MAX(depth_reached)
+        FROM audit_history
+        WHERE user_id = ? OR user_id IS NULL
+    ''', (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    total = row[0] or 0
+    passed = row[1] or 0
+    return {
+        "total_jobs": total,
+        "passed": passed,
+        "failed": total - passed,
+        "pass_rate": round(passed / total * 100, 1) if total else 0,
+        "total_states": row[2] or 0,
+        "max_depth": row[3] or 0,
+    }
+
+def render_user_account_panel():
+    """Render the user account section in the Streamlit sidebar."""
+    t = get_current_theme()
+    t_mode = st.session_state.get('theme', 'dark')
+
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-header">👤 USER ACCOUNT</div>', unsafe_allow_html=True)
+
+    # ── Logged-in state ──────────────────────────────────────────────
+    if st.session_state.get("user"):
+        user = st.session_state["user"]
+        role_badge_color = "#00ffcc" if user["role"] == "admin" else "#9b59b6"
+        st.markdown(f"""
+        <div style="background:{t['card_bg']};border:1px solid {t['card_border']};
+                    border-radius:10px;padding:0.75rem 1rem;margin-bottom:0.5rem;">
+            <div style="font-weight:700;color:{t['text_main']};font-size:0.95rem;">
+                {user['username']}
+            </div>
+            <div style="font-size:0.75rem;color:{t['text_dim']};margin-top:2px;">
+                {user.get('email','')}
+            </div>
+            {"<div style='font-size:0.7rem;color:"+t['text_dim']+"'>🏢 "+user['organization']+"</div>" if user.get('organization') else ""}
+            <span style="background:{role_badge_color}22;color:{role_badge_color};
+                         border:1px solid {role_badge_color}44;border-radius:20px;
+                         padding:2px 8px;font-size:0.65rem;font-weight:700;
+                         text-transform:uppercase;margin-top:4px;display:inline-block;">
+                {user['role']}
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Quick stats
+        stats = db_get_user_stats(user["id"])
+        sc1, sc2, sc3 = st.columns(3)
+        sc1.metric("Jobs", stats["total_jobs"])
+        sc2.metric("Passed", stats["passed"])
+        sc3.metric("Pass %", f"{stats['pass_rate']}%")
+
+        if st.button("🚪 Sign Out", use_container_width=True, key="btn_signout"):
+            st.session_state.pop("user", None)
+            st.session_state.pop("account_tab", None)
+            st.rerun()
+        return
+
+    # ── Logged-out state ─────────────────────────────────────────────
+    tab_key = st.session_state.get("account_tab", "login")
+    col_l, col_r = st.columns(2)
+    with col_l:
+        if st.button("Sign In", use_container_width=True,
+                     type="primary" if tab_key == "login" else "secondary",
+                     key="btn_show_login"):
+            st.session_state["account_tab"] = "login"
+            st.rerun()
+    with col_r:
+        if st.button("Register", use_container_width=True,
+                     type="primary" if tab_key == "register" else "secondary",
+                     key="btn_show_register"):
+            st.session_state["account_tab"] = "register"
+            st.rerun()
+
+    if tab_key == "login":
+        with st.form("form_login", clear_on_submit=False):
+            uname = st.text_input("Username", key="login_username", placeholder="your_username")
+            pwd   = st.text_input("Password", type="password", key="login_password", placeholder="••••••••")
+            submitted = st.form_submit_button("Sign In", use_container_width=True)
+            if submitted:
+                if not uname or not pwd:
+                    st.error("Please fill in all fields.")
+                else:
+                    user = db_login(uname, pwd)
+                    if user:
+                        st.session_state["user"] = user
+                        st.session_state.pop("account_tab", None)
+                        st.success(f"Welcome back, {user['username']}!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password.")
+
+    else:  # register
+        with st.form("form_register", clear_on_submit=False):
+            new_uname = st.text_input("Username", key="reg_username", placeholder="choose_a_username")
+            new_email = st.text_input("Email",    key="reg_email",    placeholder="you@example.com")
+            new_org   = st.text_input("Organization (optional)", key="reg_org", placeholder="Acme Corp")
+            new_pwd   = st.text_input("Password", type="password", key="reg_password",  placeholder="min 6 chars")
+            new_pwd2  = st.text_input("Confirm",  type="password", key="reg_password2", placeholder="repeat password")
+            submitted = st.form_submit_button("Create Account", use_container_width=True)
+            if submitted:
+                if not new_uname or not new_email or not new_pwd:
+                    st.error("Username, email and password are required.")
+                elif new_pwd != new_pwd2:
+                    st.error("Passwords do not match.")
+                else:
+                    ok, result = db_register(new_uname, new_email, new_pwd, new_org)
+                    if ok:
+                        st.session_state["user"] = result
+                        st.session_state.pop("account_tab", None)
+                        st.success(f"Account created! Welcome, {result['username']}.")
+                        st.rerun()
+                    else:
+                        st.error(result)
 
 # Ensure we're in the right directory
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -1079,11 +1350,77 @@ st.set_page_config(
     layout="wide", 
     initial_sidebar_state="expanded" 
 ) 
+
+# ── Remove Streamlit's default padding so the dashboard fills the iframe ──
+st.markdown("""
+<style>
+    /* Kill Streamlit's default padding on the main block */
+    .main .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        max-width: 100% !important;
+    }
+    /* Also remove top padding from the entire main area */
+    section.main > div {
+        padding-top: 0 !important;
+    }
+    /* Hide the Streamlit hamburger menu and footer for a cleaner embed */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True) 
  
 # Modern glassmorphism styling moved to theme_toggle()
 st.markdown("""
 <div id="top"></div>
 """, unsafe_allow_html=True)
+
+# Show visual guidance when optional dependencies are missing
+if nx is None:
+    st.error("The `networkx` package is not installed. Install it with `pip install networkx` to enable state visualization and graph rendering.")
+    st.markdown("""
+    ### 🚨 Missing Dependency: networkx
+    
+    The state visualization features require the `networkx` library. Without it, you cannot:
+    - View 3D state space graphs
+    - See 2D state diagrams  
+    - Explore state transitions interactively
+    
+    **To fix this:**
+    ```bash
+    pip install networkx
+    ```
+    
+    Then restart the Streamlit dashboard.
+    """)
+    st.stop()  # Prevent further execution
+
+if graphviz is None:
+    st.warning("The `graphviz` Python package is not installed. Some state diagram rendering and Graphviz features may be limited. Install it with `pip install graphviz`.")
+    st.markdown("""
+    ### ⚠️ Optional Dependency: graphviz
+    
+    Graphviz enhances state diagram rendering. Without it, some diagram features may be limited.
+    
+    **To install:**
+    ```bash
+    pip install graphviz
+    ```
+    
+    You may also need the system Graphviz package:
+    ```bash
+    # Ubuntu/Debian
+    sudo apt install graphviz
+    
+    # macOS
+    brew install graphviz
+    
+    # Windows - download from https://graphviz.org/download/
+    ```
+    """)
 
 def load_live_verification():
     """Load verification status with timestamp"""
@@ -1262,6 +1599,150 @@ def get_tool_status(tool_name):
             'success': success
         }
     return {'status': '⚪ Not Run', 'timestamp': '', 'success': False}
+
+
+def load_tool_log(tool_name: str, max_bytes: int = 32_000) -> str:
+    """Load the most recent log file for a given tool."""
+    log_dirs = {
+        "spin":    SPIN_LOGS,
+        "certora": CERTORA_LOGS,
+        "coq":     COQ_LOGS,
+        "lean":    LEAN_LOGS,
+        "kani":    RUST_LOGS,
+        "prusti":  RUST_LOGS,
+        "creusot": RUST_LOGS,
+        "verus":   RUST_LOGS,
+    }
+    log_dir = log_dirs.get(tool_name.lower(), LOGS_DIR)
+
+    # Also check verification_state for an explicit log_path
+    state = load_verification_state()
+    tool_state = state.get(tool_name.lower(), {})
+    explicit_path = tool_state.get("log_path", "")
+    if explicit_path and os.path.exists(explicit_path):
+        try:
+            with open(explicit_path, "r", errors="replace") as f:
+                content = f.read(max_bytes)
+            return content + ("\n… [truncated]" if len(content) == max_bytes else "")
+        except Exception as e:
+            return f"Error reading log: {e}"
+
+    # Fall back to newest file in the tool's log directory
+    if os.path.isdir(log_dir):
+        candidates = sorted(
+            [os.path.join(log_dir, fn) for fn in os.listdir(log_dir)
+             if os.path.isfile(os.path.join(log_dir, fn))],
+            key=os.path.getmtime, reverse=True
+        )
+        for path in candidates:
+            try:
+                with open(path, "r", errors="replace") as f:
+                    content = f.read(max_bytes)
+                return content + ("\n… [truncated]" if len(content) == max_bytes else "")
+            except Exception:
+                continue
+
+    return f"No log found for {tool_name}."
+
+
+def render_multi_tool_verification_panel():
+    """Render a rich multi-tool verification status and log viewer panel."""
+    t = get_current_theme()
+    t_mode = st.session_state.get('theme', 'dark')
+
+    state = load_verification_state()
+    active_file = get_active_filename()
+    is_rust = active_file.lower().endswith('.rs')
+    is_sol  = active_file.lower().endswith('.sol')
+
+    # Determine which tools are relevant
+    if is_rust:
+        tools = ["kani", "prusti", "creusot", "verus", "lean"]
+    elif is_sol:
+        tools = ["spin", "certora", "coq", "lean"]
+    else:
+        tools = ["spin", "coq", "lean"]
+
+    # ── Summary cards ────────────────────────────────────────────────
+    st.markdown("### 🔬 Multi-Tool Verification Status")
+    cols = st.columns(len(tools))
+    for col, tool in zip(cols, tools):
+        info = get_tool_status(tool)
+        success = info["success"]
+        card_border = "#10b981" if success else ("#ef4444" if info["status"] != "⚪ Not Run" else t["card_border"])
+        ts = info["timestamp"][:16] if info["timestamp"] else "—"
+        with col:
+            st.markdown(f"""
+            <div style="background:{t['card_bg']};border:1px solid {card_border};
+                        border-radius:10px;padding:0.75rem;text-align:center;">
+                <div style="font-size:1.4rem;">{"✅" if success else ("❌" if info["status"] != "⚪ Not Run" else "⚪")}</div>
+                <div style="font-weight:700;color:{t['text_main']};font-size:0.85rem;
+                            text-transform:uppercase;margin:4px 0;">{tool}</div>
+                <div style="font-size:0.7rem;color:{t['text_dim']};">{ts}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+    # ── Detailed results per tool ────────────────────────────────────
+    st.markdown("### 📋 Tool Details & Logs")
+    selected_tool = st.selectbox(
+        "Select tool to inspect",
+        options=tools,
+        format_func=lambda x: x.upper(),
+        key="multi_tool_selector"
+    )
+
+    info = get_tool_status(selected_tool)
+    tool_state = state.get(selected_tool.lower(), {})
+
+    # Status + metadata row
+    mc1, mc2, mc3, mc4 = st.columns(4)
+    mc1.metric("Status", info["status"])
+    mc2.metric("States", tool_state.get("states_stored", tool_state.get("states", "—")))
+    mc3.metric("Transitions", tool_state.get("transitions", "—"))
+    mc4.metric("Depth", tool_state.get("depth", "—"))
+
+    # LTL / rule results for this tool
+    ltl_results = tool_state.get("ltl_results", [])
+    if ltl_results:
+        st.markdown("#### LTL / Rule Results")
+        for prop in ltl_results:
+            ok = prop.get("success", False)
+            color = "#10b981" if ok else "#ef4444"
+            formula_bg = "rgba(0,0,0,0.15)" if t_mode == "dark" else "rgba(0,0,0,0.05)"
+            st.markdown(f"""
+            <div class="ltl-property" style="border-color:{color};background:{color}10;">
+                <span style="color:{color};font-weight:bold;">{"PASS" if ok else "FAIL"}</span> |
+                <strong style="color:{t['text_main']}">{prop.get('name','?')}</strong>:
+                <code style="background:{formula_bg};color:{t['secondary']};
+                             padding:2px 5px;border-radius:4px;">{prop.get('formula','')}</code>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # Certora-specific: job URL
+    if selected_tool == "certora":
+        job_url = tool_state.get("job_url", "")
+        if job_url:
+            st.markdown(f"🔗 **Certora Cloud Results:** [{job_url}]({job_url})")
+        spec_content = tool_state.get("spec_content", "")
+        if spec_content:
+            with st.expander("📜 Active Certora Spec"):
+                st.code(spec_content, language="text")
+
+    # Log viewer
+    with st.expander(f"📄 {selected_tool.upper()} Log Output", expanded=False):
+        log_text = load_tool_log(selected_tool)
+        if log_text.startswith("No log"):
+            st.info(log_text)
+        else:
+            st.code(log_text, language="text")
+
+    # Errors / violations
+    errors = tool_state.get("errors", tool_state.get("error_msg", ""))
+    if errors:
+        with st.expander("⚠️ Errors / Violations", expanded=True):
+            st.code(errors, language="text")
 
 # ==================== HELPER FUNCTIONS ====================
 
@@ -1877,6 +2358,9 @@ def generate_proof_obligations(state_machine):
 
 def render_3d_state_space(state_graph_data, height=500):
     """Render 3D state space using Plotly for better layout control"""
+
+    if nx is None:
+        return go.Figure()
     
     if isinstance(state_graph_data, nx.Graph):
         G = state_graph_data
@@ -1955,7 +2439,7 @@ def render_3d_state_space(state_graph_data, height=500):
 
 def render_2d_state_space(G, height=500):
     """Render 2D state space using Plotly for a cleaner static view"""
-    if not G.nodes():
+    if nx is None or not G.nodes():
         return go.Figure()
 
     # Use a better layout for state traces
@@ -2036,6 +2520,11 @@ def render_2d_state_space(G, height=500):
 
 def render_model_architecture(sm, height=600):
     """Render static model architecture"""
+    if nx is None:
+        fig = go.Figure()
+        fig.update_layout(title='networkx is required to render model architecture')
+        return fig
+
     nodes = sm.get('states', ['State_' + str(i) for i in range(5)])
     edges = [{'from': t.get('from', 'S0'), 
               'to': t.get('to', 'S1'), 
@@ -2305,6 +2794,9 @@ with st.sidebar:
             {display_name}
         </div>
         """, unsafe_allow_html=True)
+    
+    # User Account Panel
+    render_user_account_panel()
     
     # Track setting changes for auto-regeneration
     if 'prev_viz_settings' not in st.session_state:
@@ -2632,17 +3124,76 @@ with tab_state_viewer:
                 st.markdown('<div class="web3d-container">', unsafe_allow_html=True)
                 render_3d_state_graph_web3d(state_graph_data, height=600)
                 st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                st.info("No state graph data available. Run a verification first to generate state diagrams.")
+                st.markdown("""
+                ### 📊 How to Generate State Diagrams
+                
+                1. **Load a model file** (.pml, .sol, .rs) in the main DeFi Guardian desktop app
+                2. **Run verification** using SPIN, Coq, or other tools
+                3. **Return here** to see the generated state space visualization
+                
+                The state graph shows:
+                - **Nodes**: System states
+                - **Edges**: State transitions  
+                - **Colors**: Different state types (safe, unsafe, etc.)
+                """)
 
             # 2D Plotly Fallback
             if viz_mode in ["2D (Static)", "Hybrid View"]:
                 st.markdown("### 2D Plotly Fallback")
-                G_viz = nx.DiGraph()
-                for node in state_graph_data.get('nodes', []): G_viz.add_node(node)
-                for edge in state_graph_data.get('edges', []): G_viz.add_edge(edge['from'], edge['to'])
-                fig_2d = render_2d_state_space(G_viz, height=500)
-                st.plotly_chart(fig_2d, use_container_width=True)
+                if nx is None:
+                    st.warning("`networkx` is not available. 2D fallback visualization is disabled.")
+                else:
+                    G_viz = nx.DiGraph()
+                    for node in state_graph_data.get('nodes', []): G_viz.add_node(node)
+                    for edge in state_graph_data.get('edges', []): G_viz.add_edge(edge['from'], edge['to'])
+                    fig_2d = render_2d_state_space(G_viz, height=500)
+                    st.plotly_chart(fig_2d, use_container_width=True)
         
-        # Model Stats
+        else:
+            # No diagram generated yet
+            st.info("No state machine model loaded. Generate a diagram to see visualizations.")
+            st.markdown("""
+            ### 🔄 Generate State Diagrams
+            
+            **From the Desktop App:**
+            1. Load a Promela (.pml), Solidity (.sol), or Rust (.rs) file
+            2. Click "Run Verification" 
+            3. The state diagram will appear here automatically
+            
+            **Supported Formats:**
+            - **SPIN/Promela**: Direct state space exploration
+            - **Solidity**: Translated to Promela for verification
+            - **Rust**: Translated via Prusti/Kani for formal methods
+            
+            **Visualization Features:**
+            - Interactive 3D state graphs
+            - Transition analysis
+            - Counterexample paths
+            - Performance metrics
+            """)
+            
+            # Show sample placeholder
+            st.markdown("### Sample State Graph Preview")
+            sample_fig = go.Figure()
+            sample_fig.add_trace(go.Scatter3d(
+                x=[0, 1, 2], y=[0, 1, 0], z=[0, 1, 2],
+                mode='markers+lines+text',
+                text=['S0', 'S1', 'S2'],
+                marker=dict(size=8, color='#00ffcc'),
+                line=dict(color='#ff00cc', width=3)
+            ))
+            sample_fig.update_layout(
+                title="Sample State Graph (Load a real model to see actual data)",
+                scene=dict(
+                    xaxis=dict(visible=False),
+                    yaxis=dict(visible=False), 
+                    zaxis=dict(visible=False)
+                ),
+                height=400
+            )
+            st.plotly_chart(sample_fig, use_container_width=True)
         if expand_details and st.session_state.state_machine:
             sm = st.session_state.state_machine
             st.markdown("### Model Statistics")
@@ -2657,43 +3208,56 @@ with tab_state_viewer:
 
 with tab_verifier:
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.markdown('<div class="panel-title">VERIFIER SUITE (SPIN & LTL)</div>', unsafe_allow_html=True)
-    
-    col_v1, col_v2 = st.columns([1, 1])
-    
-    with col_v1:
+    st.markdown('<div class="panel-title">VERIFIER SUITE</div>', unsafe_allow_html=True)
+
+    # ── Run Controls ─────────────────────────────────────────────────
+    run_col, ltl_col = st.columns([1, 1])
+
+    with run_col:
         st.markdown("### Run Controls")
-        if st.button("Execute Full Verification", use_container_width=True, type="primary", key="run_full_v"):
+        if st.button("▶ Execute SPIN Verification", use_container_width=True, type="primary", key="run_full_v"):
             with st.spinner("Running SPIN..."):
                 pml_file = get_active_filename()
                 if os.path.exists(pml_file):
                     res = run_spin_verification(pml_file)
                     st.session_state.verification_result = res
                     st.rerun()
-        
+                else:
+                    st.warning("No active model file found. Load a file in the desktop app first.")
+
         if st.session_state.get('verification_result'):
             res = st.session_state.verification_result
-            if res['success']: st.success("✅ SPIN: All properties verified!")
-            else: st.error("❌ SPIN: Property violation found!")
-            with st.expander("Raw SPIN Output"): st.text(res['output'])
+            if res['success']:
+                st.success("✅ SPIN: All properties verified!")
+            else:
+                st.error("❌ SPIN: Property violation found!")
+            with st.expander("Raw SPIN Output"):
+                st.code(res.get('output', ''), language="text")
 
-    with col_v2:
+    with ltl_col:
         st.markdown("### Active LTL Properties")
         v_results = load_active_verification_results()
         if v_results['ltl_properties']:
             for prop in v_results['ltl_properties']:
-                status, color = ("PASS", "#00ffcc") if prop['success'] else ("FAIL", "#ff4444")
-                # Use theme-aware formula background
+                ok = prop['success']
+                color = "#10b981" if ok else "#ef4444"
                 formula_bg = "rgba(0,0,0,0.2)" if st.session_state.theme == "dark" else "rgba(0,0,0,0.05)"
                 st.markdown(f"""
-                <div class="ltl-property" style="border-color: {color}; background: {color}10;">
-                    <span style="color: {color}; font-weight: bold;">{status}</span> | 
-                    <strong style="color: {t['text_main']}">{prop["name"]}</strong>: 
-                    <code style="background: {formula_bg}; color: {t['secondary']}; padding: 2px 5px; border-radius: 4px;">{prop["formula"]}</code>
+                <div class="ltl-property" style="border-color:{color};background:{color}10;">
+                    <span style="color:{color};font-weight:bold;">{"PASS" if ok else "FAIL"}</span> |
+                    <strong style="color:{t['text_main']}">{prop["name"]}</strong>:
+                    <code style="background:{formula_bg};color:{t['secondary']};
+                                 padding:2px 5px;border-radius:4px;">{prop["formula"]}</code>
                 </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info("No LTL properties found.")
+            st.info("No LTL properties found in the active model.")
+
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+    # ── Multi-tool panel ─────────────────────────────────────────────
+    render_multi_tool_verification_panel()
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 with tab_specs:
@@ -2759,6 +3323,73 @@ with tab_trace:
 with tab_history:
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.markdown('<div class="panel-title">VERIFICATION JOB HISTORY</div>', unsafe_allow_html=True)
+
+    # ── User-specific history if logged in ──────────────────────────
+    user = st.session_state.get("user")
+    if user:
+        st.markdown(f"### 📂 History for **{user['username']}**")
+        rows = db_get_user_audit_history(user["id"], limit=100)
+        if rows:
+            df = pd.DataFrame(rows, columns=[
+                "filename", "file_type", "tool_used", "status",
+                "states_explored", "transitions", "depth_reached",
+                "audit_date", "report_path", "verification_output"
+            ])
+            # Display table
+            st.dataframe(
+                df[["audit_date", "tool_used", "filename", "status", "states_explored", "depth_reached"]],
+                column_config={
+                    "audit_date": "Timestamp",
+                    "tool_used": "Tool",
+                    "filename": "File",
+                    "status": "Status",
+                    "states_explored": "States",
+                    "depth_reached": "Depth"
+                },
+                hide_index=True,
+                use_container_width=True
+            )
+
+            # Job details selector
+            st.markdown("### 🔍 Job Details")
+            job_ids = [f"{i+1}. {row[2]} on {row[0]} ({row[7][:16]})" for i, row in enumerate(rows)]
+            selected_idx = st.selectbox(
+                "Select a job to view details:",
+                range(len(job_ids)),
+                format_func=lambda x: job_ids[x],
+                key="selectbox_user_history"
+            )
+
+            if selected_idx is not None:
+                row = rows[selected_idx]
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.write(f"**Tool:** {row[2]}")
+                    st.write(f"**File:** `{row[0]}`")
+                    st.write(f"**Status:** {row[3]}")
+                with c2:
+                    st.write(f"**Timestamp:** {row[7]}")
+                    st.write(f"**States:** {row[4] or 0}")
+                    st.write(f"**Depth:** {row[6] or 0}")
+
+                # Show log if available
+                log_path = row[9]  # verification_output column
+                if log_path and os.path.exists(log_path):
+                    with st.expander("📄 Verification Log"):
+                        try:
+                            with open(log_path, "r", errors="replace") as f:
+                                st.code(f.read(16_000), language="text")
+                        except Exception as e:
+                            st.error(f"Could not read log: {e}")
+                else:
+                    st.info("No log file available for this job.")
+        else:
+            st.info("No verification history found for your account.")
+
+        st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+    # ── Global history (from audit_log.json) ─────────────────────────
+    st.markdown("### 🌐 Global Verification History")
     
     if os.path.exists(AUDIT_LOG_FILE):
         try:
@@ -2809,6 +3440,16 @@ with tab_history:
                         d1.metric("States", job['details'].get('states', 0))
                         d2.metric("Transitions", job['details'].get('transitions', 0))
                         d3.metric("Depth", job['details'].get('depth', 0))
+
+                    # Show log if available
+                    log_path = job.get('log_path', '')
+                    if log_path and os.path.exists(log_path):
+                        with st.expander("📄 Verification Log"):
+                            try:
+                                with open(log_path, "r", errors="replace") as f:
+                                    st.code(f.read(16_000), language="text")
+                            except Exception as e:
+                                st.error(f"Could not read log: {e}")
             else:
                 st.info("No verification jobs recorded yet.")
         except Exception as e:

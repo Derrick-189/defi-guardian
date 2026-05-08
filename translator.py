@@ -44,6 +44,16 @@ class DeFiTranslator:
         text = text.replace('≥', '>=').replace('≤', '<=').replace('msg.sender', '1')
         text = text.replace('true', '1').replace('false', '0')
         
+        # Handle ternary operator (expr1 ? expr2 : expr3)
+        # Simplified: if it contains a ternary, we try to extract just the condition or a default
+        if '?' in text and ':' in text:
+            match = re.search(r'(.*?)\?(.*?):(.*?)$', text)
+            if match:
+                # In Promela, we can't easily do inline ternary. 
+                # We'll just take the first part as a condition or simplify.
+                # For assertions, we might just return the condition.
+                return f"({match.group(1).strip()})"
+        
         # Strip out complex Solidity keywords that aren't defined in the model
         if 'success' in text:
             return "1 == 1"  # Replace unknown boolean checks with a true constant

@@ -1,25 +1,20 @@
 {
   "nodes": [
-    "Contract",
-    "Contract.State_1",
-    "Contract.INIT",
+    "Program",
+    "Program.State_1",
+    "Program.INIT",
     "LTL_safety_no_overflow",
-    "LTL_safety_reentrancy",
     "LTL_liveness_progress",
-    "LTL_invariant_collateral",
-    "LTL_response_price_drop",
-    "LTL_stability",
-    "LTL_fairness",
-    "LTL_reachability_liquidation"
+    "LTL_invariant_balance"
   ],
   "edges": [
     {
-      "from": "Contract.INIT",
-      "to": "Contract.State_1",
+      "from": "Program.INIT",
+      "to": "Program.State_1",
       "label": "assignment"
     }
   ],
   "counterexample_path": [],
-  "model_name": "IERC3156FlashBorrower.sol",
-  "timestamp": "2026-05-05T11:10:45.595775"
+  "model_name": "defi_vault.rs",
+  "timestamp": "2026-05-08T14:26:40.971269"
 }

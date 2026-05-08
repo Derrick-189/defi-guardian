@@ -85,29 +85,52 @@ def prusti_health_check():
     if not ok:
         return False, f"Prusti unavailable: {msg}"
 
+    JAVA11 = "/usr/lib/jvm/java-1.11.0-openjdk-amd64"
     project_dir = tempfile.mkdtemp()
     try:
         src = os.path.join(project_dir, "lib.rs")
         with open(src, "w") as f:
             f.write("fn f(x: u64) -> u64 { x }\n")
+
+        env = build_prusti_env()
+        # Force Java 11 — Prusti v0.2.x Silver JARs are incompatible with Java 17+
+        if os.path.isdir(JAVA11):
+            env["JAVA_HOME"] = JAVA11
+            lib_server = os.path.join(JAVA11, "lib", "server")
+            lib_base   = os.path.join(JAVA11, "lib")
+            existing   = env.get("LD_LIBRARY_PATH", "")
+            env["LD_LIBRARY_PATH"] = f"{lib_server}:{lib_base}" + (f":{existing}" if existing else "")
+
+        # Point to bundled Z3 if available
+        prusti_home = os.path.expanduser("~/.prusti")
+        bundled_z3  = os.path.join(prusti_home, "viper_tools", "z3", "bin", "z3")
+        if os.path.isfile(bundled_z3):
+            env["Z3_EXE"] = bundled_z3
+
         result = subprocess.run(
             ["prusti-rustc", "--edition=2021", "--crate-type=lib", src],
             capture_output=True,
             text=True,
-            timeout=12,
+            timeout=90,   # Native binary needs ~30s on first run; Docker needs ~60s
             cwd=project_dir,
-            env=build_prusti_env(),
+            env=env,
         )
         stderr = result.stderr or ""
-        if "unknown configuration flag `home`" in stderr:
+        stdout = result.stdout or ""
+        combined = stdout + stderr
+        if "unknown configuration flag `home`" in combined:
             return False, "PRUSTI_* environment contamination (remove PRUSTI_HOME)"
-        if "compiler unexpectedly panicked" in stderr:
+        if "compiler unexpectedly panicked" in combined:
+            # Distinguish JVM issue from other crashes
+            if "NoClassDefFoundError" in combined or "NoopReporter" in combined:
+                return False, "Prusti JVM error: Silver JAR incompatible with system Java (needs Java 11)"
             return False, "Prusti internal crash (toolchain incompatibility/bug)"
         if result.returncode != 0:
-            return False, (stderr.splitlines()[-1] if stderr.splitlines() else "Prusti failed")
+            last = (stderr.splitlines()[-1] if stderr.splitlines() else "Prusti failed")
+            return False, last
         return True, "Prusti smoke test passed"
     except subprocess.TimeoutExpired:
-        return False, "Prusti smoke test timed out"
+        return False, "Prusti smoke test timed out (binary may still be functional)"
     except Exception as e:
         return False, f"Prusti smoke test error: {e}"
     finally:
@@ -170,3 +193,22 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def check_all_tools():
+    """Return a dict of tool_name -> {installed, status} for the web portal API."""
+    results = {}
+    for name, command in TOOLS.items():
+        ok, msg = check_tool(name, command)
+        results[name] = {
+            'installed': ok,
+            'version': msg if ok else '',
+            'status': 'available' if ok else 'not_found',
+            'detail': msg,
+        }
+    # Prusti gets a deeper health check
+    if results.get('Prusti', {}).get('installed'):
+        ok, detail = prusti_health_check()
+        results['Prusti']['status'] = 'available' if ok else 'degraded'
+        results['Prusti']['detail'] = detail
+    return results

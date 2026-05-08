@@ -253,6 +253,7 @@ class CoqVerifier:
 Require Import Coq.Arith.Arith.
 Require Import Coq.Bool.Bool.
 Require Import Coq.Lists.List.
+Require Import Lia.
 
 (* === Contract State Definition ===
    Extracted from Promela proctype: {', '.join(processes) if processes else contract_name}
@@ -328,58 +329,106 @@ Definition {safe_name} (s : ContractState) : Prop :=
 
 '''
         
-        # Theorem 1: All values non-negative (extracted from Promela int declarations)
-        script += '''(* Property 1: All state values are non-negative (safety) *)
+        # Theorem 1: All nat values non-negative
+        # Only include nat (int) fields — bool fields can't be compared with >=
+        nat_vars = [(v, d) for v, d in list(state_vars.items())[:max_display]
+                    if isinstance(d, int) and not isinstance(d, bool)]
+
+        if nat_vars:
+            if len(nat_vars) == 1:
+                # Single condition — no conjunction, no split needed
+                var_name = nat_vars[0][0]
+                script += f'''(* Property 1: All state values are non-negative (safety) *)
 Theorem all_values_non_negative :
     forall (s : ContractState),
-'''
-        conditions = []
-        for var_name, default_val in list(state_vars.items())[:max_display]:
-            if isinstance(default_val, int):
-                conditions.append(f"    ({var_name} s) >= 0")
-        if conditions:
-            script += " /\\ ".join(conditions) + ".\n"
-            script += '''Proof.
-    intros s.
-    repeat split; apply Nat.le_0_l.
+    ({var_name} s) >= 0.
+Proof.
+    intros s. apply Nat.le_0_l.
 Qed.
 
 '''
+            else:
+                conditions = [f"    ({v} s) >= 0" for v, _ in nat_vars]
+                script += "(* Property 1: All state values are non-negative (safety) *)\n"
+                script += "Theorem all_values_non_negative :\n"
+                script += "    forall (s : ContractState),\n"
+                script += " /\\ ".join(conditions) + ".\n"
+                script += "Proof.\n"
+                script += "    intros s.\n"
+                script += "    repeat split; apply Nat.le_0_l.\n"
+                script += "Qed.\n\n"
         else:
-            script += "    True.\nProof. trivial. Qed.\n\n"
+            script += "(* Property 1: Trivial safety (no nat fields) *)\n"
+            script += "Theorem all_values_non_negative : True.\nProof. trivial. Qed.\n\n"
         
         # Theorem 2: LTL property verification (one per LTL formula)
         for i, ltl in enumerate(ltl_props[:8]):
             safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', ltl['name'])
+            coq_expr = self._ltl_to_coq_expr(ltl['formula'], state_vars)
+
+            # Choose proof tactic based on expression complexity
+            # Simple arithmetic/boolean expressions can be solved automatically
+            has_bool_eq  = '= true' in coq_expr or '= false' in coq_expr
+            has_arith    = any(op in coq_expr for op in ('>=', '<=', '+', '-', '*'))
+            has_implies  = '->' in coq_expr
+            has_negation = '~' in coq_expr
+
+            if has_implies or has_negation:
+                # Implication / negation — need intro + destruct
+                proof_tactic = (
+                    "    intros s.\n"
+                    "    unfold ltl_{safe_name}, initial_state.\n"
+                    "    simpl.\n"
+                    "    try (compute; auto).\n"
+                    "    try (intros; omega).\n"
+                    "    try (intros; lia).\n"
+                    "    admit."
+                ).format(safe_name=safe_name)
+                end_keyword = "Admitted."
+            elif has_bool_eq:
+                proof_tactic = (
+                    "    unfold ltl_{safe_name}, initial_state.\n"
+                    "    simpl. reflexivity."
+                ).format(safe_name=safe_name)
+                end_keyword = "Qed."
+            elif has_arith:
+                proof_tactic = (
+                    "    unfold ltl_{safe_name}, initial_state.\n"
+                    "    simpl.\n"
+                    "    try (compute; auto).\n"
+                    "    try lia."
+                ).format(safe_name=safe_name)
+                end_keyword = "Qed."
+            else:
+                proof_tactic = (
+                    "    unfold ltl_{safe_name}, initial_state.\n"
+                    "    simpl. try (compute; auto). try lia."
+                ).format(safe_name=safe_name)
+                end_keyword = "Qed."
+
             script += f'''(* Property {i+2}: LTL - {ltl['name']} *)
 (* Formula: {ltl['formula']} *)
 Theorem ltl_{safe_name}_holds :
     ltl_{safe_name} initial_state.
 Proof.
-    unfold ltl_{safe_name}, initial_state.
-    (* Verify using the initial state values from Promela *)
-    simpl.
-    (* For simple arithmetic, compute *)
-    try (compute; auto).
-    (* For complex formulas, this needs manual proof *)
-    (* Replace with actual proof based on your contract logic *)
-    admit.
-Admitted.
+{proof_tactic}
+{end_keyword}
 
 '''
         
         # Theorem 3: Assertion verification
         if assertions:
             for i, assertion in enumerate(assertions[:5]):
+                coq_expr = self._assertion_to_coq(assertion, state_vars)
+                has_arith = any(op in coq_expr for op in ('>=', '<=', '+', '-'))
+                tactic = "    unfold assertion_{n}, initial_state.\n    simpl.\n    try (compute; auto).\n    try lia.".format(n=i+1)
+                end_kw  = "Qed."
                 script += f'''(* Property {len(ltl_props)+i+2}: Assertion - {assertion} *)
 Theorem assertion_{i+1}_holds_initial :
     assertion_{i+1} initial_state.
 Proof.
-    unfold assertion_{i+1}, initial_state.
-    simpl.
-    try (compute; auto).
-    admit.
-Admitted.
+{tactic}
+{end_kw}
 
 '''
         
@@ -431,6 +480,7 @@ Admitted.
 *)
 
 Require Import Coq.Arith.Arith.
+Require Import Lia.
 
 Record ContractState : Type := mkState {{
     placeholder : nat
@@ -441,7 +491,7 @@ Theorem placeholder_theorem :
     forall (s : ContractState),
     placeholder s >= 0.
 Proof.
-    intros. apply Nat.le_0_l.
+    intros. lia.
 Qed.
 
 (* 

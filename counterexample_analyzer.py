@@ -78,48 +78,106 @@ class CounterexampleAnalyzer:
 
         steps = []
         current_vars = {}
-        
-        # Regex to parse SPIN output lines
-        # Example: 1:	proc  0 (main) line   4 "test.pml" (state 1)	[x = 1]
-        line_pattern = re.compile(r'^\s*(\d+):\s*proc\s+(\d+)\s*\(([^)]+)\)\s+line\s+(\d+)\s+"([^"]+)"\s+\(state\s+(\d+)\)\s*(?:\[(.*)\])?')
-        
+
+        # SPIN 6.x replay output has two common formats:
+        #
+        # Format A (with -p -v flags):
+        #   2:  proc  0 (Contract:1) translated_output.pml:44 (state 10)  [assert(!(paused))]
+        #
+        # Format B (older / -t only):
+        #   1:  proc  0 (main) line   4 "test.pml" (state 1)  [x = 1]
+        #
+        # We try both patterns.
+
+        pattern_a = re.compile(
+            r'^\s*(\d+):\s*proc\s+(\d+)\s*\(([^)]+)\)\s+'
+            r'(?:\S+):(\d+)\s+\(state\s+(\d+)\)\s*(?:\[(.*)\])?'
+        )
+        pattern_b = re.compile(
+            r'^\s*(\d+):\s*proc\s+(\d+)\s*\(([^)]+)\)\s+'
+            r'line\s+(\d+)\s+"([^"]+)"\s+\(state\s+(\d+)\)\s*(?:\[(.*)\])?'
+        )
+        # Variable assignment lines: "    varname = value"
+        var_pattern = re.compile(r'^\s+(\w+)\s*=\s*(.+)$')
+
+        current_step = None
+
         for line in spin_output.split('\n'):
-            match = line_pattern.match(line)
-            if match:
-                step_num, proc_id, proc_name, line_num, filename, state_id, var_updates = match.groups()
-                
-                # Parse variable updates
+            # Try format A
+            m = pattern_a.match(line)
+            if m:
+                step_num, proc_id, proc_name, line_num, state_id, action = m.groups()
                 updates = {}
-                if var_updates:
-                    # var_updates can be "x = 1" or multiple "x = 1, y = 2"
-                    parts = var_updates.split(',')
-                    for part in parts:
+                if action:
+                    for part in action.split(','):
                         if '=' in part:
-                            var, val = part.split('=')
-                            var = var.strip()
-                            val = val.strip()
-                            updates[var] = val
-                            current_vars[var] = val
-                
-                steps.append({
-                    "step": int(step_num),
-                    "proc_id": int(proc_id),
-                    "proc_name": proc_name,
-                    "line": int(line_num),
-                    "file": filename,
-                    "state": int(state_id),
-                    "updates": updates,
+                            k, v = part.split('=', 1)
+                            k, v = k.strip(), v.strip()
+                            updates[k] = v
+                            current_vars[k] = v
+                current_step = {
+                    "step":      int(step_num),
+                    "proc_id":   int(proc_id),
+                    "proc_name": proc_name.strip(),
+                    "line":      int(line_num),
+                    "file":      pml_file or "model",
+                    "state":     int(state_id),
+                    "updates":   updates,
                     "variables": current_vars.copy(),
-                    "raw": line.strip()
-                })
-            elif "ltl" in line.lower() and "violated" in line.lower():
-                # Property violation message
+                    "raw":       line.strip(),
+                    "action":    action.strip() if action else "",
+                }
+                steps.append(current_step)
+                continue
+
+            # Try format B
+            m = pattern_b.match(line)
+            if m:
+                step_num, proc_id, proc_name, line_num, filename, state_id, action = m.groups()
+                updates = {}
+                if action:
+                    for part in action.split(','):
+                        if '=' in part:
+                            k, v = part.split('=', 1)
+                            k, v = k.strip(), v.strip()
+                            updates[k] = v
+                            current_vars[k] = v
+                current_step = {
+                    "step":      int(step_num),
+                    "proc_id":   int(proc_id),
+                    "proc_name": proc_name.strip(),
+                    "line":      int(line_num),
+                    "file":      filename,
+                    "state":     int(state_id),
+                    "updates":   updates,
+                    "variables": current_vars.copy(),
+                    "raw":       line.strip(),
+                    "action":    action.strip() if action else "",
+                }
+                steps.append(current_step)
+                continue
+
+            # Variable assignment line following a step
+            if current_step:
+                m = var_pattern.match(line)
+                if m:
+                    k, v = m.group(1).strip(), m.group(2).strip()
+                    current_step["variables"][k] = v
+                    current_step["updates"][k] = v
+                    current_vars[k] = v
+                    continue
+
+            # LTL violation message
+            if "ltl" in line.lower() and ("violated" in line.lower() or "acceptance" in line.lower()):
                 steps.append({"type": "violation", "message": line.strip()})
-        
+            elif "assertion violated" in line.lower() or "error:" in line.lower():
+                steps.append({"type": "violation", "message": line.strip()})
+
         return {
-            "steps": steps,
+            "steps":           steps,
             "final_variables": current_vars,
-            "pml_file": pml_file
+            "pml_file":        pml_file,
+            "raw_output":      spin_output,
         }
     
     def generate_report(self, pml_file=None):

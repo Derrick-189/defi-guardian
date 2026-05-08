@@ -4,19 +4,24 @@ Formal Verification Suite with SPIN Model Checker
 Full Translation Support for Solidity/Rust
 """
 
-import customtkinter as ctk
-from tkinter import filedialog, messagebox
-import subprocess
+import webview
+import threading
 import os
 import sys
-import webbrowser
-import threading
-import re
-import time
 import json
+import sqlite3
+import subprocess
+import time
+from flask import Flask, render_template, request, jsonify, send_file
+from datetime import datetime
+import re
+import webbrowser
+import customtkinter as ctk
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="customtkinter")
+from tkinter import filedialog, messagebox
 import tempfile
 import uuid
-from datetime import datetime
 from pathlib import Path
 import tkinter as tk
 import socket
@@ -330,49 +335,27 @@ class ThemeManager:
         self.current_theme = "Dark+ (Default)"
     
     def apply_theme(self, theme_name):
-        """Apply a color theme to the application"""
+        """Apply a named colour theme — delegates to the app's update_ui_colors."""
         if theme_name not in self.THEMES:
             return
-        
         theme = self.THEMES[theme_name]
         self.current_theme = theme_name
-        
-        # Apply to main window
-        ctk.set_appearance_mode("dark" if "Dark" in theme_name or "Night" in theme_name else "light")
-        
-        # Apply theme colors to widgets
-        self.app.configure(fg_color=theme["bg"])
-        
-        # Sidebar
-        if hasattr(self.app, 'sidebar'):
-            self.app.sidebar.configure(fg_color=theme["sidebar_bg"])
-        
-        # Main frame
-        if hasattr(self.app, 'main_frame'):
-            self.app.main_frame.configure(fg_color=theme["bg"])
-        
-        # Editor frames
-        if hasattr(self.app, 'top_panel'):
-            self.app.top_panel.configure(fg_color=theme["editor_bg"])
-        
-        if hasattr(self.app, 'bottom_panel'):
-            self.app.bottom_panel.configure(fg_color=theme["terminal_bg"])
-        
-        # Terminal colors
-        terminals = ['console_widget', 'spin_terminal']
-        for term in terminals:
-            if hasattr(self.app, term):
-                widget = getattr(self.app, term)
-                widget.configure(fg_color=theme["terminal_bg"], text_color=theme["terminal_fg"])
-        
-        # Source editor
-        if hasattr(self.app, 'source_editor'):
-            self.app.source_editor.configure(fg_color=theme["editor_bg"], text_color=theme["editor_fg"])
-        
-        if hasattr(self.app, 'translated_editor'):
-            self.app.translated_editor.configure(fg_color=theme["editor_bg"], text_color=theme["editor_fg"])
-        
-        # Save preference
+        is_dark = "Dark" in theme_name or "Night" in theme_name or "Cyber" in theme_name
+        ctk.set_appearance_mode("dark" if is_dark else "light")
+
+        # Map legacy theme dict keys onto the new theme tokens
+        app = self.app
+        if hasattr(app, 'theme'):
+            app.theme.BG          = theme.get("bg",          app.theme.BG)
+            app.theme.PANEL_BG    = theme.get("sidebar_bg",  app.theme.PANEL_BG)
+            app.theme.EDITOR_BG   = theme.get("editor_bg",   app.theme.EDITOR_BG)
+            app.theme.TERMINAL_BG = theme.get("terminal_bg", app.theme.TERMINAL_BG)
+            app.theme.TEXT_MAIN   = theme.get("editor_fg",   app.theme.TEXT_MAIN)
+            app.theme.ACCENT      = theme.get("accent",      app.theme.ACCENT)
+
+        if hasattr(app, 'update_ui_colors'):
+            app.update_ui_colors()
+
         self.save_theme_preference(theme_name)
     
     def save_theme_preference(self, theme_name):
@@ -789,7 +772,19 @@ except ImportError:
             import json
             import time
             from datetime import datetime
-            state = {
+
+            # Load existing state so we don't wipe per-tool entries
+            report_path = os.path.join(REPORTS_DIR, "verification_state.json")
+            state = {}
+            if os.path.exists(report_path):
+                try:
+                    with open(report_path, 'r') as f:
+                        state = json.load(f)
+                except Exception:
+                    state = {}
+
+            # Update top-level SPIN scalars
+            state.update({
                 'timestamp': time.time(),
                 'datetime': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'success': success,
@@ -797,10 +792,10 @@ except ImportError:
                 'errors': errors,
                 'model_name': model_name,
                 'verified': True,
-                'ltl_results': ltl_results or []
-            }
-            
-            # Parse statistics
+                'ltl_results': ltl_results or [],
+            })
+
+            # Parse statistics from SPIN output
             if output:
                 depth_match = re.search(r"depth reached (\d+)", output)
                 if depth_match:
@@ -811,14 +806,23 @@ except ImportError:
                 trans_match = re.search(r"(\d+) transitions", output)
                 if trans_match:
                     state['transitions'] = int(trans_match.group(1))
-                if "errors: 0" in output:
-                    state['errors_count'] = 0
-                else:
-                    err_match = re.search(r"errors: (\d+)", output)
-                    if err_match:
-                        state['errors_count'] = int(err_match.group(1))
-            
-            report_path = os.path.join(REPORTS_DIR, "verification_state.json")
+                err_match = re.search(r"errors: (\d+)", output)
+                state['errors_count'] = int(err_match.group(1)) if err_match else 0
+
+            # Also write into the per-tool 'spin' key so the dashboard
+            # can read it consistently alongside certora/coq/lean etc.
+            state['spin'] = {
+                'timestamp': datetime.now().isoformat(),
+                'status': 'PASS' if success else 'FAIL',
+                'success': success,
+                'output': output,
+                'errors': errors,
+                'ltl_results': ltl_results or [],
+                'states_stored': state.get('states_stored', 0),
+                'transitions': state.get('transitions', 0),
+                'depth': state.get('depth', 0),
+            }
+
             with open(report_path, 'w') as f:
                 json.dump(state, f, indent=2)
             return True
@@ -866,36 +870,64 @@ except ImportError:
     PluginManager = None
 
 class DeFiDarkTheme:
-    """Design constants for the DeFi Dark professional theme"""
-    BG = "#0a0a0f"
-    PANEL_BG = "#161b22"
-    ACCENT = "#00ffcc"
-    ACCENT_DARK = "#00ccaa"
-    SECONDARY = "#ff00cc"
-    TERMINAL_BG = "#0d1117"
-    TEXT_MAIN = "#e6edf3"
-    TEXT_DIM = "#8b949e"
-    BORDER = "#30363d"
-    SUCCESS = "#238636"
-    ERROR = "#da3633"
-    WARNING = "#d29922"
+    """Design constants — VS Code Dark+ inspired professional theme"""
+    BG           = "#1e1e1e"   # VS Code editor background
+    PANEL_BG     = "#252526"   # VS Code sidebar background
+    ACTIVITY_BG  = "#333333"   # VS Code activity bar
+    TERMINAL_BG  = "#1e1e1e"   # Integrated terminal background
+    EDITOR_BG    = "#1e1e1e"   # Editor area
+    INPUT_BG     = "#3c3c3c"   # Input/dropdown background
+    ACCENT       = "#007acc"   # VS Code blue
+    ACCENT_DARK  = "#005a9e"   # Hover blue
+    ACCENT_GLOW  = "#0098ff"   # Active/focus blue
+    SECONDARY    = "#c586c0"   # VS Code purple (keywords)
+    SUCCESS      = "#4ec9b0"   # VS Code teal (types)
+    SUCCESS_DIM  = "#1e3a2f"   # Success background
+    ERROR        = "#f44747"   # VS Code red
+    ERROR_DIM    = "#3a1e1e"   # Error background
+    WARNING      = "#cca700"   # VS Code yellow
+    WARNING_DIM  = "#3a2e00"   # Warning background
+    TEXT_MAIN    = "#d4d4d4"   # VS Code default text
+    TEXT_DIM     = "#858585"   # VS Code comments/dim
+    TEXT_BRIGHT  = "#ffffff"   # Active/selected text
+    BORDER       = "#3e3e42"   # VS Code panel borders
+    BORDER_FOCUS = "#007acc"   # Focused border
+    SELECTION    = "#094771"   # VS Code selection blue
+    HOVER        = "#2a2d2e"   # List item hover
+    ACTIVE       = "#37373d"   # Active list item
+    TAB_ACTIVE   = "#1e1e1e"   # Active tab background
+    TAB_INACTIVE = "#2d2d2d"   # Inactive tab background
+    TAB_BORDER   = "#007acc"   # Active tab top border
 
 class DeFiLightTheme:
-    """Design constants for the DeFi Light professional theme (Trae/VS Code Quiet Light inspired)"""
-    BG = "#f3f3f3"
-    PANEL_BG = "#ffffff"
-    ACCENT = "#007acc"
-    ACCENT_DARK = "#005a9e"
-    SECONDARY = "#af00db"
-    TERMINAL_BG = "#ffffff"
-    TEXT_MAIN = "#333333"
-    TEXT_DIM = "#616161"
-    BORDER = "#cecece"
-    SUCCESS = "#388a34"
-    ERROR = "#e51400"
-    WARNING = "#bf8803"
-    TAB_INACTIVE_BG = "#ececec"
-    TAB_ACTIVE_BG = "#ffffff"
+    """Design constants — VS Code Light+ / Quiet Light inspired"""
+    BG           = "#f3f3f3"
+    PANEL_BG     = "#f3f3f3"
+    ACTIVITY_BG  = "#2c2c2c"
+    TERMINAL_BG  = "#ffffff"
+    EDITOR_BG    = "#ffffff"
+    INPUT_BG     = "#ffffff"
+    ACCENT       = "#007acc"
+    ACCENT_DARK  = "#005a9e"
+    ACCENT_GLOW  = "#0098ff"
+    SECONDARY    = "#af00db"
+    SUCCESS      = "#388a34"
+    SUCCESS_DIM  = "#dff0d8"
+    ERROR        = "#e51400"
+    ERROR_DIM    = "#fde7e9"
+    WARNING      = "#bf8803"
+    WARNING_DIM  = "#fff8e1"
+    TEXT_MAIN    = "#333333"
+    TEXT_DIM     = "#717171"
+    TEXT_BRIGHT  = "#000000"
+    BORDER       = "#e5e5e5"
+    BORDER_FOCUS = "#007acc"
+    SELECTION    = "#add6ff"
+    HOVER        = "#e8e8e8"
+    ACTIVE       = "#d6ebff"
+    TAB_ACTIVE   = "#ffffff"
+    TAB_INACTIVE = "#ececec"
+    TAB_BORDER   = "#007acc"
 
 class FormalVerifierApp(ctk.CTk):
     def __init__(self):
@@ -955,19 +987,30 @@ class FormalVerifierApp(ctk.CTk):
         self.main_frame.grid_rowconfigure(1, weight=3)
         
         # ==================== TOP PANE: CODE EDITOR ====================
-        self.top_panel = ctk.CTkFrame(self.main_frame, fg_color=self.theme.PANEL_BG, corner_radius=12, border_width=1, border_color=self.theme.BORDER)
-        self.top_panel.grid(row=0, column=0, sticky="nsew", padx=20, pady=(20, 10))
-        
-        # Editor tabview
-        self.editor_tabs = ctk.CTkTabview(
-            self.top_panel, 
-            segmented_button_fg_color=self.theme.TERMINAL_BG,
-            segmented_button_selected_color=self.theme.ACCENT,
-            segmented_button_selected_hover_color=self.theme.ACCENT_DARK,
-            segmented_button_unselected_color=self.theme.TERMINAL_BG,
-            text_color=self.theme.TEXT_MAIN
+        # Flush to edges — no rounded card, just a clean editor surface
+        self.top_panel = ctk.CTkFrame(
+            self.main_frame,
+            fg_color=self.theme.EDITOR_BG,
+            corner_radius=0,
+            border_width=0
         )
-        self.editor_tabs.pack(fill="both", expand=True, padx=15, pady=10)
+        self.top_panel.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        
+        # Editor tabview — VS Code tab bar style
+        self.editor_tabs = ctk.CTkTabview(
+            self.top_panel,
+            segmented_button_fg_color=self.theme.TAB_INACTIVE,
+            segmented_button_selected_color=self.theme.TAB_ACTIVE,
+            segmented_button_selected_hover_color=self.theme.TAB_ACTIVE,
+            segmented_button_unselected_color=self.theme.TAB_INACTIVE,
+            segmented_button_unselected_hover_color=self.theme.HOVER,
+            text_color=self.theme.TEXT_DIM,
+            text_color_disabled=self.theme.TEXT_DIM,
+            fg_color=self.theme.EDITOR_BG,
+            border_width=0,
+            corner_radius=0,
+        )
+        self.editor_tabs.pack(fill="both", expand=True, padx=0, pady=0)
         
         # Create tabs
         self.editor_tabs.add("Source")
@@ -980,70 +1023,181 @@ class FormalVerifierApp(ctk.CTk):
             self.editor_tabs.tab("Source"),
             font=("Fira Code", 13),
             wrap="none",
-            fg_color=self.theme.BG,
+            fg_color=self.theme.EDITOR_BG,
             text_color=self.theme.TEXT_MAIN,
-            border_width=0
+            border_width=0,
+            corner_radius=0
         )
-        self.source_editor.pack(fill="both", expand=True, padx=2, pady=2)
+        self.source_editor.pack(fill="both", expand=True, padx=0, pady=0)
 
-        # Specifications editor tab
+        # Specifications editor tab — full-featured with toolbar
+        spec_tab = self.editor_tabs.tab("Specifications & LTL")
+        spec_tab.grid_columnconfigure(0, weight=1)
+        spec_tab.grid_rowconfigure(1, weight=1)
+
+        # Toolbar
+        spec_toolbar = ctk.CTkFrame(spec_tab, fg_color=self.theme.PANEL_BG, height=34, corner_radius=0)
+        spec_toolbar.grid(row=0, column=0, sticky="ew")
+        spec_toolbar.grid_propagate(False)
+
+        def _spec_btn(text, cmd, color=None):
+            b = ctk.CTkButton(
+                spec_toolbar, text=text, command=cmd,
+                width=80, height=24,
+                font=ctk.CTkFont(family="Segoe UI", size=11),
+                fg_color=color or self.theme.INPUT_BG,
+                hover_color=self.theme.HOVER,
+                text_color=self.theme.TEXT_MAIN,
+                border_width=1,
+                border_color=self.theme.BORDER,
+                corner_radius=3
+            )
+            b.pack(side="left", padx=(4, 0), pady=5)
+            return b
+
+        _spec_btn("Save",     self._spec_save)
+        _spec_btn("Load",     self._spec_load)
+        _spec_btn("Validate", self._spec_validate, self.theme.SUCCESS_DIM)
+        _spec_btn("Clear",    self._spec_clear,    self.theme.ERROR_DIM)
+
+        # Template dropdown
+        self._spec_tpl_var = ctk.StringVar(value="Template…")
+        tpl_menu = ctk.CTkOptionMenu(
+            spec_toolbar,
+            values=["ERC20 Token", "Lending Protocol", "DEX/AMM", "Governance", "Vault", "Custom"],
+            variable=self._spec_tpl_var,
+            command=self._spec_load_template,
+            width=130, height=24,
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            fg_color=self.theme.INPUT_BG,
+            button_color=self.theme.BORDER,
+            button_hover_color=self.theme.HOVER,
+            text_color=self.theme.TEXT_MAIN,
+            dropdown_fg_color=self.theme.PANEL_BG,
+            dropdown_hover_color=self.theme.HOVER,
+            dropdown_text_color=self.theme.TEXT_MAIN,
+        )
+        tpl_menu.pack(side="left", padx=4, pady=5)
+
+        # Line/col indicator
+        self._spec_pos_label = ctk.CTkLabel(
+            spec_toolbar, text="Ln 1  Col 1",
+            font=ctk.CTkFont(family="Fira Code", size=10),
+            text_color=self.theme.TEXT_DIM
+        )
+        self._spec_pos_label.pack(side="right", padx=10)
+
+        # Editor
         self.spec_editor = ctk.CTkTextbox(
-            self.editor_tabs.tab("Specifications & LTL"),
+            spec_tab,
             font=("Fira Code", 13),
             wrap="none",
-            fg_color=self.theme.BG,
-            text_color=self.theme.ACCENT,
-            border_width=0
+            fg_color=self.theme.EDITOR_BG,
+            text_color="#ce9178",   # VS Code string orange — good for LTL formulas
+            border_width=0,
+            corner_radius=0
         )
-        self.spec_editor.pack(fill="both", expand=True, padx=2, pady=2)
+        self.spec_editor.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
+        self.spec_editor._textbox.bind("<KeyRelease>", self._spec_update_pos)
+        self.spec_editor._textbox.bind("<ButtonRelease>", self._spec_update_pos)
+
+        # Seed with default template
+        self._spec_load_template("Custom")
         
         # Translated Promela tab
         self.translated_editor = ctk.CTkTextbox(
             self.editor_tabs.tab("Translated Promela"),
             font=("Fira Code", 13),
             wrap="none",
-            fg_color=self.theme.BG,
-            text_color=self.theme.ACCENT,
+            fg_color=self.theme.EDITOR_BG,
+            text_color="#9cdcfe",   # VS Code variable blue
             border_width=0
         )
-        self.translated_editor.pack(fill="both", expand=True, padx=2, pady=2)
+        self.translated_editor.pack(fill="both", expand=True, padx=0, pady=0)
         
         # Problems tab
         self.problems_text = ctk.CTkTextbox(
             self.editor_tabs.tab("Audit Problems"),
             font=("Segoe UI", 12),
             wrap="word",
-            fg_color=self.theme.BG,
+            fg_color=self.theme.EDITOR_BG,
             text_color=self.theme.ERROR,
             border_width=0
         )
-        self.problems_text.pack(fill="both", expand=True, padx=2, pady=2)
+        self.problems_text.pack(fill="both", expand=True, padx=0, pady=0)
         
         # ==================== BOTTOM PANE: TERMINAL ====================
-        self.bottom_panel = ctk.CTkFrame(self.main_frame, fg_color=self.theme.TERMINAL_BG, corner_radius=12, border_width=1, border_color=self.theme.BORDER)
-        self.bottom_panel.grid(row=1, column=0, sticky="nsew", padx=20, pady=(10, 20))
-        
-        # Terminal Header
-        self.term_header = ctk.CTkFrame(self.bottom_panel, fg_color="transparent", height=30)
-        self.term_header.pack(fill="x", padx=15, pady=(10, 0))
-        
+        # VS Code integrated terminal — dark strip, no border radius
+        self.bottom_panel = ctk.CTkFrame(
+            self.main_frame,
+            fg_color=self.theme.TERMINAL_BG,
+            corner_radius=0,
+            border_width=0
+        )
+        self.bottom_panel.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
+
+        # 1-px separator line between editor and terminal
+        ctk.CTkFrame(
+            self.main_frame, height=1,
+            fg_color=self.theme.BORDER, corner_radius=0
+        ).grid(row=0, column=0, sticky="sew", padx=0, pady=0)
+
+        # Terminal tab bar (mimics VS Code TERMINAL / PROBLEMS / OUTPUT tabs)
+        self.term_tabbar = ctk.CTkFrame(
+            self.bottom_panel,
+            fg_color=self.theme.PANEL_BG,
+            height=32, corner_radius=0
+        )
+        self.term_tabbar.pack(fill="x")
+        self.term_tabbar.pack_propagate(False)
+
+        # Active tab indicator
         ctk.CTkLabel(
-            self.term_header, 
-            text=">_ VERIFICATION CONSOLE", 
-            font=ctk.CTkFont(family="Fira Code", size=11, weight="bold"),
-            text_color=self.theme.ACCENT
-        ).pack(side="left")
-        
-        # Console terminal
+            self.term_tabbar,
+            text="TERMINAL",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text_color=self.theme.TEXT_MAIN
+        ).pack(side="left", padx=(14, 0), pady=6)
+
+        ctk.CTkLabel(
+            self.term_tabbar,
+            text="PROBLEMS",
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color=self.theme.TEXT_DIM
+        ).pack(side="left", padx=14, pady=6)
+
+        ctk.CTkLabel(
+            self.term_tabbar,
+            text="OUTPUT",
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color=self.theme.TEXT_DIM
+        ).pack(side="left", padx=0, pady=6)
+
+        # Right side: shell label
+        ctk.CTkLabel(
+            self.term_tabbar,
+            text="bash  ×",
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color=self.theme.TEXT_DIM
+        ).pack(side="right", padx=14, pady=6)
+
+        # 1-px separator under tab bar
+        ctk.CTkFrame(
+            self.bottom_panel, height=1,
+            fg_color=self.theme.BORDER, corner_radius=0
+        ).pack(fill="x")
+
+        # Console text area
         self.console_widget = ctk.CTkTextbox(
             self.bottom_panel,
             font=("Fira Code", 11),
             wrap="word",
-            fg_color="transparent",
+            fg_color=self.theme.TERMINAL_BG,
             text_color=self.theme.TEXT_MAIN,
-            border_width=0
+            border_width=0,
+            corner_radius=0
         )
-        self.console_widget.pack(fill="both", expand=True, padx=15, pady=(5, 15))
+        self.console_widget.pack(fill="both", expand=True, padx=0, pady=0)
         
         # Point self.console and self.spin_terminal to the unified console
         self.console = self.console_widget
@@ -1069,251 +1223,400 @@ class FormalVerifierApp(ctk.CTk):
         self.scan_project_directory()
     
     def create_sidebar(self):
-        """Create the sidebar with all controls"""
-        # Create a container frame for sidebar
-        self.sidebar = ctk.CTkFrame(self, width=self.sidebar_expanded_width, corner_radius=0, fg_color=self.theme.PANEL_BG)
+        """Create VS Code-style sidebar with activity bar aesthetic"""
+        t = self.theme
+
+        # ── Outer sidebar frame ──────────────────────────────────────
+        self.sidebar = ctk.CTkFrame(
+            self, width=self.sidebar_expanded_width,
+            corner_radius=0, fg_color=t.PANEL_BG
+        )
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_propagate(False)
-        
-        # Header with Logo/Title
-        self.sidebar_header = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        self.sidebar_header.pack(fill="x", padx=25, pady=(30, 20))
-        
+
+        # ── Header ───────────────────────────────────────────────────
+        self.sidebar_header = ctk.CTkFrame(
+            self.sidebar, fg_color=t.ACTIVITY_BG,
+            corner_radius=0, height=56
+        )
+        self.sidebar_header.pack(fill="x")
+        self.sidebar_header.pack_propagate(False)
+
+        # Logo + title row
+        hrow = ctk.CTkFrame(self.sidebar_header, fg_color="transparent")
+        hrow.pack(fill="both", expand=True, padx=14, pady=0)
+
         ctk.CTkLabel(
-            self.sidebar_header,
-            text="🛡️ DEFI GUARDIAN",
-            font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
-            text_color=self.theme.ACCENT
-        ).pack(anchor="w")
-        
+            hrow, text="🛡️",
+            font=ctk.CTkFont(size=20),
+            text_color=t.ACCENT
+        ).pack(side="left", padx=(0, 8))
+
+        title_col = ctk.CTkFrame(hrow, fg_color="transparent")
+        title_col.pack(side="left", fill="y", pady=10)
+
         ctk.CTkLabel(
-            self.sidebar_header,
-            text="Formal Verification Suite",
-            font=ctk.CTkFont(family="Segoe UI", size=12),
-            text_color=self.theme.TEXT_DIM
+            title_col, text="DEFI GUARDIAN",
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+            text_color=t.TEXT_BRIGHT
         ).pack(anchor="w")
-        
-        # Scrollable container for tools
+
+        ctk.CTkLabel(
+            title_col, text="Formal Verification Suite",
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=t.TEXT_DIM
+        ).pack(anchor="w")
+
+        # ── Thin accent line under header ────────────────────────────
+        ctk.CTkFrame(self.sidebar, height=1, fg_color=t.BORDER, corner_radius=0).pack(fill="x")
+
+        # ── Scrollable content ───────────────────────────────────────
         self.sidebar_inner = ScrollableSidebar(self.sidebar, width=self.sidebar_expanded_width)
         self.sidebar_inner.pack(fill="both", expand=True)
         self.sidebar_scroll = self.sidebar_inner.get_inner_frame()
-        
-        # --- Section: Operations ---
-        self.add_sidebar_section("FILE OPERATIONS")
-        
-        self.load_btn = self.create_action_button(
-            self.sidebar_scroll, "📂 OPEN SOURCE FILE", self.load_file, self.theme.ACCENT
+
+        # ── FILE OPERATIONS ──────────────────────────────────────────
+        self._sidebar_section("EXPLORER")
+
+        self.load_btn = self._sidebar_item_button(
+            "$Open Source File",
+            self.load_file, icon="📂", primary=True
         )
-        
         self.file_info = ctk.CTkLabel(
-            self.sidebar_scroll, text="No file loaded", font=("Segoe UI", 11), text_color=self.theme.TEXT_DIM
+            self.sidebar_scroll,
+            text="No file loaded",
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color=t.TEXT_DIM,
+            anchor="w"
         )
-        self.file_info.pack(pady=(5, 15))
-        
-        # --- Section: Verification ---
-        self.add_sidebar_section("CORE VERIFICATION")
-        
-        self.verify_btn = self.create_action_button(
-            self.sidebar_scroll, "🚀 RUN SPIN VERIFICATION", self.run_verification, self.theme.SUCCESS
-        )
-        self.verify_btn.configure(state="disabled")
-        self.stop_spin_btn = self.create_stop_button(self.sidebar_scroll, "spin")
-        
-        self.coq_btn = self.create_action_button(
-            self.sidebar_scroll, "📜 COQ PROOF ASSISTANT", self.verify_with_coq, "#9b59b6"
-        )
-        self.stop_coq_btn = self.create_stop_button(self.sidebar_scroll, "coq")
+        self.file_info.pack(fill="x", padx=20, pady=(0, 4))
 
-        # Bytecode Verification 
-        self.add_sidebar_section("BYTECODE VERIFICATION") 
-        
-        self.verify_with_certora_btn = self.create_action_button( 
-            self.sidebar_scroll, "🛡️ VERIFY WITH CERTORA", 
-            self.verify_with_certora, "#ff6b35"
-        ) 
-        self.stop_certora_btn = self.create_stop_button(self.sidebar_scroll, "certora")
-        
-        self.lean_btn = self.create_action_button(
-            self.sidebar_scroll, "⚡ LEAN THEOREM PROVER", self.run_lean_verification, "#e67e22"
-        )
-        self.stop_lean_btn = self.create_stop_button(self.sidebar_scroll, "lean")
-        
-        # --- Section: Rust ---
-        self.add_sidebar_section("RUST ANALYSIS")
-        
-        self.kani_btn = self.create_action_button(
-            self.sidebar_scroll, "🦀 KANI MODEL CHECKER", self.verify_with_kani, "#8e44ad"
-        )
-        self.stop_kani_btn = self.create_stop_button(self.sidebar_scroll, "kani")
-        
-        self.prusti_btn = self.create_action_button(
-            self.sidebar_scroll, "🔧 PRUSTI VERIFIER", self.verify_with_prusti, "#e74c3c"
-        )
-        self.stop_prusti_btn = self.create_stop_button(self.sidebar_scroll, "prusti")
+        # ── CORE VERIFICATION ────────────────────────────────────────
+        self._sidebar_section("VERIFICATION")
 
-        self.creusot_btn = self.create_action_button(
-            self.sidebar_scroll, "📐 CREUSOT VERIFIER", self.verify_with_creusot, "#16a085"
+        self.verify_btn = self._sidebar_item_button(
+            "Run SPIN Verification", self.run_verification,
+            icon="▶", tag="spin", state="disabled"
         )
-        self.stop_creusot_btn = self.create_stop_button(self.sidebar_scroll, "creusot")
+        self.stop_spin_btn = self._sidebar_stop_button("spin")
 
-        self.verus_btn = self.create_action_button(
-            self.sidebar_scroll, "🔧 VERUS VERIFIER", self.verify_with_verus, "#27ae60"
+        self.coq_btn = self._sidebar_item_button(
+            "Coq Proof Assistant", self.verify_with_coq, icon="∀", tag="coq"
         )
-        self.stop_verus_btn = self.create_stop_button(self.sidebar_scroll, "verus")
-        
-        # --- Section: Visualization ---
-        self.add_sidebar_section("VISUALIZATION")
-        
-        self.dash_btn = self.create_action_button(
-            self.sidebar_scroll, "🌐 OPEN DASHBOARD", self.open_dashboard, self.theme.ACCENT
+        self.stop_coq_btn = self._sidebar_stop_button("coq")
+
+        # ── BYTECODE VERIFICATION ────────────────────────────────────
+        self._sidebar_section("BYTECODE")
+
+        self.verify_with_certora_btn = self._sidebar_item_button(
+            "Verify with Certora", self.verify_with_certora, icon="⬡", tag="certora"
         )
-        self.create_action_button(self.sidebar_scroll, "🛑 STOP DASHBOARD", self.stop_dashboard, self.theme.ERROR)
+        self.stop_certora_btn = self._sidebar_stop_button("certora")
 
-        self.create_action_button(self.sidebar_scroll, "👁️ VIEW TRANSLATED", self.open_translated_output, self.theme.ACCENT_DARK)
-        self.create_action_button(self.sidebar_scroll, "🔍 ANALYZE COUNTEREXAMPLE", self.analyze_counterexample, self.theme.SECONDARY)
+        self.lean_btn = self._sidebar_item_button(
+            "Lean Theorem Prover", self.run_lean_verification, icon="λ", tag="lean"
+        )
+        self.stop_lean_btn = self._sidebar_stop_button("lean")
 
-        # --- Section: Settings ---
-        self.add_sidebar_section("SETTINGS")
+        # ── RUST ANALYSIS ────────────────────────────────────────────
+        self._sidebar_section("RUST ANALYSIS")
+
+        self.kani_btn = self._sidebar_item_button(
+            "Kani Model Checker", self.verify_with_kani, icon="🦀", tag="kani"
+        )
+        self.stop_kani_btn = self._sidebar_stop_button("kani")
+
+        self.prusti_btn = self._sidebar_item_button(
+            "Prusti Verifier", self.verify_with_prusti, icon="🔬", tag="prusti"
+        )
+        self.stop_prusti_btn = self._sidebar_stop_button("prusti")
+
+        self.creusot_btn = self._sidebar_item_button(
+            "Creusot Verifier", self.verify_with_creusot, icon="📐", tag="creusot"
+        )
+        self.stop_creusot_btn = self._sidebar_stop_button("creusot")
+
+        self.verus_btn = self._sidebar_item_button(
+            "Verus Verifier", self.verify_with_verus, icon="✓", tag="verus"
+        )
+        self.stop_verus_btn = self._sidebar_stop_button("verus")
+
+        # ── VISUALIZATION ────────────────────────────────────────────
+        self._sidebar_section("VISUALIZATION")
+
+        self.dash_btn = self._sidebar_item_button(
+            "Open Dashboard", self.open_dashboard, icon="⬡"
+        )
+        self._sidebar_item_button(
+            "Account Dashboard", self.open_account_dashboard, icon="👤"
+        )
+        self._sidebar_item_button(
+            "Stop Dashboard", self.stop_dashboard, icon="■", danger=True
+        )
+        self._sidebar_item_button(
+            "View Translated", self.open_translated_output, icon="⇄"
+        )
+        self._sidebar_item_button(
+            "Analyze Counterexample", self.analyze_counterexample, icon="🔍"
+        )
+
+        # ── STATIC ANALYSIS ──────────────────────────────────────────
+        self._sidebar_section("STATIC ANALYSIS")
+
+        self._sidebar_item_button(
+            "AI Generate Specs", self.ai_generate_specs, icon="🤖", primary=True
+        )
+        self.slither_btn = self._sidebar_item_button(
+            "Slither → LTL Specs", self.run_slither_analysis, icon="🐍"
+        )
+        self._sidebar_item_button(
+            "Slither → Certora Rules", self.run_slither_certora, icon="⬡"
+        )
+
+        # ── SETTINGS ─────────────────────────────────────────────────
+        self._sidebar_section("SETTINGS")
+
         self.auto_scroll_switch = ctk.CTkSwitch(
-            self.sidebar_scroll, text="Auto-scroll console", command=self.toggle_auto_scroll, 
-            progress_color=self.theme.ACCENT
+            self.sidebar_scroll,
+            text="Auto-scroll console",
+            command=self.toggle_auto_scroll,
+            progress_color=t.ACCENT,
+            button_color=t.TEXT_DIM,
+            button_hover_color=t.ACCENT,
+            font=ctk.CTkFont(family="Segoe UI", size=12),
+            text_color=t.TEXT_MAIN
         )
-        self.auto_scroll_switch.pack(anchor="w", padx=10, pady=2)
+        self.auto_scroll_switch.pack(anchor="w", padx=20, pady=(4, 2))
         self.auto_scroll_switch.select()
 
         self.verbose_switch = ctk.CTkSwitch(
-            self.sidebar_scroll, text="Verbose output", progress_color=self.theme.ACCENT,
-            variable=self.verbose_output
+            self.sidebar_scroll,
+            text="Verbose output",
+            progress_color=t.ACCENT,
+            button_color=t.TEXT_DIM,
+            button_hover_color=t.ACCENT,
+            variable=self.verbose_output,
+            font=ctk.CTkFont(family="Segoe UI", size=12),
+            text_color=t.TEXT_MAIN
         )
-        self.verbose_switch.pack(anchor="w", padx=10, pady=2)
+        self.verbose_switch.pack(anchor="w", padx=20, pady=(2, 4))
 
-        # Theme Switcher
-        theme_frame = ctk.CTkFrame(self.sidebar_scroll, fg_color="transparent")
-        theme_frame.pack(fill="x", pady=10, padx=10)
-        ctk.CTkLabel(theme_frame, text="App Theme:", font=("Segoe UI", 11), text_color=self.theme.TEXT_DIM).pack(side="left")
-        self.theme_switch = ctk.CTkSwitch(theme_frame, text="Dark Mode", command=self.toggle_theme, progress_color=self.theme.ACCENT)
+        # Theme toggle
+        theme_row = ctk.CTkFrame(self.sidebar_scroll, fg_color="transparent")
+        theme_row.pack(fill="x", padx=20, pady=(2, 8))
+        ctk.CTkLabel(
+            theme_row, text="App Theme:",
+            font=ctk.CTkFont(family="Segoe UI", size=12),
+            text_color=t.TEXT_DIM
+        ).pack(side="left")
+        self.theme_switch = ctk.CTkSwitch(
+            theme_row, text="Dark Mode",
+            command=self.toggle_theme,
+            progress_color=t.ACCENT,
+            button_color=t.TEXT_DIM,
+            button_hover_color=t.ACCENT,
+            font=ctk.CTkFont(family="Segoe UI", size=12),
+            text_color=t.TEXT_MAIN
+        )
         self.theme_switch.pack(side="right")
-        self.theme_switch.select()
-        
-        # --- Section: Console Operations ---
-        self.add_sidebar_section("CONSOLE OPERATIONS")
-        console_ops = ctk.CTkFrame(self.sidebar_scroll, fg_color="transparent")
-        console_ops.pack(fill="x", padx=5, pady=5)
-        
-        self.clear_btn = ctk.CTkButton(
-            console_ops, text="CLEAR", command=self.clear_console, height=32, width=100,
-            fg_color=self.theme.BG, border_width=1, border_color=self.theme.ACCENT_DARK,
-            hover_color=self.theme.ACCENT_DARK, font=ctk.CTkFont(size=11, weight="bold")
-        )
-        self.clear_btn.pack(side="left", padx=(0, 5), expand=True, fill="x")
-
-        self.export_btn = ctk.CTkButton(
-            console_ops, text="EXPORT", command=self.export_console, height=32, width=100,
-            fg_color=self.theme.BG, border_width=1, border_color=self.theme.SECONDARY,
-            hover_color=self.theme.SECONDARY, font=ctk.CTkFont(size=11, weight="bold")
-        )
-        self.export_btn.pack(side="right", padx=(5, 0), expand=True, fill="x")
-
-        # Footer status
-        self.sidebar_footer = ctk.CTkFrame(self.sidebar, fg_color=self.theme.TERMINAL_BG, height=40, corner_radius=0)
-        self.sidebar_footer.pack(side="bottom", fill="x")
-        self.status_dot = ctk.CTkLabel(self.sidebar_footer, text="●", text_color=self.theme.SUCCESS, font=("Segoe UI", 14))
-        self.status_dot.pack(side="left", padx=(15, 5))
-        self.status_label = ctk.CTkLabel(self.sidebar_footer, text="System Ready", font=("Segoe UI", 11), text_color=self.theme.TEXT_MAIN)
-        self.status_label.pack(side="left")
-        
         if self.theme_mode == "dark":
             self.theme_switch.select()
-        else:
-            self.theme_switch.deselect()
 
+        # ── CONSOLE OPERATIONS ───────────────────────────────────────
+        self._sidebar_section("CONSOLE")
+
+        console_ops = ctk.CTkFrame(self.sidebar_scroll, fg_color="transparent")
+        console_ops.pack(fill="x", padx=12, pady=(4, 8))
+
+        self.clear_btn = ctk.CTkButton(
+            console_ops, text="Clear",
+            command=self.clear_console,
+            height=28, corner_radius=4,
+            fg_color=t.INPUT_BG,
+            border_width=1, border_color=t.BORDER,
+            hover_color=t.HOVER,
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color=t.TEXT_MAIN
+        )
+        self.clear_btn.pack(side="left", padx=(0, 4), expand=True, fill="x")
+
+        self.export_btn = ctk.CTkButton(
+            console_ops, text="Export",
+            command=self.export_console,
+            height=28, corner_radius=4,
+            fg_color=t.INPUT_BG,
+            border_width=1, border_color=t.BORDER,
+            hover_color=t.HOVER,
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color=t.TEXT_MAIN
+        )
+        self.export_btn.pack(side="right", padx=(4, 0), expand=True, fill="x")
+
+        # ── Status bar (bottom) ──────────────────────────────────────
+        self.sidebar_footer = ctk.CTkFrame(
+            self.sidebar, fg_color=t.ACTIVITY_BG,
+            height=24, corner_radius=0
+        )
+        self.sidebar_footer.pack(side="bottom", fill="x")
+        self.sidebar_footer.pack_propagate(False)
+
+        ctk.CTkFrame(self.sidebar, height=1, fg_color=t.BORDER, corner_radius=0).pack(side="bottom", fill="x")
+
+        self.status_dot = ctk.CTkLabel(
+            self.sidebar_footer, text="●",
+            text_color=t.SUCCESS,
+            font=ctk.CTkFont(size=9)
+        )
+        self.status_dot.pack(side="left", padx=(10, 4))
+
+        self.status_label = ctk.CTkLabel(
+            self.sidebar_footer, text="System Ready",
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=t.TEXT_DIM
+        )
+        self.status_label.pack(side="left")
+
+        # ── Prewarm / tool status labels ─────────────────────────────
         self.lean_prewarm_status = ctk.CTkLabel(
             self.sidebar_scroll,
             text="○ Lean prewarm: pending",
-            font=ctk.CTkFont(size=10),
-            text_color=self.theme.TEXT_DIM
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=t.TEXT_DIM, anchor="w"
         )
-        self.lean_prewarm_status.pack(anchor="w", padx=10)
+        self.lean_prewarm_status.pack(anchor="w", padx=20, pady=(0, 2))
 
         self.tool_status = ctk.CTkLabel(
             self.sidebar_scroll,
             text="Checking tools...",
-            font=ctk.CTkFont(size=10),
-            text_color=self.theme.TEXT_DIM,
-            wraplength=300
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=t.TEXT_DIM,
+            wraplength=320, anchor="w"
         )
-        self.tool_status.pack(anchor="w", padx=10, pady=(0, 10))
-        
-        # Initialize tool_stop_buttons dictionary
+        self.tool_status.pack(anchor="w", padx=20, pady=(0, 12))
+
+        # ── Wire up stop-button dict ──────────────────────────────────
         self.tool_stop_buttons = {
-            "spin": self.stop_spin_btn,
-            "coq": self.stop_coq_btn,
-            "lean": self.stop_lean_btn,
-            "prusti": self.stop_prusti_btn,
+            "spin":    self.stop_spin_btn,
+            "coq":     self.stop_coq_btn,
+            "lean":    self.stop_lean_btn,
+            "prusti":  self.stop_prusti_btn,
             "creusot": self.stop_creusot_btn,
-            "kani": self.stop_kani_btn,
+            "kani":    self.stop_kani_btn,
             "certora": self.stop_certora_btn,
-            "verus": self.stop_verus_btn,
+            "verus":   self.stop_verus_btn,
         }
-        
-        # Bind mouse wheel to all sidebar elements after creation
+
         self.sidebar_inner.bind_mousewheel()
-        
-        # Check tools
         self.check_tools()
 
-    def create_stop_button(self, master, tool_name):
+    # ── Sidebar helper widgets ────────────────────────────────────────
+
+    def _sidebar_section(self, title: str):
+        """VS Code-style section header — small caps, dim, with a separator line."""
+        t = self.theme
+        frame = ctk.CTkFrame(self.sidebar_scroll, fg_color="transparent")
+        frame.pack(fill="x", padx=0, pady=(10, 0))
+
+        ctk.CTkLabel(
+            frame, text=title.upper(),
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            text_color=t.TEXT_DIM, anchor="w"
+        ).pack(side="left", padx=14)
+
+    def _sidebar_item_button(
+        self, label: str, command,
+        icon: str = "", tag: str = "",
+        primary: bool = False, danger: bool = False,
+        state: str = "normal"
+    ) -> ctk.CTkButton:
+        """
+        VS Code Explorer-style list item button.
+        - Normal: transparent bg, left-aligned text, hover highlight
+        - Primary (Open File): subtle accent border
+        - Danger (Stop): red text
+        """
+        t = self.theme
+        display = f"  {icon}  {label}" if icon else f"  {label}"
+
+        if primary:
+            fg   = t.ACCENT
+            hover = t.ACCENT_DARK
+            text_col = "#ffffff"
+            border = 0
+            corner = 6
+            height = 32
+        elif danger:
+            fg   = "transparent"
+            hover = t.ERROR_DIM
+            text_col = t.ERROR
+            border = 1
+            corner = 4
+            height = 28
+        else:
+            fg   = "transparent"
+            hover = t.HOVER
+            text_col = t.TEXT_MAIN
+            border = 0
+            corner = 4
+            height = 30
+
         btn = ctk.CTkButton(
-            master,
-            text=f"STOP {tool_name.upper()}",
-            command=lambda: self.request_stop_tool(tool_name),
-            state="disabled",
-            height=28,
-            corner_radius=6,
-            font=ctk.CTkFont(size=10, weight="bold"),
-            fg_color="transparent",
-            border_width=1,
-            border_color="#7f1d1d",
-            text_color="#ff4444",
-            hover_color="#3a1a1a"
+            self.sidebar_scroll,
+            text=display,
+            command=command,
+            height=height,
+            corner_radius=corner,
+            fg_color=fg,
+            hover_color=hover,
+            border_width=border,
+            border_color=t.BORDER if border else None,
+            font=ctk.CTkFont(family="Segoe UI", size=12),
+            text_color=text_col,
+            anchor="w",
+            state=state
         )
-        btn.pack(fill="x", pady=(0, 6), padx=15)
+        btn.pack(fill="x", padx=8, pady=1)
         return btn
 
-    def add_sidebar_section(self, title):
-        lbl = ctk.CTkLabel(
-            self.sidebar_inner.get_inner_frame() if hasattr(self, 'sidebar_inner') else self.sidebar_scroll, 
-            text=title, 
-            font=ctk.CTkFont(size=10, weight="bold"), 
-            text_color=self.theme.TEXT_DIM
-        )
-        lbl.pack(anchor="w", padx=10, pady=(15, 8))
-
-    def create_action_button(self, master, text, command, color):
+    def _sidebar_stop_button(self, tool_name: str) -> ctk.CTkButton:
+        """Compact inline stop button — only visible when tool is running."""
+        t = self.theme
         btn = ctk.CTkButton(
-            master, text=text, command=command, height=45, corner_radius=10,
-            fg_color=color, hover_color=self.theme.ACCENT_DARK if color == self.theme.ACCENT else None,
-            font=ctk.CTkFont(size=13, weight="bold"),
-            text_color="#ffffff" if color != self.theme.ACCENT else "#000000",
-            border_width=0
+            self.sidebar_scroll,
+            text=f"  ■  Stop {tool_name.upper()}",
+            command=lambda: self.request_stop_tool(tool_name),
+            state="disabled",
+            height=22,
+            corner_radius=3,
+            fg_color="transparent",
+            border_width=0,
+            hover_color=t.ERROR_DIM,
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=t.TEXT_DIM,
+            anchor="w"
         )
-        btn.pack(fill="x", pady=6, padx=5)
+        btn.pack(fill="x", padx=24, pady=(0, 2))
         return btn
 
     def show_welcome(self):
-        """Show professional welcome message in console"""
-        self.console.insert("end", "🛡️ DEFI GUARDIAN FORMAL VERIFICATION SUITE\n", "header")
-        self.console.insert("end", f"📅 System initialized: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n", "dim")
-        self.console.insert("end", "─"*60 + "\n", "dim")
-        self.console.insert("end", "⚡ Ready for protocol analysis. Please load a source file to begin.\n\n", "accent")
-        
-        # Configure console tags
-        self.console.tag_config("header", foreground=self.theme.ACCENT, font=("Fira Code", 12, "bold"))
-        self.console.tag_config("accent", foreground=self.theme.ACCENT)
-        self.console.tag_config("dim", foreground=self.theme.TEXT_DIM)
-        self.console.tag_config("success", foreground=self.theme.SUCCESS)
-        self.console.tag_config("error", foreground=self.theme.ERROR)
-        self.console.tag_config("warning", foreground=self.theme.WARNING)
+        """Show VS Code-style welcome message in the terminal panel."""
+        c = self.console
+        t = self.theme
+
+        c.insert("end", "\n")
+        c.insert("end", "  DeFi Guardian  —  Formal Verification Suite\n", "header")
+        c.insert("end", f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  ·  SPIN 6.5  ·  Coq  ·  Lean  ·  Certora\n\n", "dim")
+        c.insert("end", "  Supported formats:  .sol  .rs  .pml\n", "dim")
+        c.insert("end", "  Load a source file to begin verification.\n\n", "accent")
+
+        # Configure console colour tags — VS Code terminal palette
+        c.tag_config("header",  foreground="#4ec9b0",  font=("Fira Code", 12, "bold"))
+        c.tag_config("accent",  foreground="#9cdcfe")   # light blue
+        c.tag_config("dim",     foreground=t.TEXT_DIM)
+        c.tag_config("success", foreground="#4ec9b0")   # teal
+        c.tag_config("error",   foreground="#f44747")   # red
+        c.tag_config("warning", foreground="#cca700")   # yellow
+        c.tag_config("info",    foreground="#569cd6")   # blue keyword
 
 
     def ensure_sidebar_visibility(self):
@@ -1637,45 +1940,46 @@ class FormalVerifierApp(ctk.CTk):
         self.update_ui_colors()
 
     def update_ui_colors(self):
-        """Update colors of all UI components based on the current theme"""
-        self.configure(fg_color=self.theme.BG)
-        self.sidebar.configure(fg_color=self.theme.PANEL_BG)
-        self.main_frame.configure(fg_color=self.theme.BG)
-        self.top_panel.configure(fg_color=self.theme.PANEL_BG, border_color=self.theme.BORDER)
-        self.bottom_panel.configure(fg_color=self.theme.TERMINAL_BG, border_color=self.theme.BORDER)
-        
-        # Update textboxes
-        for widget in [self.source_editor, self.spec_editor, self.translated_editor, self.problems_text, self.console_widget]:
-            if hasattr(widget, 'configure'):
-                bg_color = self.theme.BG if widget != self.console_widget else "transparent"
-                if self.theme_mode == "light":
-                    bg_color = self.theme.PANEL_BG # Use pure white for editors in light mode
-                    if widget == self.console_widget:
-                        bg_color = self.theme.TERMINAL_BG
-                
-                widget.configure(
-                    fg_color=bg_color, 
-                    text_color=self.theme.TEXT_MAIN if widget != self.spec_editor else self.theme.ACCENT
-                )
-        
-        # Update tabview
+        """Re-apply theme tokens to all major UI components."""
+        t = self.theme
+
+        self.configure(fg_color=t.BG)
+        self.sidebar.configure(fg_color=t.PANEL_BG)
+        self.sidebar_header.configure(fg_color=t.ACTIVITY_BG)
+        self.main_frame.configure(fg_color=t.BG)
+        self.top_panel.configure(fg_color=t.EDITOR_BG)
+        self.bottom_panel.configure(fg_color=t.TERMINAL_BG)
+
+        # Editor textboxes
+        self.source_editor.configure(fg_color=t.EDITOR_BG, text_color=t.TEXT_MAIN)
+        self.spec_editor.configure(fg_color=t.EDITOR_BG, text_color="#ce9178")
+        self.translated_editor.configure(fg_color=t.EDITOR_BG, text_color="#9cdcfe")
+        self.problems_text.configure(fg_color=t.EDITOR_BG, text_color=t.ERROR)
+        self.console_widget.configure(fg_color=t.TERMINAL_BG, text_color=t.TEXT_MAIN)
+
+        # Tab bar
         if hasattr(self, 'editor_tabs'):
-            inactive_bg = getattr(self.theme, 'TAB_INACTIVE_BG', self.theme.TERMINAL_BG)
             self.editor_tabs.configure(
-                segmented_button_fg_color=inactive_bg,
-                segmented_button_selected_color=self.theme.ACCENT,
-                segmented_button_selected_hover_color=self.theme.ACCENT_DARK,
-                segmented_button_unselected_color=inactive_bg,
-                text_color=self.theme.TEXT_MAIN
+                segmented_button_fg_color=t.TAB_INACTIVE,
+                segmented_button_selected_color=t.TAB_ACTIVE,
+                segmented_button_selected_hover_color=t.TAB_ACTIVE,
+                segmented_button_unselected_color=t.TAB_INACTIVE,
+                segmented_button_unselected_hover_color=t.HOVER,
+                fg_color=t.EDITOR_BG,
             )
-            # Update internal tab colors if accessible, or rely on CTk default behaviors
-            # CustomTkinter tab backgrounds usually inherit from the Tabview master
-        
-        # Update status footer
+
+        # Terminal tab bar
+        if hasattr(self, 'term_tabbar'):
+            self.term_tabbar.configure(fg_color=t.PANEL_BG)
+
+        # Status bar
         if hasattr(self, 'sidebar_footer'):
-            self.sidebar_footer.configure(fg_color=self.theme.TERMINAL_BG)
+            self.sidebar_footer.configure(fg_color=t.ACTIVITY_BG)
         if hasattr(self, 'status_label'):
-            self.status_label.configure(text_color=self.theme.TEXT_MAIN)
+            self.status_label.configure(text_color=t.TEXT_DIM)
+
+        # Refresh console colour tags
+        self.show_welcome()
         if hasattr(self, 'lean_prewarm_status'):
             self.lean_prewarm_status.configure(text_color=self.theme.TEXT_DIM)
         if hasattr(self, 'tool_status'):
@@ -2701,7 +3005,9 @@ Ready for verification!
                     possible_srcs = [
                         os.path.join(PROJECT_DIR, "pan.trail"),
                         os.path.join(PROJECT_DIR, "translated_output.pml.trail"),
-                        os.path.join(SPIN_LOGS, "pan.trail")
+                        os.path.join(SPIN_LOGS, "pan.trail"),
+                        os.path.join(os.getcwd(), "pan.trail"),
+                        os.path.join(os.getcwd(), "translated_output.pml.trail")
                     ]
                     for p in possible_srcs:
                         if os.path.exists(p):
@@ -2710,19 +3016,52 @@ Ready for verification!
                             
                     if trail_src:
                         trail_dest = os.path.join(SPIN_LOGS, "translated_output.pml.trail")
-                        # Also copy to root for app.py to find easily
+                        # Also copy to root for app.py and CounterexampleAnalyzer to find easily
                         trail_root = os.path.join(PROJECT_DIR, "translated_output.pml.trail")
                         import shutil
-                        if os.path.abspath(trail_src) != os.path.abspath(trail_dest):
+                        
+                        src_abs = os.path.abspath(trail_src)
+                        dest_abs = os.path.abspath(trail_dest)
+                        root_abs = os.path.abspath(trail_root)
+                        
+                        if src_abs != dest_abs:
                             shutil.copy2(trail_src, trail_dest)
-                        if os.path.abspath(trail_src) != os.path.abspath(trail_root):
+                        if src_abs != root_abs:
                             shutil.copy2(trail_src, trail_root)
                         self.console.insert("end", f"   Counterexample trail preserved: {trail_dest}\n", "success")
                     else:
                         self.console.insert("end", "   Verification failed but no .trail file was found by SPIN\n", "warning")
 
                 spin_log_path = self.save_tool_log('spin', verify_result.stdout, verify_result.stderr)
-                # Save SPIN state
+
+                # Extract LTL verification results
+                # SPIN reports per-property blocks separated by "--- LTL <name> ---"
+                # Each block contains "errors: N" — 0 means pass, >0 means fail.
+                ltl_results = []
+                spin_out = verify_result.stdout
+                ltl_blocks = spin_out.split('--- LTL ')
+                for block in ltl_blocks[1:]:
+                    name_match = re.match(r'(\w+)', block)
+                    if not name_match:
+                        continue
+                    prop_name = name_match.group(1)
+                    err_match = re.search(r'errors:\s*(\d+)', block)
+                    prop_passed = (err_match and int(err_match.group(1)) == 0)
+                    # Also extract the formula from the model if available
+                    formula = ''
+                    if hasattr(self, 'spec_editor'):
+                        spec_text = self.spec_editor.get("1.0", "end-1c")
+                        fm = re.search(rf'ltl\s+{re.escape(prop_name)}\s*\{{([^}}]+)\}}', spec_text)
+                        if fm:
+                            formula = fm.group(1).strip()
+                    ltl_results.append({
+                        'name': prop_name,
+                        'success': prop_passed,
+                        'formula': formula,
+                        'errors': int(err_match.group(1)) if err_match else 0,
+                    })
+
+                # Save SPIN state (after LTL extraction so ltl_results is populated)
                 self.save_verification_state('spin', {
                     'success': success,
                     'output': verify_result.stdout,
@@ -2731,14 +3070,9 @@ Ready for verification!
                     'transitions': transitions,
                     'depth': depth,
                     'log_path': spin_log_path,
+                    'ltl_results': ltl_results,
                 }, specs=custom_specs)
 
-                # Extract LTL verification results
-                ltl_results = []
-                for line in verify_result.stdout.split('\n'):
-                    if 'ltl' in line.lower() and ('holds' in line or 'violated' in line):
-                        ltl_results.append(line.strip())
-                
                 if success:
                     self.console.insert("end", "\nVERIFICATION SUCCESSFUL!\n", "success")
                     self.console.insert("end", "   All LTL properties satisfied\n", "success")
@@ -2795,6 +3129,16 @@ Ready for verification!
                     os.path.basename(self.current_file),
                     ltl_results
                 )
+                
+                # Copy to project root for unified access
+                try:
+                    state_file_src = os.path.join(REPORTS_DIR, "verification_state.json")
+                    state_file_dest = os.path.join(PROJECT_DIR, "verification_state.json")
+                    if os.path.exists(state_file_src):
+                        import shutil
+                        shutil.copy2(state_file_src, state_file_dest)
+                except:
+                    pass
                 
                 self.console.insert("end", "\n[5/5] Verification results saved to verification_state.json\n")
                 
@@ -2905,9 +3249,52 @@ Ready for verification!
             # Save back to file
             with open(AUDIT_LOG_FILE, 'w') as f:
                 json.dump(history, f, indent=2)
+
+            # Mirror desktop audit history into the portal database if available
+            self.save_portal_audit_record(job_entry)
                 
         except Exception as e:
             print(f"Error logging job history: {e}")
+
+    def save_portal_audit_record(self, job_entry):
+        """Mirror desktop job history into the web portal audit database."""
+        try:
+            portal_db = os.path.join(PROJECT_DIR, 'web_portal', 'defi_guardian.db')
+            if not os.path.exists(portal_db):
+                return
+
+            conn = sqlite3.connect(portal_db)
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO audit_history (
+                    user_id, filename, file_type, tool_used, status,
+                    states_explored, transitions, depth_reached,
+                    vulnerabilities_found, ltl_properties,
+                    verification_output, audit_date, report_path
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                None,
+                job_entry.get('file', 'unknown'),
+                os.path.splitext(job_entry.get('file', ''))[1] or '',
+                job_entry.get('tool', 'unknown'),
+                'PASS' if job_entry.get('status', '').upper() in ('PASS', 'SUCCESS') else 'FAIL',
+                job_entry.get('details', {}).get('states', 0),
+                job_entry.get('details', {}).get('transitions', 0),
+                job_entry.get('details', {}).get('depth', 0),
+                job_entry.get('details', {}).get('error_msg', ''),
+                json.dumps([]),
+                job_entry.get('log_path', '') or job_entry.get('trace_path', ''),
+                job_entry.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
+                job_entry.get('trace_path', '')
+            ))
+            conn.commit()
+        except Exception as e:
+            print(f"Error saving portal audit record: {e}")
+        finally:
+            try:
+                conn.close()
+            except:
+                pass
 
     def save_verification_state(self, tool, result, specs=""):
         """Save verification state for a specific tool"""
@@ -2943,6 +3330,10 @@ Ready for verification!
             'reason': result.get('reason', ''),
             'log_path': result.get('log_path', ''),
             'specs': specs,
+            'ltl_results': result.get('ltl_results', []),
+            'states_stored': result.get('states_stored', 0),
+            'transitions': result.get('transitions', 0),
+            'depth': result.get('depth', 0),
         }
         
         # Also update overall verification info if this is SPIN
@@ -3426,11 +3817,17 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
                     f.write(rust_code)
 
                 # Cargo.toml — reference creusot-std by its real package name
+                # Also declare known cfg flags to suppress "unexpected cfg" warnings
                 with open(os.path.join(project_dir, 'Cargo.toml'), 'w') as f:
                     f.write(
                         '[package]\nname = "creusot_verify"\nversion = "0.1.0"\n'
-                        'edition = "2021"\n\n[dependencies]\n'
-                        f'creusot-std = {{ path = "{CREUSOT_STD_PATH}" }}\n'
+                        'edition = "2021"\n\n'
+                        '[dependencies]\n'
+                        f'creusot-std = {{ path = "{CREUSOT_STD_PATH}" }}\n\n'
+                        '# Suppress unexpected cfg warnings for verification tool annotations\n'
+                        '[lints.rust]\n'
+                        'unexpected_cfgs = { level = "allow", check-cfg = ['
+                        '\'cfg(creusot)\', \'cfg(prusti)\', \'cfg(kani)\'] }\n'
                     )
 
                 # Set the nightly lib path so creusot-rustc can find librustc_driver
@@ -3537,7 +3934,8 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
                  dest_path = os.path.join(certora_dir, os.path.basename(self.current_file)) 
                  
                  import shutil 
-                 shutil.copy2(self.current_file, dest_path) 
+                 if os.path.abspath(self.current_file) != os.path.abspath(dest_path):
+                     shutil.copy2(self.current_file, dest_path) 
                  self.after(0, lambda: self.console.insert("end", 
                      f"Contract copied to: {dest_path}\n")) 
                  
@@ -3569,7 +3967,6 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
                      "loop_iter": "3", 
                      "rule_sanity": "basic", 
                      "msg": f"DeFi Guardian - {contract_name}", 
-                     "cloud": True, 
                      "prover_args": [ 
                          "-mediumTimeout", "300", 
                          "-depth", "200" 
@@ -3601,34 +3998,75 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
                  # Parse results 
                  output = result.stdout 
                  errors = result.stderr 
-                 
-                 success = "VERIFIED" in output or "PASS" in output 
-                 
+                 combined = output + errors
+
+                 # Detect config/infra errors vs real violations
+                 is_config_error = (
+                     "not a known attribute" in combined or
+                     "Error when reading" in combined or
+                     "certoraRun: error" in combined.lower()
+                 )
+                 if is_config_error:
+                     success = False
+                     infra_error = True
+                     failure_kind = "config_error"
+                     failure_hint = "Certora config has unknown attributes. Check the .conf file."
+                 else:
+                     infra_error = False
+                     failure_kind = ""
+                     failure_hint = ""
+                     success = (
+                         "VERIFIED" in combined or
+                         "All rules passed" in combined or
+                         result.returncode == 0
+                     ) and "violated" not in combined.lower()
+
+                 # Extract per-rule results from Certora output
+                 certora_rules = []
+                 for m in re.finditer(r'Rule\s+(\w+)\s+(passed|violated)', combined, re.IGNORECASE):
+                     certora_rules.append({
+                         'name': m.group(1),
+                         'success': m.group(2).lower() == 'passed',
+                         'formula': '',
+                         'errors': 0 if m.group(2).lower() == 'passed' else 1,
+                     })
+
+                 # Job URL
+                 job_url = ''
+                 job_match = re.search(r'https://prover\.certora\.com/output/\S+', combined)
+                 if job_match:
+                     job_url = job_match.group(0)
+
                  # Save results 
                  log_path = self.save_tool_log('certora', output, errors) 
                  self.save_verification_state('certora', { 
                      'success': success, 
                      'output': output, 
                      'errors': errors, 
-                     'log_path': log_path, 
+                     'log_path': log_path,
+                     'ltl_results': certora_rules,
+                     'job_url': job_url,
+                     'spec_content': spec_content,
+                     'infra_error': infra_error,
+                     'failure_kind': failure_kind,
+                     'failure_hint': failure_hint,
                  }, specs=spec_content) 
                  
                  def display(): 
-                     if success: 
+                     if is_config_error:
+                         self.console.insert("end", "Certora config error — check .conf file\n", "warning")
+                         self.console.insert("end", f"   {failure_hint}\n", "warning")
+                     elif success: 
                          self.console.insert("end", "Certora verification passed!\n", "success") 
                          self.console.insert("end", "   All rules verified on actual bytecode\n", "success") 
                      else: 
                          self.console.insert("end", "Certora found violations:\n", "error") 
-                         
-                         # Extract rule violations 
-                         violations = re.findall(r'Rule (\w+) violated', output + errors) 
+                         violations = re.findall(r'Rule (\w+) violated', combined) 
                          for v in violations: 
                              self.console.insert("end", f"   • {v}\n", "error") 
                      
-                     # Show job URL if available 
-                     job_match = re.search(r'https://prover\.certora\.com/output/\d+/[a-f0-9]+', output) 
-                     if job_match: 
-                         self.console.insert("end", f"\nFull results: {job_match.group(0)}\n") 
+                     if job_url: 
+                         self.console.insert("end", f"\nFull results: {job_url}\n") 
                      
                      if log_path: 
                          self.console.insert("end", f"Log saved: {log_path}\n") 
@@ -3651,38 +4089,317 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
          
          threading.Thread(target=run_certora, daemon=True).start() 
      
-    def _generate_default_certora_spec(self, contract_name): 
-         """Generate a default Certora spec template""" 
-         return f'''/* 
-  * Auto-generated Certora Specification 
-  * Contract: {contract_name} 
-  * Generated by DeFi Guardian 
-  */ 
- 
- methods {{ 
-     // Declare your contract's external functions here 
-     // function yourFunction(address, uint256) external returns (uint256) envfree; 
- }} 
- 
- // Rule: Basic sanity check - constructor doesn't revert 
- rule constructorSanity() {{ 
-     constructor(); 
-     assert true, "Constructor should complete"; 
- }} 
- 
- // Rule: No function should revert unexpectedly 
- rule noUnexpectedRevert(method f) {{ 
-     calldataarg args; 
-     f@withrevert(e, args); 
-     
-     // Log reverts for analysis (doesn't fail the rule) 
-     // Remove the comment below to fail on unexpected reverts: 
-     // assert !lastReverted, "Unexpected revert"; 
- }} 
- 
- // TODO: Add your contract-specific rules here 
- // See: https://docs.certora.com/ 
- '''
+    def _generate_default_certora_spec(self, contract_name):
+        """
+        Generate a Certora spec that mirrors the tutorial patterns:
+        - envfree declarations for pure view functions
+        - Symbolic variables (no constructor setup needed)
+        - before/after state comparison
+        - method f + calldataarg for universal property checks
+        - Self-transfer / same-address edge cases
+        - Allowance tracking for ERC20
+        """
+        name_lower = contract_name.lower()
+
+        # ── Detect contract type from name ────────────────────────────
+        is_erc20    = any(k in name_lower for k in ("erc20", "token", "transfer", "allowance"))
+        is_lending  = any(k in name_lower for k in ("lend", "borrow", "pool", "vault", "collateral"))
+        is_vesting  = any(k in name_lower for k in ("vest", "cliff", "release", "lock"))
+        is_flash    = any(k in name_lower for k in ("flash", "borrower", "receiver"))
+
+        if is_erc20:
+            return self._certora_erc20_spec(contract_name)
+        if is_lending:
+            return self._certora_lending_spec(contract_name)
+        if is_vesting:
+            return self._certora_vesting_spec(contract_name)
+        if is_flash:
+            return self._certora_flash_spec(contract_name)
+        return self._certora_generic_spec(contract_name)
+
+    # ── Per-type Certora spec generators ─────────────────────────────
+
+    def _certora_erc20_spec(self, contract_name):
+        return f'''\
+/*
+ * Certora Specification — ERC20 Token: {contract_name}
+ *
+ * Patterns from the Certora tutorial:
+ *   - envfree for pure view functions (no msg.sender dependency)
+ *   - Symbolic variables: prover finds violating assignments
+ *   - before/after state comparison
+ *   - method f + calldataarg: check ALL methods, not just specific ones
+ *   - Self-transfer edge case (holder == recipient)
+ *   - Allowance tracking
+ */
+
+methods {{
+    // envfree: these functions never read msg.sender / block.timestamp
+    function balanceOf(address)          external returns (uint256) envfree;
+    function allowance(address, address) external returns (uint256) envfree;
+    function totalSupply()               external returns (uint256) envfree;
+}}
+
+// ─── Rule 1: Transfer correctness ───────────────────────────────────────────
+// Symbolic variables — the prover searches for values that violate assertions.
+// No constructor setup needed; prover considers ALL possible storage states.
+rule transferFromSpec(address holder, address recipient, uint256 amount) {{
+    require holder   != 0;
+    require recipient != 0;
+
+    uint256 balance_holder_before    = balanceOf(holder);
+    uint256 balance_recipient_before = balanceOf(recipient);
+
+    // Pass environment (msg.sender, block.timestamp, etc.)
+    transferFrom(e, holder, recipient, amount);
+
+    uint256 balance_holder_after    = balanceOf(holder);
+    uint256 balance_recipient_after = balanceOf(recipient);
+
+    if (holder != recipient) {{
+        // Normal transfer: holder goes down, recipient goes up
+        assert balance_holder_after    == balance_holder_before    - amount,
+            "TRANSFER: holder balance must decrease by amount";
+        assert balance_recipient_after == balance_recipient_before + amount,
+            "TRANSFER: recipient balance must increase by amount";
+    }} else {{
+        // Self-transfer: nothing should change (tutorial bug fix)
+        assert balance_holder_after == balance_holder_before,
+            "SELF-TRANSFER: balance must not change when holder == recipient";
+    }}
+}}
+
+// ─── Rule 2: Allowance tracking ─────────────────────────────────────────────
+rule transferFromAllowance(address holder, address spender, uint256 amount) {{
+    require holder  != 0;
+    require spender != 0;
+
+    uint256 allowance_before = allowance(holder, spender);
+
+    // Require the environment's msg.sender IS the spender
+    require e.msg.sender == spender;
+
+    transferFrom@withrevert(e, holder, spender, amount);
+
+    if (!lastReverted) {{
+        // Successful transfer: spender had enough allowance
+        assert allowance_before >= amount,
+            "ALLOWANCE: spender must have sufficient allowance";
+        // Allowance is reduced by amount spent
+        assert allowance(holder, spender) == allowance_before - amount,
+            "ALLOWANCE: must decrease by amount after transfer";
+    }}
+}}
+
+// ─── Rule 3: Only holder can increase allowance (universal — all methods) ───
+// Uses method f + calldataarg to check EVERY function in the contract,
+// not just approve(). This catches hidden backdoors like pullTheRug().
+rule onlyHolderCanIncreaseAllowance(address holder, address spender) {{
+    require holder  != 0;
+    require spender != 0;
+
+    uint256 allowance_before = allowance(holder, spender);
+
+    // Call ANY method with ANY arguments and ANY msg.sender
+    method f;
+    calldataarg args;
+    f(e, args);
+
+    uint256 allowance_after = allowance(holder, spender);
+
+    // If allowance went up, the caller MUST have been the holder
+    assert allowance_after > allowance_before => e.msg.sender == holder,
+        "ALLOWANCE: only the holder may increase their own allowance";
+}}
+
+// ─── Rule 4: Total supply integrity ─────────────────────────────────────────
+rule totalSupplyIntegrity(method f) {{
+    uint256 supply_before = totalSupply();
+
+    calldataarg args;
+    f(e, args);
+
+    uint256 supply_after = totalSupply();
+
+    // Supply may only change via mint/burn — never by transfer
+    assert supply_after != supply_before =>
+        (f.selector == sig:mint(address,uint256).selector ||
+         f.selector == sig:burn(address,uint256).selector),
+        "SUPPLY: total supply changed by non-mint/burn function";
+}}
+'''
+
+    def _certora_lending_spec(self, contract_name):
+        return f'''\
+/*
+ * Certora Specification — Lending Protocol: {contract_name}
+ *
+ * Key invariants: solvency, collateral ratio, liquidation correctness.
+ */
+
+methods {{
+    function deposits(address)      external returns (uint256) envfree;
+    function borrows(address)       external returns (uint256) envfree;
+    function totalDeposits()        external returns (uint256) envfree;
+    function totalBorrows()         external returns (uint256) envfree;
+    function getHealthFactor(address) external returns (uint256) envfree;
+    function COLLATERAL_RATIO()     external returns (uint256) envfree;
+}}
+
+// ─── Solvency invariant (checked after every method) ────────────────────────
+rule solvencyInvariant(method f) {{
+    uint256 total_dep_before = totalDeposits();
+    uint256 total_bor_before = totalBorrows();
+
+    calldataarg args;
+    f(e, args);
+
+    assert totalDeposits() >= totalBorrows(),
+        "SOLVENCY: pool owes more than it holds";
+}}
+
+// ─── Borrow requires sufficient collateral ──────────────────────────────────
+rule borrowCollateralCheck(address user, uint256 amount) {{
+    require user   != 0;
+    require amount > 0;
+
+    uint256 deposit_before = deposits(user);
+    uint256 borrow_before  = borrows(user);
+
+    borrow@withrevert(e, amount);
+
+    if (!lastReverted) {{
+        uint256 required = (borrows(user) * COLLATERAL_RATIO()) / 100;
+        assert deposits(user) >= required,
+            "COLLATERAL: position underwater after borrow";
+    }}
+}}
+
+// ─── Liquidation only when health factor < 100 ──────────────────────────────
+rule liquidationCheck(address user, address liquidator, uint256 debtToCover) {{
+    require user      != liquidator;
+    require user      != 0;
+    require liquidator != 0;
+    require borrows(user) > 0;
+
+    uint256 hf_before = getHealthFactor(user);
+
+    liquidate@withrevert(e, user, debtToCover);
+
+    if (!lastReverted) {{
+        assert hf_before < 100,
+            "LIQUIDATION: healthy position was liquidated";
+    }}
+}}
+'''
+
+    def _certora_vesting_spec(self, contract_name):
+        return f'''\
+/*
+ * Certora Specification — Vesting Wallet: {contract_name}
+ */
+
+methods {{
+    function released()          external returns (uint256) envfree;
+    function vestedAmount(uint64) external returns (uint256) envfree;
+    function start()             external returns (uint64)  envfree;
+    function duration()          external returns (uint64)  envfree;
+    function owner()             external returns (address) envfree;
+}}
+
+// ─── Released amount never decreases ────────────────────────────────────────
+rule releasedMonotonicallyIncreases(method f) {{
+    uint256 released_before = released();
+
+    calldataarg args;
+    f(e, args);
+
+    assert released() >= released_before,
+        "VESTING: released amount must never decrease";
+}}
+
+// ─── Only owner can release ──────────────────────────────────────────────────
+rule onlyOwnerCanRelease() {{
+    uint256 released_before = released();
+
+    release@withrevert(e);
+
+    if (!lastReverted && released() > released_before) {{
+        assert e.msg.sender == owner(),
+            "VESTING: only owner may trigger release";
+    }}
+}}
+
+// ─── Vested amount bounded by total balance ─────────────────────────────────
+rule vestedAmountBounded(uint64 timestamp) {{
+    require timestamp >= start();
+    assert vestedAmount(timestamp) >= released(),
+        "VESTING: released cannot exceed vested amount";
+}}
+'''
+
+    def _certora_flash_spec(self, contract_name):
+        return f'''\
+/*
+ * Certora Specification — Flash Loan Borrower: {contract_name}
+ */
+
+methods {{
+    function onFlashLoan(address, address, uint256, uint256, bytes) external returns (bytes32) envfree;
+}}
+
+// ─── Flash loan callback returns correct magic value ────────────────────────
+rule flashLoanCallbackCorrect(address initiator, address token,
+                               uint256 amount, uint256 fee) {{
+    bytes32 result = onFlashLoan(e, initiator, token, amount, fee, _);
+    assert result == keccak256("ERC3156FlashBorrower.onFlashLoan"),
+        "FLASH: callback must return correct magic value";
+}}
+'''
+
+    def _certora_generic_spec(self, contract_name):
+        return f'''\
+/*
+ * Certora Specification — {contract_name}
+ * Generated by DeFi Guardian
+ *
+ * Patterns used:
+ *   - envfree: declare view functions that don't read msg.sender
+ *   - Symbolic variables: prover finds violating assignments automatically
+ *   - method f + calldataarg: check a property holds across ALL methods
+ */
+
+methods {{
+    // Declare envfree functions (pure view, no msg.sender dependency):
+    // function yourView(address) external returns (uint256) envfree;
+}}
+
+// ─── Rule: No function should revert unexpectedly ───────────────────────────
+rule noUnexpectedRevert(method f) {{
+    calldataarg args;
+    f@withrevert(e, args);
+    // Uncomment to enforce no reverts:
+    // assert !lastReverted, "Unexpected revert in " + f.selector;
+    satisfy true;
+}}
+
+// ─── Rule: State variable X never decreases (template) ──────────────────────
+// rule xMonotonicallyIncreases(method f) {{
+//     uint256 x_before = getX();
+//     calldataarg args;
+//     f(e, args);
+//     assert getX() >= x_before, "X must never decrease";
+// }}
+
+// ─── Rule: Only owner can change critical state (template) ──────────────────
+// rule onlyOwnerCanChange(method f) {{
+//     uint256 state_before = criticalState();
+//     calldataarg args;
+//     f(e, args);
+//     assert criticalState() != state_before => e.msg.sender == owner(),
+//         "Only owner may change critical state";
+// }}
+'''
 
     def verify_with_kani(self):
         """Run Kani model checking using cargo kani in a temp Cargo project"""
@@ -3820,10 +4537,18 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
                 verus = VerusIntegration()
                 if not verus.verus_available:
                     self.after(0, lambda: self.console.insert(
-                        "end", "❌ Verus not installed (``verus`` not found)\n"
+                        "end",
+                        "Verus not installed.\n"
+                        "   Verus is a formal verifier for Rust (Microsoft Research).\n"
+                        "   Install: https://github.com/verus-lang/verus/releases\n"
+                        "   Quick install:\n"
+                        "     git clone https://github.com/verus-lang/verus\n"
+                        "     cd verus && tools/get-z3.sh && vargo build --release\n"
+                        "     # Then add verus/target-verus/release to PATH\n",
+                        "warning"
                     ))
                     self.after(0, lambda: self.verus_btn.configure(
-                        state="normal", text="🔧 VERUS VERIFICATION"
+                        state="normal", text="✓ Verus Verifier"
                     ))
                     self.after(0, lambda: self.set_tool_running("verus", False))
                     return
@@ -3993,7 +4718,42 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
         
         # Launch structured dashboard
         trace_data = analyzer.get_structured_trace(pml_file if os.path.exists(pml_file) else None)
-        if "error" not in trace_data:
+        
+        # If SPIN replay produced no steps, try loading the saved trace JSON
+        if (not trace_data.get("steps")) and os.path.exists(TRACES_DIR):
+            import glob
+            trace_files = sorted(
+                glob.glob(os.path.join(TRACES_DIR, "trace_*.json")),
+                key=os.path.getmtime, reverse=True
+            )
+            for tf in trace_files[:1]:
+                try:
+                    with open(tf, 'r') as f:
+                        saved = json.load(f)
+                    # Normalise node_details → steps
+                    if saved.get("node_details") and not saved.get("steps"):
+                        saved["steps"] = [
+                            {
+                                "step":      i + 1,
+                                "proc_name": s.get("proc", "Contract"),
+                                "line":      s.get("line", 0),
+                                "state":     0,
+                                "file":      "",
+                                "updates":   {},
+                                "variables": s.get("variables", {}),
+                                "raw":       s.get("action", ""),
+                                "action":    s.get("action", ""),
+                            }
+                            for i, s in enumerate(saved["node_details"])
+                        ]
+                    if saved.get("steps"):
+                        trace_data = saved
+                        self.console.insert("end", f"   Loaded trace from: {tf}\n", "dim")
+                    break
+                except Exception:
+                    pass
+
+        if trace_data.get("steps"):
             self.console.insert("end", "✨ Launching Interactive Counterexample Dashboard...\n")
             CounterexampleDashboard(self, trace_data)
         else:
@@ -4006,97 +4766,660 @@ theorem lock_acquired (locked : Bool) (h : locked = false) :
         
         self.console.see("end")
 
-    def open_dashboard(self):
-        """Open Streamlit dashboard"""
-        self.console.insert("end", "\n🌐 Opening dashboard in browser...\n")
-        self.status_label.configure(text="Launching dashboard...")
-        
-        # Find app.py path
-        app_path = os.path.join(os.path.dirname(__file__), "app.py")
-        
-        if not os.path.exists(app_path):
-            app_path = "app.py"
-            
-        if not os.path.exists(app_path):
-            self.console.insert("end", "❌ app.py not found!\n")
-            self.status_label.configure(text="Dashboard not found")
+    def run_slither_analysis(self):
+        """Run Slither on the active Solidity file and load LTL results into the spec editor."""
+        if not self.current_file:
+            self.console.insert("end", "No file loaded. Open a .sol file first.\n", "error")
             return
-        
-        # Kill existing streamlit
-        try:
-            if sys.platform == "win32":
-                subprocess.run("taskkill /f /im streamlit.exe", shell=True, stderr=subprocess.DEVNULL)
+        if not self.current_file.lower().endswith('.sol'):
+            self.console.insert("end", "Slither only works with Solidity (.sol) files.\n", "error")
+            return
+
+        def _run():
+            self.after(0, lambda: self.console.insert("end",
+                "\n🐍 SLITHER STATIC ANALYSIS\n" + "─"*50 + "\n", "header"))
+            self.after(0, lambda: self.console.insert("end",
+                f"Analyzing: {os.path.basename(self.current_file)}\n", "dim"))
+
+            try:
+                from spec_generator import SlitherSpecExtractor
+                extractor = SlitherSpecExtractor()
+
+                if not extractor.slither_available:
+                    self.after(0, lambda: self.console.insert("end",
+                        "Slither not installed.\n"
+                        "   Install: pip install slither-analyzer\n", "error"))
+                    return
+
+                # Generate LTL properties
+                ltl = extractor.generate_ltl_from_slither(self.current_file)
+                summary = extractor.generate_summary(self.current_file)
+
+                # Show summary in console
+                self.after(0, lambda: self.console.insert("end", summary + "\n", "accent"))
+
+                # Load LTL into spec editor
+                def _load():
+                    self.spec_editor.delete("1.0", "end")
+                    self.spec_editor.insert("1.0", ltl)
+                    # Switch to Specifications tab
+                    self.editor_tabs.set("Specifications & LTL")
+                    self.console.insert("end",
+                        "✅ LTL properties loaded into Specifications & LTL tab.\n", "success")
+                    self.console.see("end")
+
+                self.after(0, _load)
+
+            except Exception as e:
+                self.after(0, lambda: self.console.insert("end",
+                    f"Slither error: {e}\n", "error"))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def run_slither_certora(self):
+        """Run Slither and load generated Certora rules into the spec editor."""
+        if not self.current_file:
+            self.console.insert("end", "No file loaded. Open a .sol file first.\n", "error")
+            return
+        if not self.current_file.lower().endswith('.sol'):
+            self.console.insert("end", "Slither only works with Solidity (.sol) files.\n", "error")
+            return
+
+        def _run():
+            self.after(0, lambda: self.console.insert("end",
+                "\n🐍 SLITHER → CERTORA RULES\n" + "─"*50 + "\n", "header"))
+
+            try:
+                from spec_generator import SlitherSpecExtractor
+                extractor = SlitherSpecExtractor()
+
+                if not extractor.slither_available:
+                    self.after(0, lambda: self.console.insert("end",
+                        "Slither not installed.\n"
+                        "   Install: pip install slither-analyzer\n", "error"))
+                    return
+
+                rules = extractor.generate_certora_rules(self.current_file)
+
+                # Save to certora/specs/<ContractName>.spec
+                contract = os.path.splitext(os.path.basename(self.current_file))[0]
+                spec_path = os.path.join(PROJECT_DIR, "certora", "specs", f"{contract}.spec")
+                os.makedirs(os.path.dirname(spec_path), exist_ok=True)
+                with open(spec_path, "w") as f:
+                    f.write(rules)
+
+                def _load():
+                    self.spec_editor.delete("1.0", "end")
+                    self.spec_editor.insert("1.0", rules)
+                    self.editor_tabs.set("Specifications & LTL")
+                    self.console.insert("end",
+                        f"✅ Certora rules saved to: {spec_path}\n"
+                        "   Loaded into Specifications & LTL tab.\n", "success")
+                    self.console.see("end")
+
+                self.after(0, _load)
+
+            except Exception as e:
+                self.after(0, lambda: self.console.insert("end",
+                    f"Slither error: {e}\n", "error"))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    # ── Specification editor helpers ──────────────────────────────────────
+    _SPEC_TEMPLATES = {
+        "ERC20 Token": """\
+/*
+ * ERC20 Certora Spec — tutorial patterns
+ * Symbolic vars: prover finds violating assignments automatically
+ */
+methods {
+    function balanceOf(address)          external returns (uint256) envfree;
+    function allowance(address, address) external returns (uint256) envfree;
+    function totalSupply()               external returns (uint256) envfree;
+}
+
+rule transferFromSpec(address holder, address recipient, uint256 amount) {
+    uint256 bal_holder_before    = balanceOf(holder);
+    uint256 bal_recipient_before = balanceOf(recipient);
+
+    transferFrom(e, holder, recipient, amount);
+
+    if (holder != recipient) {
+        assert balanceOf(holder)    == bal_holder_before    - amount,
+            "holder balance must decrease";
+        assert balanceOf(recipient) == bal_recipient_before + amount,
+            "recipient balance must increase";
+    } else {
+        // Self-transfer: nothing changes
+        assert balanceOf(holder) == bal_holder_before,
+            "self-transfer must not change balance";
+    }
+}
+
+rule onlyHolderCanIncreaseAllowance(address holder, address spender) {
+    uint256 allowance_before = allowance(holder, spender);
+    method f; calldataarg args;
+    f(e, args);
+    assert allowance(holder, spender) > allowance_before => e.msg.sender == holder,
+        "only holder may increase their own allowance";
+}
+""",
+        "Lending Protocol": """\
+/*
+ * Lending Protocol Certora Spec
+ * Solvency, collateral, liquidation rules
+ */
+methods {
+    function deposits(address)        external returns (uint256) envfree;
+    function borrows(address)         external returns (uint256) envfree;
+    function totalDeposits()          external returns (uint256) envfree;
+    function totalBorrows()           external returns (uint256) envfree;
+    function getHealthFactor(address) external returns (uint256) envfree;
+    function COLLATERAL_RATIO()       external returns (uint256) envfree;
+}
+
+rule solvencyInvariant(method f) {
+    calldataarg args; f(e, args);
+    assert totalDeposits() >= totalBorrows(),
+        "SOLVENCY: pool owes more than it holds";
+}
+
+rule borrowCollateralCheck(address user, uint256 amount) {
+    require user != 0; require amount > 0;
+    borrow@withrevert(e, amount);
+    if (!lastReverted) {
+        assert deposits(user) >= (borrows(user) * COLLATERAL_RATIO()) / 100,
+            "COLLATERAL: position underwater after borrow";
+    }
+}
+
+rule liquidationCheck(address user, address liquidator, uint256 debtToCover) {
+    require user != liquidator;
+    uint256 hf = getHealthFactor(user);
+    liquidate@withrevert(e, user, debtToCover);
+    if (!lastReverted) {
+        assert hf < 100, "LIQUIDATION: healthy position was liquidated";
+    }
+}
+""",
+        "DEX/AMM": """\
+/*
+ * DEX / AMM Certora Spec
+ * Constant product, swap correctness
+ */
+methods {
+    function getReserves() external returns (uint256, uint256) envfree;
+    function totalSupply() external returns (uint256) envfree;
+}
+
+rule constantProductInvariant(method f) {
+    (uint256 r0_before, uint256 r1_before) = getReserves();
+    uint256 k_before = r0_before * r1_before;
+    calldataarg args; f(e, args);
+    (uint256 r0_after, uint256 r1_after) = getReserves();
+    assert r0_after * r1_after >= k_before,
+        "AMM: constant product invariant violated";
+}
+
+rule swapOutputPositive(uint256 amountIn) {
+    require amountIn > 0;
+    uint256 out = swap(e, amountIn);
+    assert out > 0, "SWAP: output must be positive";
+}
+""",
+        "Governance": """\
+/*
+ * Governance Certora Spec
+ * Quorum, majority, proposal lifecycle
+ */
+methods {
+    function quorumThreshold() external returns (uint256) envfree;
+    function proposalVotes(uint256) external returns (uint256, uint256) envfree;
+}
+
+rule quorumRequired(uint256 proposalId) {
+    execute@withrevert(e, proposalId);
+    if (!lastReverted) {
+        (uint256 yes, uint256 no) = proposalVotes(proposalId);
+        assert yes + no >= quorumThreshold(),
+            "GOVERNANCE: executed without quorum";
+        assert yes > no,
+            "GOVERNANCE: executed without majority";
+    }
+}
+
+rule onlyOwnerCanCancel(uint256 proposalId, method f) {
+    uint256 state_before = proposalState(proposalId);
+    calldataarg args; f(e, args);
+    assert proposalState(proposalId) == 2 && state_before != 2
+        => e.msg.sender == owner(),
+        "GOVERNANCE: only owner may cancel proposals";
+}
+""",
+        "Vault": """\
+/*
+ * Vault Certora Spec
+ * Deposit/withdraw correctness, share accounting
+ */
+methods {
+    function totalAssets()          external returns (uint256) envfree;
+    function totalSupply()          external returns (uint256) envfree;
+    function balanceOf(address)     external returns (uint256) envfree;
+    function convertToAssets(uint256) external returns (uint256) envfree;
+}
+
+rule depositCorrect(address receiver, uint256 assets) {
+    require assets > 0; require receiver != 0;
+    uint256 shares_before = balanceOf(receiver);
+    uint256 assets_before = totalAssets();
+    deposit(e, assets, receiver);
+    assert balanceOf(receiver) > shares_before,
+        "VAULT: deposit must mint shares";
+    assert totalAssets() == assets_before + assets,
+        "VAULT: total assets must increase by deposit amount";
+}
+
+rule withdrawCorrect(address owner, uint256 assets) {
+    require assets > 0;
+    uint256 assets_before = totalAssets();
+    withdraw@withrevert(e, assets, e.msg.sender, owner);
+    if (!lastReverted) {
+        assert totalAssets() == assets_before - assets,
+            "VAULT: total assets must decrease by withdrawal";
+    }
+}
+
+rule solvency(method f) {
+    calldataarg args; f(e, args);
+    assert convertToAssets(totalSupply()) <= totalAssets(),
+        "VAULT: shares exceed backing assets";
+}
+""",
+        "Custom": """\
+/*
+ * Custom Certora Specification
+ *
+ * Key patterns:
+ *   envfree  — declare view functions that don't read msg.sender
+ *   method f + calldataarg — check property across ALL contract methods
+ *   @withrevert + lastReverted — handle reverting paths
+ *   Symbolic vars — prover finds violating assignments automatically
+ */
+methods {
+    // function myView(address) external returns (uint256) envfree;
+}
+
+// Template: monotonically increasing state variable
+// rule xNeverDecreases(method f) {
+//     uint256 x_before = getX();
+//     calldataarg args; f(e, args);
+//     assert getX() >= x_before, "X must never decrease";
+// }
+
+// Template: only owner can change critical state (checks ALL methods)
+// rule onlyOwnerCanChange(method f) {
+//     uint256 state_before = criticalState();
+//     calldataarg args; f(e, args);
+//     assert criticalState() != state_before => e.msg.sender == owner(),
+//         "Only owner may change critical state";
+// }
+""",
+    }
+
+    def _spec_load_template(self, name):
+        tpl = self._SPEC_TEMPLATES.get(name, self._SPEC_TEMPLATES["Custom"])
+        self.spec_editor.delete("1.0", "end")
+        self.spec_editor.insert("1.0", tpl)
+        self._spec_tpl_var.set(name)
+
+    def ai_generate_specs(self):
+        """
+        Smart spec generator: reads the active source file, detects contract
+        type, and loads the best-matching Certora CVL template into the editor.
+        Also runs Slither if available to enrich the spec with real findings.
+        """
+        if not self.current_file:
+            self.console.insert("end", "No file loaded. Open a .sol or .rs file first.\n", "error")
+            return
+
+        ext = os.path.splitext(self.current_file)[1].lower()
+
+        def _run():
+            self.after(0, lambda: self.console.insert("end",
+                "\n🤖 AI SPEC GENERATOR\n" + "─"*50 + "\n", "header"))
+
+            contract_name = os.path.splitext(os.path.basename(self.current_file))[0]
+
+            if ext == '.sol':
+                # ── Solidity: generate Certora CVL spec ──────────────────
+                self.after(0, lambda: self.console.insert("end",
+                    f"Detecting contract type for: {contract_name}\n", "dim"))
+
+                # Read source to detect patterns
+                try:
+                    with open(self.current_file, 'r') as f:
+                        source = f.read()
+                except Exception as e:
+                    self.after(0, lambda: self.console.insert("end",
+                        f"Could not read file: {e}\n", "error"))
+                    return
+
+                # Detect contract type from source content
+                src_lower = source.lower()
+                if any(k in src_lower for k in ("transfer", "allowance", "balanceof", "erc20")):
+                    detected = "ERC20 Token"
+                elif any(k in src_lower for k in ("borrow", "collateral", "liquidat", "healthfactor")):
+                    detected = "Lending Protocol"
+                elif any(k in src_lower for k in ("vest", "cliff", "release", "schedule")):
+                    detected = "Vesting Wallet"
+                elif any(k in src_lower for k in ("flashloan", "onflashloan", "flashborrow")):
+                    detected = "Flash Loan"
+                elif any(k in src_lower for k in ("reserve", "swap", "liquidity", "amm")):
+                    detected = "DEX/AMM"
+                elif any(k in src_lower for k in ("propose", "vote", "quorum", "execute")):
+                    detected = "Governance"
+                else:
+                    detected = "Generic"
+
+                self.after(0, lambda: self.console.insert("end",
+                    f"Detected: {detected}\n", "accent"))
+
+                # Generate the spec
+                spec = self._generate_default_certora_spec(contract_name)
+
+                # Try to enrich with Slither if available
+                try:
+                    from spec_generator import SlitherSpecExtractor
+                    extractor = SlitherSpecExtractor()
+                    if extractor.slither_available:
+                        self.after(0, lambda: self.console.insert("end",
+                            "Running Slither for additional findings...\n", "dim"))
+                        summary = extractor.generate_summary(self.current_file)
+                        self.after(0, lambda: self.console.insert("end",
+                            summary + "\n", "dim"))
+                        # Append Slither-derived rules as comments
+                        slither_ltl = extractor.generate_ltl_from_slither(self.current_file)
+                        if "No issues found" not in slither_ltl:
+                            spec += "\n\n/* === Slither-derived properties === */\n"
+                            spec += "/* " + slither_ltl.replace("*/", "* /") + " */\n"
+                except Exception:
+                    pass
+
+                # Save spec file
+                spec_path = os.path.join(
+                    PROJECT_DIR, "certora", "specs", f"{contract_name}.spec"
+                )
+                os.makedirs(os.path.dirname(spec_path), exist_ok=True)
+                with open(spec_path, "w") as f:
+                    f.write(spec)
+
+                def _load_sol():
+                    self.spec_editor.delete("1.0", "end")
+                    self.spec_editor.insert("1.0", spec)
+                    self.editor_tabs.set("Specifications & LTL")
+                    self.console.insert("end",
+                        f"✅ Certora spec saved: {spec_path}\n"
+                        f"   Loaded into Specifications & LTL tab.\n"
+                        f"   Run 'Verify with Certora' to check these rules.\n",
+                        "success")
+                    self.console.see("end")
+
+                self.after(0, _load_sol)
+
+            elif ext == '.rs':
+                # ── Rust: generate Prusti/Kani annotations ───────────────
+                self.after(0, lambda: self.console.insert("end",
+                    "Generating Prusti/Kani specs for Rust...\n", "dim"))
+
+                try:
+                    with open(self.current_file, 'r') as f:
+                        source = f.read()
+                except Exception as e:
+                    self.after(0, lambda: self.console.insert("end",
+                        f"Could not read file: {e}\n", "error"))
+                    return
+
+                try:
+                    from llm_spec_generator import LLMSpecGenerator
+                    gen = LLMSpecGenerator()
+                    # Extract function names and generate specs for each
+                    import re
+                    funcs = re.findall(r'(?:pub\s+)?fn\s+(\w+)\s*\(', source)
+                    spec_lines = [
+                        "// Prusti/Kani specifications generated by DeFi Guardian",
+                        "// Add these annotations above each function\n",
+                    ]
+                    for func in funcs[:10]:
+                        # Find the function body
+                        m = re.search(
+                            rf'(?:pub\s+)?fn\s+{re.escape(func)}\s*\([^{{]*\{{([^}}]*)\}}',
+                            source, re.DOTALL
+                        )
+                        body = m.group(1) if m else ""
+                        annotations = gen.generate_prusti_annotations(body, func)
+                        if annotations:
+                            spec_lines.append(f"// --- {func} ---")
+                            spec_lines.append(annotations)
+                            spec_lines.append("")
+
+                    kani = gen.generate_kani_harness(source)
+                    spec_lines.append("\n// Kani proof harness:")
+                    spec_lines.append(kani)
+
+                    spec = "\n".join(spec_lines)
+                except Exception as e:
+                    spec = f"// Could not generate Rust specs: {e}\n"
+
+                def _load_rs():
+                    self.spec_editor.delete("1.0", "end")
+                    self.spec_editor.insert("1.0", spec)
+                    self.editor_tabs.set("Specifications & LTL")
+                    self.console.insert("end",
+                        "✅ Prusti/Kani annotations loaded into Specifications & LTL tab.\n",
+                        "success")
+                    self.console.see("end")
+
+                self.after(0, _load_rs)
+
             else:
-                subprocess.run(["pkill", "-f", "streamlit"], stderr=subprocess.DEVNULL)
-            time.sleep(1)
-        except:
-            pass
-        
-        # Start streamlit
-        cmd = [
-            sys.executable, "-m", "streamlit", "run", app_path,
-            "--server.port", "8501",
-            "--server.address", "localhost",
-            "--server.headless", "true",
-            "--browser.gatherUsageStats", "false"
-        ]
-        
+                self.after(0, lambda: self.console.insert("end",
+                    "AI spec generation supports .sol and .rs files.\n", "warning"))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _spec_update_pos(self, event=None):
         try:
-            self.console.insert(
-                "end",
-                "⏳ Starting Streamlit… (first run can take 30–90s while Python loads)\n",
-            )
-            self.status_label.configure(text="Starting dashboard…")
-            if self.auto_scroll_enabled:
-                self.console.see("end")
+            idx = self.spec_editor._textbox.index("insert")
+            ln, col = idx.split(".")
+            self._spec_pos_label.configure(text=f"Ln {ln}  Col {int(col)+1}")
+        except Exception:
+            pass
 
-            self.dashboard_process = subprocess.Popen(
-                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
+    def _spec_save(self):
+        content = self.spec_editor.get("1.0", "end-1c")
+        path = filedialog.asksaveasfilename(
+            defaultextension=".ltl",
+            filetypes=[("LTL Specification", "*.ltl"), ("Text", "*.txt"), ("All", "*.*")],
+            title="Save Specification"
+        )
+        if path:
+            try:
+                with open(path, "w") as f:
+                    f.write(content)
+                self.console.insert("end", f"\n💾 Specification saved to {path}\n", "accent")
+            except Exception as e:
+                self.console.insert("end", f"\n❌ Save failed: {e}\n", "error")
 
-            def wait_and_open_browser():
-                ready = wait_for_tcp_port("localhost", 8501, STREAMLIT_START_TIMEOUT)
+    def _spec_load(self):
+        path = filedialog.askopenfilename(
+            filetypes=[("LTL Specification", "*.ltl"), ("Text", "*.txt"), ("All", "*.*")],
+            title="Load Specification"
+        )
+        if path:
+            try:
+                with open(path, "r") as f:
+                    content = f.read()
+                self.spec_editor.delete("1.0", "end")
+                self.spec_editor.insert("1.0", content)
+                self.console.insert("end", f"\n📂 Specification loaded from {path}\n", "accent")
+            except Exception as e:
+                self.console.insert("end", f"\n❌ Load failed: {e}\n", "error")
 
-                def finish_ui():
-                    webbrowser.open("http://localhost:8501")
-                    if ready:
-                        self.console.insert(
-                            "end",
-                            "✅ Dashboard ready at http://localhost:8501\n",
-                        )
-                        self.status_label.configure(
-                            text="✅ Dashboard running at localhost:8501"
-                        )
-                    else:
-                        self.console.insert(
-                            "end",
-                            "⚠️ Streamlit did not open port 8501 in time; "
-                            "browser opened anyway — refresh the tab if it is blank.\n",
-                        )
-                        self.status_label.configure(
-                            text="⚠️ Dashboard may still be starting — try refresh"
-                        )
-                    if self.auto_scroll_enabled:
-                        self.console.see("end")
+    def _spec_validate(self):
+        content = self.spec_editor.get("1.0", "end-1c")
+        lines = content.splitlines()
+        errors, warnings, ok = [], [], []
+        for i, line in enumerate(lines, 1):
+            t = line.strip()
+            if not t or t.startswith("//"):
+                continue
+            if t.startswith("ltl ") and ":" in t:
+                if not t.rstrip().endswith(";"):
+                    errors.append(f"Line {i}: missing semicolon — {t[:60]}")
+                else:
+                    ok.append(f"Line {i}: ✅ {t[:80]}")
+            elif t:
+                warnings.append(f"Line {i}: unrecognised syntax — {t[:60]}")
 
-                self.after(0, finish_ui)
+        self.console.insert("end", "\n── Specification Validation ──\n", "accent")
+        for msg in ok:      self.console.insert("end", f"  {msg}\n", "success")
+        for msg in warnings: self.console.insert("end", f"  ⚠ {msg}\n")
+        for msg in errors:   self.console.insert("end", f"  ✗ {msg}\n", "error")
+        summary = f"  {len(ok)} valid, {len(warnings)} warnings, {len(errors)} errors\n"
+        self.console.insert("end", summary, "accent")
+        if self.auto_scroll_enabled:
+            self.console.see("end")
 
-            threading.Thread(target=wait_and_open_browser, daemon=True).start()
+    def _spec_clear(self):
+        self.spec_editor.delete("1.0", "end")
+
+    def open_dashboard(self): 
+        """Open the verification dashboard in default browser""" 
+        # The desktop Flask server runs on port 5005 — open its /dashboard route directly
+        dashboard_url = "http://localhost:5005/dashboard"
+        webbrowser.open(dashboard_url) 
+        self.console.insert("end", f"\n🌐 Opening dashboard at {dashboard_url}\n", "accent") 
+        self.status_label.configure(text="Dashboard opened")
+
+    def open_account_dashboard(self):
+        """Start the web portal if needed, then open the account dashboard in the browser"""
+        portal_url = "http://localhost:5000/dashboard"
+
+        def _launch():
+            import socket, time, subprocess, sys, os
+
+            def is_up():
+                try:
+                    with socket.create_connection(("localhost", 5000), timeout=1.0):
+                        return True
+                except OSError:
+                    return False
+
+            if is_up():
+                self.console.insert("end", "\n✅ Account portal already running\n", "accent")
+                webbrowser.open(portal_url)
+                self.status_label.configure(text="Account dashboard opened")
+                return
+
+            self.console.insert("end", "\n🚀 Starting account portal on port 5000...\n", "accent")
+            try:
+                web_portal_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web_portal')
+                web_app_path = os.path.join(web_portal_dir, 'app.py')
+                portal_log = os.path.join(LOGS_DIR, "portal_server.log")
+
+                with open(portal_log, 'w') as log_f:
+                    self._portal_process = subprocess.Popen(
+                        [sys.executable, '-u', web_app_path],
+                        cwd=web_portal_dir,
+                        stdout=log_f,
+                        stderr=log_f,
+                        env={**os.environ, 'PYTHONUNBUFFERED': '1'}
+                    )
+            except Exception as e:
+                self.console.insert("end", f"❌ Failed to start account portal: {e}\n", "error")
+                return
+
+            # Poll up to 15 s for the server to bind
+            for i in range(30):
+                time.sleep(0.5)
+                # Check if process died early
+                if self._portal_process.poll() is not None:
+                    portal_log = os.path.join(LOGS_DIR, "portal_server.log")
+                    try:
+                        with open(portal_log) as f:
+                            err_text = f.read()[-800:]
+                    except Exception:
+                        err_text = "(no log)"
+                    self.console.insert("end", f"❌ Portal process exited early.\n{err_text}\n", "error")
+                    return
+                if is_up():
+                    self.console.insert("end", "✅ Account portal started\n", "accent")
+                    webbrowser.open(portal_url)
+                    self.status_label.configure(text="Account dashboard opened")
+                    return
+
+            # Timed out — show log tail
+            portal_log = os.path.join(LOGS_DIR, "portal_server.log")
+            try:
+                with open(portal_log) as f:
+                    log_tail = f.read()[-400:]
+            except Exception:
+                log_tail = ""
+            self.console.insert("end", f"⚠️ Portal did not bind in 15s.\n{log_tail}\n", "error")
+
+        # Run in a background thread so the UI stays responsive
+        threading.Thread(target=_launch, daemon=True).start()
+
+    def start_web_portal(self):
+        """Start the web portal server (legacy helper — prefer open_account_dashboard)"""
+        import socket, subprocess, sys, os, time
+
+        def is_up():
+            try:
+                with socket.create_connection(("localhost", 5000), timeout=1.0):
+                    return True
+            except OSError:
+                return False
+
+        if is_up():
+            self.console.insert("end", "✅ Web portal is already running\n", "accent")
+            return
+
+        try:
+            web_portal_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web_portal')
+            web_app_path = os.path.join(web_portal_dir, 'app.py')
+            portal_log = os.path.join(LOGS_DIR, "portal_server.log")
+            with open(portal_log, 'w') as log_f:
+                self._portal_process = subprocess.Popen(
+                    [sys.executable, '-u', web_app_path],
+                    cwd=web_portal_dir,
+                    stdout=log_f,
+                    stderr=log_f,
+                    env={**os.environ, 'PYTHONUNBUFFERED': '1'}
+                )
+            for _ in range(10):
+                time.sleep(0.5)
+                if is_up():
+                    self.console.insert("end", "✅ Web portal started\n", "accent")
+                    return
+            self.console.insert("end", "⚠️ Web portal may still be starting\n", "error")
         except Exception as e:
-            self.console.insert("end", f"❌ Failed to start dashboard: {e}\n")
-            self.status_label.configure(text="❌ Dashboard failed to start")
-            if self.auto_scroll_enabled:
-                self.console.see("end")
+            self.console.insert("end", f"❌ Failed to start web portal: {e}\n", "error")
     
     def stop_dashboard(self):
-        """Stop the dashboard"""
+        """Stop the dashboard and account portal"""
         self.console.insert("end", "\n🛑 Stopping dashboard...\n")
         
         try:
-            if self.dashboard_process and self.dashboard_process.poll() is None:
+            if hasattr(self, 'dashboard_process') and self.dashboard_process and self.dashboard_process.poll() is None:
                 self.dashboard_process.terminate()
                 self.dashboard_process.wait(timeout=5)
                 self.console.insert("end", "✅ Dashboard stopped\n")
+
+            if hasattr(self, '_portal_process') and self._portal_process and self._portal_process.poll() is None:
+                self._portal_process.terminate()
+                self._portal_process.wait(timeout=5)
+                self.console.insert("end", "✅ Account portal stopped\n")
             
             # Kill any remaining streamlit processes
             if sys.platform == "win32":
@@ -4191,7 +5514,377 @@ def run_nicegui_interface():
     ui.run(native=True, window_size=(1400, 900), title="DeFi Guardian - NiceGUI")
 
 
+# ==================== INTEGRATED FLASK BACKEND ====================
+
+flask_app = Flask(__name__, 
+    template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web_portal', 'templates'))
+
+@flask_app.route('/') 
+def desktop_home(): 
+    """Main desktop application page""" 
+    # Try to render template, fall back to inline HTML if template missing 
+    template_path = os.path.join( 
+        os.path.dirname(os.path.abspath(__file__)), 
+        'web_portal', 'templates', 'desktop_app.html' 
+    ) 
+    
+    if not os.path.exists(template_path): 
+        # Return a simple inline dashboard if template doesn't exist 
+        return ''' 
+        <!DOCTYPE html> 
+        <html> 
+        <head> 
+            <title>DeFi Guardian</title> 
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"> 
+            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"> 
+            <style> 
+                body { background: #0a0a0f; color: #e6edf3; font-family: Inter, sans-serif; } 
+                .container { max-width: 1200px; margin: 2rem auto; } 
+                .card { background: #131720; border: 1px solid #21262d; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; } 
+                .text-accent { color: #00ffcc; } 
+                .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; } 
+                .status-dot.online { background: #238636; } 
+                .status-dot.offline { background: #da3633; } 
+            </style> 
+        </head> 
+        <body> 
+            <div class="container"> 
+                <h2><i class="fas fa-shield-halved text-accent"></i> DeFi Guardian</h2> 
+                <p class="text-muted">Formal Verification Suite — Web Interface</p> 
+                
+                <div class="row mt-4"> 
+                    <div class="col-md-6"> 
+                        <div class="card"> 
+                            <h5><i class="fas fa-microchip text-accent"></i> Tool Status</h5> 
+                            <div id="toolStatus">Loading...</div> 
+                        </div> 
+                    </div> 
+                    <div class="col-md-6"> 
+                        <div class="card"> 
+                            <h5><i class="fas fa-chart-bar text-accent"></i> Verification Stats</h5> 
+                            <div id="verifStats">Loading...</div> 
+                        </div> 
+                    </div> 
+                </div> 
+                
+                <div class="card mt-3"> 
+                    <h5><i class="fas fa-info-circle text-accent"></i> Quick Links</h5> 
+                    <div class="mt-3"> 
+                        <a href="#" class="btn btn-sm btn-outline-light me-2">Open Desktop App</a> 
+                        <button class="btn btn-sm btn-outline-light me-2" onclick="refreshData()"> 
+                            <i class="fas fa-sync-alt"></i> Refresh 
+                        </button> 
+                    </div> 
+                </div> 
+            </div> 
+            
+            <script> 
+                async function refreshData() { 
+                    try { 
+                        const toolResp = await fetch('/api/tools/status'); 
+                        const tools = await toolResp.json(); 
+                        document.getElementById('toolStatus').innerHTML = 
+                            Object.entries(tools).map(([t, ok]) => 
+                                `<div class="mb-1"><span class="status-dot ${ok ? 'online' : 'offline'}"></span> 
+                                ${t.toUpperCase()}: ${ok ? 'Available' : 'Not Found'}</div>` 
+                            ).join(''); 
+                        
+                        const stateResp = await fetch('/api/state/current'); 
+                        const state = await stateResp.json(); 
+                        document.getElementById('verifStats').innerHTML = 
+                            `<p>States Explored: ${state.states_stored || 0}</p>` + 
+                            `<p>Depth: ${state.depth || 0}</p>` + 
+                            `<p>Last Verification: ${state.datetime || 'Never'}</p>`; 
+                    } catch(e) { 
+                        document.getElementById('toolStatus').textContent = 'Error loading data'; 
+                    } 
+                } 
+                refreshData(); 
+            </script> 
+        </body> 
+        </html> 
+        ''' 
+    
+    return render_template('desktop_app.html')
+
+@flask_app.route('/api/file/open', methods=['POST'])
+def api_open_file():
+    """Open and read a file"""
+    data = request.json
+    file_path = data.get('path')
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return jsonify({
+            'success': True,
+            'content': content,
+            'filename': os.path.basename(file_path),
+            'file_type': os.path.splitext(file_path)[1].lower()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@flask_app.route('/api/translate', methods=['POST'])
+def api_translate_contract():
+    """Translate Solidity/Rust to Promela"""
+    data = request.json
+    source_code = data.get('code', '')
+    file_type = data.get('file_type', '.sol')
+    
+    try:
+        from translator import DeFiTranslator, VerifiedTranslator
+        
+        if file_type == '.sol':
+            translator = VerifiedTranslator()
+            translated, obligations = translator.translate_with_proof(source_code)
+        elif file_type == '.rs':
+            translated = DeFiTranslator.translate_rust(source_code)
+        else:
+            translated = source_code
+        
+        # Save to disk
+        output_path = os.path.join(MODELS_DIR, "translated_output.pml")
+        with open(output_path, 'w') as f:
+            f.write(translated)
+        
+        # Extract LTL properties
+        ltl_properties = []
+        ltl_pattern = r'ltl\s+(\w+)\s*\{([^}]+)\}'
+        for match in re.finditer(ltl_pattern, translated, re.DOTALL):
+            ltl_properties.append({
+                'name': match.group(1),
+                'formula': match.group(2).strip()
+            })
+        
+        return jsonify({
+            'success': True,
+            'translated': translated,
+            'ltl_properties': ltl_properties,
+            'output_path': output_path
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@flask_app.route('/api/verify/spin', methods=['POST'])
+def api_verify_spin():
+    """Run SPIN verification via API"""
+    data = request.json
+    translated_code = data.get('code', '')
+    
+    pml_path = os.path.join(MODELS_DIR, "temp_verify.pml")
+    with open(pml_path, 'w') as f:
+        f.write(translated_code)
+    
+    try:
+        result = subprocess.run(
+            ['spin', '-a', pml_path],
+            capture_output=True, text=True, timeout=60,
+            cwd=PROJECT_DIR
+        )
+        
+        spin_output = result.stdout + '\n' + result.stderr
+        
+        pan_path = os.path.join(SPIN_LOGS, "pan")
+        compile_result = subprocess.run(
+            ['gcc', '-O3', '-o', pan_path, 'pan.c'],
+            capture_output=True, text=True, timeout=60,
+            cwd=PROJECT_DIR
+        )
+        
+        if compile_result.returncode != 0:
+            return jsonify({
+                'success': False,
+                'error': f'Compilation failed: {compile_result.stderr}',
+                'spin_output': spin_output
+            })
+        
+        verify_result = subprocess.run(
+            [pan_path, '-a'],
+            capture_output=True, text=True, timeout=120,
+            cwd=PROJECT_DIR
+        )
+        
+        output = verify_result.stdout
+        has_errors = 'errors: 0' not in output or 'assertion violated' in output.lower()
+        
+        # Update app state if possible
+        VerificationState.save_result(not has_errors, output, verify_result.stderr, "API_Spin")
+        
+        return jsonify({
+            'success': not has_errors,
+            'output': output,
+            'has_counterexample': has_errors
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@flask_app.route('/api/tools/status')
+def api_tools_status():
+    """Check tool availability for API"""
+    tools = {}
+    for tool, cmd in [('spin', ['spin', '-V']), ('coq', ['coqc', '--version']), 
+                      ('lean', ['lean', '--version']), ('prusti', ['prusti-rustc', '--version']),
+                      ('kani', ['cargo', 'kani', '--version'])]:
+        try:
+            r = subprocess.run(cmd, capture_output=True, timeout=2)
+            tools[tool] = r.returncode == 0
+        except:
+            tools[tool] = False
+    return jsonify(tools)
+
+@flask_app.route('/api/state/current')
+def api_current_state():
+    """Get current verification state from unified source"""
+    state_file = os.path.join(PROJECT_DIR, "verification_state.json")
+    if os.path.exists(state_file):
+        try:
+            with open(state_file, 'r') as f:
+                return jsonify(json.load(f))
+        except:
+            pass
+    # Fallback to REPORTS_DIR if not in root
+    state_file_alt = os.path.join(REPORTS_DIR, "verification_state.json")
+    if os.path.exists(state_file_alt):
+        try:
+            with open(state_file_alt, 'r') as f:
+                return jsonify(json.load(f))
+        except:
+            pass
+    return jsonify({})
+
+@flask_app.route('/api/activity/recent')
+def api_recent_activity():
+    """Get recent jobs from audit log"""
+    if os.path.exists(AUDIT_LOG_FILE):
+        try:
+            with open(AUDIT_LOG_FILE, 'r') as f:
+                return jsonify(json.load(f)[:10])
+        except:
+            pass
+    return jsonify([])
+
+@flask_app.route('/dashboard')
+def desktop_dashboard():
+    """Dashboard route — serves the same desktop_app.html template (no login required for local desktop use)"""
+    template_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        'web_portal', 'templates', 'desktop_app.html'
+    )
+    if os.path.exists(template_path):
+        return render_template('desktop_app.html')
+
+    # Inline fallback dashboard if template is missing
+    return '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>DeFi Guardian — Dashboard</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+            body { background: #f0f2f5; color: #1e293b; font-family: Inter, sans-serif; }
+            nav { background: #1e293b; padding: 0.85rem 2rem; display: flex; align-items: center; }
+            nav a.brand { color: #2dd4bf; font-weight: 800; font-size: 1.1rem; text-decoration: none; }
+            .nav-btn { background: #0d9488; color: #fff; border: none; border-radius: 8px;
+                       padding: 0.4rem 0.9rem; font-size: 0.82rem; font-weight: 600;
+                       text-decoration: none; margin-left: 0.5rem; }
+            .nav-btn.purple { background: #7c3aed; }
+            .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+            .card { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px;
+                    padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+            .card h5 { color: #1e293b; font-weight: 700; margin-bottom: 1rem; }
+            .text-accent { color: #0d9488; }
+            .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+            .status-dot.online { background: #16a34a; }
+            .status-dot.offline { background: #dc2626; }
+            .text-muted { color: #64748b !important; }
+            h2 { color: #0d9488; }
+        </style>
+    </head>
+    <body>
+        <nav>
+            <a class="brand" href="/"><i class="fas fa-shield-halved"></i> DeFi Guardian</a>
+            <div class="ms-auto">
+                <a href="/dashboard" class="nav-btn"><i class="fas fa-chart-line me-1"></i> Verification Dashboard</a>
+                <a href="http://localhost:5000/dashboard" class="nav-btn purple"><i class="fas fa-user-circle me-1"></i> Account Dashboard</a>
+            </div>
+        </nav>
+        <div class="container">
+            <h2 class="mt-4"><i class="fas fa-shield-halved"></i> DeFi Guardian — Dashboard</h2>
+            <p class="text-muted mb-4">Formal Verification Suite — Local Desktop Interface</p>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <h5><i class="fas fa-microchip text-accent me-2"></i> Tool Status</h5>
+                        <div id="toolStatus">Loading...</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <h5><i class="fas fa-chart-bar text-accent me-2"></i> Verification Stats</h5>
+                        <div id="verifStats">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h5><i class="fas fa-history text-accent me-2"></i> Recent Activity</h5>
+                <div id="recentActivity">Loading...</div>
+            </div>
+        </div>
+
+        <script>
+            async function refreshData() {
+                try {
+                    const toolResp = await fetch('/api/tools/status');
+                    const tools = await toolResp.json();
+                    document.getElementById('toolStatus').innerHTML =
+                        Object.entries(tools).map(([t, ok]) =>
+                            `<div class="mb-1"><span class="status-dot ${ok ? 'online' : 'offline'}"></span>
+                            ${t.toUpperCase()}: ${ok ? 'Available' : 'Not Found'}</div>`
+                        ).join('');
+
+                    const stateResp = await fetch('/api/state/current');
+                    const state = await stateResp.json();
+                    document.getElementById('verifStats').innerHTML =
+                        `<p>States Explored: ${state.states_stored || 0}</p>` +
+                        `<p>Depth: ${state.depth || 0}</p>` +
+                        `<p>Last Verification: ${state.datetime || 'Never'}</p>`;
+
+                    const actResp = await fetch('/api/activity/recent');
+                    const activity = await actResp.json();
+                    document.getElementById('recentActivity').innerHTML = activity.length
+                        ? activity.map(a => `<div class="mb-1">${a.datetime || ''} — ${a.model_name || 'Unknown'}</div>`).join('')
+                        : '<p class="text-muted">No recent activity</p>';
+                } catch(e) {
+                    document.getElementById('toolStatus').textContent = 'Error loading data';
+                }
+            }
+            refreshData();
+            setInterval(refreshData, 10000);
+        </script>
+    </body>
+    </html>
+    '''
+
+def start_flask():
+    """Start Flask server in a separate thread"""
+    try:
+        flask_app.run(port=5005, debug=False, threaded=True, use_reloader=False)
+    except OSError as e:
+        if "Address already in use" in str(e):
+            print(f"⚠️  Port 5005 already in use. Using port 5006 instead.")
+            flask_app.run(port=5006, debug=False, threaded=True, use_reloader=False)
+        else:
+            raise
+
+
 if __name__ == "__main__":
+    # Start Flask background thread for potential web-based components
+    flask_thread = threading.Thread(target=start_flask, daemon=True)
+    flask_thread.start()
+    
     app = FormalVerifierApp()
     try:
         app.mainloop()

@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% block title %}Specifications - DeFi Guardian{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+<style>
+:root { --accent:#00ffcc; --bg:#0a0e17; --panel:#131a26; --border:#1e2a3a; --text:#e6edf3; --dim:#8b949e; }
+.spec-wrap { background:var(--panel); border:1px solid var(--border); border-radius:14px;
+             padding:1.5rem; margin-bottom:1.5rem; }
+.tpl-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem; margin-bottom:1rem; }
+.tpl-card { background:var(--bg); border:1px solid var(--border); border-radius:10px;
+            padding:1rem; cursor:pointer; transition:all .2s; }
+.tpl-card:hover, .tpl-card.active { border-color:var(--accent); box-shadow:0 0 12px rgba(0,255,204,.15); }
+.tpl-card h6 { color:var(--accent); margin-bottom:.35rem; font-size:.9rem; }
+.tpl-card p  { color:var(--dim); font-size:.8rem; margin:0; }
+.spec-controls { display:flex; gap:.6rem; flex-wrap:wrap; margin-bottom:.85rem; }
+/* CodeMirror overrides */
+.CodeMirror { height:520px !important; border-radius:8px; font-size:13.5px; line-height:1.6;
+              border:1px solid var(--border); }
+.CodeMirror-scroll { min-height:520px; }
+.prop-list { background:var(--bg); border:1px solid var(--border); border-radius:8px;
+             padding:.75rem; max-height:320px; overflow-y:auto; }
+.prop-item { display:flex; align-items:center; padding:.5rem .6rem; margin-bottom:.4rem;
+             background:var(--panel); border-radius:6px; border:1px solid var(--border); gap:.75rem; }
+.prop-item input[type=checkbox] { flex-shrink:0; }
+.prop-label { flex:1; font-family:monospace; font-size:.82rem; color:var(--text); }
+.prop-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.prop-dot.valid   { background:#22c55e; }
+.prop-dot.invalid { background:#ef4444; }
+.prop-dot.unknown { background:#d29922; }
+.val-results { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:.85rem; }
+.val-item { display:flex; align-items:flex-start; gap:.75rem; padding:.65rem; margin-bottom:.4rem;
+            background:var(--panel); border-radius:6px; border-left:4px solid var(--border); }
+.val-item.success { border-left-color:#22c55e; }
+.val-item.error   { border-left-color:#ef4444; }
+.val-item.warning { border-left-color:#d29922; }
+.val-icon.success { color:#22c55e; }
+.val-icon.error   { color:#ef4444; }
+.val-icon.warning { color:#d29922; }
+.val-title { font-weight:700; font-size:.88rem; }
+.val-msg   { font-size:.8rem; color:var(--dim); margin-top:.15rem; }
+.hl { background:rgba(0,255,204,.12); border:1px solid rgba(0,255,204,.3);
+      border-radius:3px; padding:.05rem .3rem; font-family:monospace; font-size:.82rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div class="container">
+    <h1>Contract Specifications</h1>
+    <p>Write, validate and export formal LTL specifications for smart contracts</p>
+  </div>
+</section>
+
+<section class="specifications-content">
+  <div class="container">
+
+    <!-- Templates -->
+    <div class="spec-wrap">
+      <h4><i class="fas fa-file-code text-accent me-2"></i>Specification Templates</h4>
+      <p class="text-muted small">Click a template to load it into the editor</p>
+      <div class="tpl-grid" id="tplGrid">
+        <div class="tpl-card" onclick="loadTpl('token',this)">
+          <h6><i class="fas fa-coins me-1"></i>ERC20 Token</h6>
+          <p>Balance and transfer invariants</p>
+        </div>
+        <div class="tpl-card" onclick="loadTpl('lending',this)">
+          <h6><i class="fas fa-hand-holding-usd me-1"></i>Lending Protocol</h6>
+          <p>Collateral and interest rate properties</p>
+        </div>
+        <div class="tpl-card" onclick="loadTpl('exchange',this)">
+          <h6><i class="fas fa-exchange-alt me-1"></i>DEX / AMM</h6>
+          <p>Liquidity and swap invariants</p>
+        </div>
+        <div class="tpl-card" onclick="loadTpl('governance',this)">
+          <h6><i class="fas fa-balance-scale me-1"></i>Governance</h6>
+          <p>Voting and quorum requirements</p>
+        </div>
+        <div class="tpl-card" onclick="loadTpl('vault',this)">
+          <h6><i class="fas fa-lock me-1"></i>Vault</h6>
+          <p>Time-locked deposit/withdrawal</p>
+        </div>
+        <div class="tpl-card" onclick="loadTpl('custom',this)">
+          <h6><i class="fas fa-edit me-1"></i>Custom</h6>
+          <p>Start from scratch</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editor -->
+    <div class="spec-wrap">
+      <h4><i class="fas fa-edit text-accent me-2"></i>Specification Editor</h4>
+      <div class="spec-controls">
+        <button class="btn btn-primary btn-sm" onclick="validateSpec()">
+          <i class="fas fa-check-circle me-1"></i>Validate
+        </button>
+        <button class="btn btn-success btn-sm" onclick="saveSpec()">
+          <i class="fas fa-save me-1"></i>Save .ltl
+        </button>
+        <button class="btn btn-info btn-sm" onclick="loadSpec()">
+          <i class="fas fa-folder-open me-1"></i>Load
+        </button>
+        <button class="btn btn-warning btn-sm" onclick="copySpec()">
+          <i class="fas fa-copy me-1"></i>Copy
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="clearEditor()">
+          <i class="fas fa-trash me-1"></i>Clear
+        </button>
+        <span class="ms-auto text-muted small" id="lineInfo">Line 1, Col 1</span>
+      </div>
+      <textarea id="specEditor"></textarea>
+    </div>
+
+    <!-- Property Library -->
+    <div class="spec-wrap">
+      <h4><i class="fas fa-book text-accent me-2"></i>Property Library</h4>
+      <p class="text-muted small">Check properties to insert them into the editor</p>
+      <div class="prop-list" id="propList"></div>
+      <button class="btn btn-sm btn-outline-primary mt-2" onclick="insertChecked()">
+        <i class="fas fa-plus me-1"></i>Insert Selected
+      </button>
+    </div>
+
+    <!-- Validation Results -->
+    <div class="spec-wrap">
+      <h4><i class="fas fa-clipboard-check text-accent me-2"></i>Validation Results</h4>
+      <div class="val-results" id="valResults">
+        <div class="text-center text-muted py-3">
+          <i class="fas fa-info-circle me-1"></i> Click <strong>Validate</strong> to check your specifications
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script>
+// ── CodeMirror setup ───────────────────────────────────────────────────────
+const cm = CodeMirror.fromTextArea(document.getElementById('specEditor'), {
+  theme: 'dracula',
+  lineNumbers: true,
+  lineWrapping: true,
+  tabSize: 2,
+  indentWithTabs: false,
+  autofocus: true,
+  extraKeys: { 'Ctrl-Enter': validateSpec, 'Ctrl-S': saveSpec },
+});
+cm.on('cursorActivity', () => {
+  const c = cm.getCursor();
+  document.getElementById('lineInfo').textContent = `Line ${c.line+1}, Col ${c.ch+1}`;
+});
+
+// ── Templates ──────────────────────────────────────────────────────────────
+const TEMPLATES = {
+token:`// ERC20 Token Specification
+ltl balance_non_negative:   [] (balance >= 0);
+ltl total_supply_constant:  [] (total_supply == sum_balances);
+ltl transfer_valid:         [] (transfer(from,to,amt) -> balance[from] >= amt);
+ltl no_double_spend:        [] !(transfer(from,to,a) && transfer(from,to2,b) && a+b > balance[from]);
+ltl approval_limit:         [] (approve(owner,spender,amt) -> amt <= balance[owner]);`,
+
+lending:`// Lending Protocol Specification
+ltl collateral_sufficient:  [] (borrow_amount <= collateral_value * collateral_factor);
+ltl no_overcollateral:      [] (total_borrows <= total_collateral * collateral_factor);
+ltl interest_non_negative:  [] (interest_rate >= 0);
+ltl interest_bounded:       [] (interest_rate <= max_interest_rate);
+ltl liquidation_condition:  [] (liquidate(user) -> collateral_value < borrow_amount * liq_threshold);`,
+
+exchange:`// DEX / AMM Specification
+ltl liquidity_conservation: [] (reserve_a * reserve_b >= k);
+ltl constant_product:       [] (reserve_a * reserve_b == k);
+ltl swap_output_positive:   [] (swap(amt_in) -> amt_out > 0);
+ltl no_excess_slippage:     [] (swap(amt_in) -> amt_out >= min_expected);
+ltl price_impact_bounded:   [] (abs(price_change) <= max_price_impact);`,
+
+governance:`// Governance Specification
+ltl voting_power_positive:  [] (voting_power >= 0);
+ltl quorum_required:        [] (proposal_executed -> total_votes >= quorum_threshold);
+ltl majority_rule:          [] (proposal_executed -> yes_votes > no_votes);
+ltl proposal_lifecycle:     [] (proposal_created -> <>(proposal_executed || proposal_expired));`,
+
+vault:`// Time-Locked Vault Specification
+ltl deposit_increases_bal:  [] (deposit(amt) -> balance == old_balance + amt);
+ltl positive_deposits:      [] (deposit(amt) -> amt > 0);
+ltl time_lock_enforced:     [] (withdraw(amt) -> current_time >= unlock_time);
+ltl withdrawal_limit:       [] (withdraw(amt) -> amt <= balance);
+ltl owner_only:             [] (withdraw(amt) -> msg_sender == owner || time_lock_expired);`,
+
+custom:`// Custom Specification
+// Define your own LTL properties below.
+//
+// Operators:
+//   []  — Always (globally)
+//   <>  — Eventually (finally)
+//   ->  — Implies
+//   &&  — And
+//   ||  — Or
+//   !   — Not
+//
+// Example:
+//   ltl my_property: [] (condition -> <> result);
+
+`};
+
+const PROPS = [
+  { ltl:'[] (balance >= 0)',                          desc:'Balance never negative',          id:'p1' },
+  { ltl:'[] (total_supply == sum_balances)',           desc:'Total supply equals sum of balances', id:'p2' },
+  { ltl:'[] (withdraw_amount <= balance)',             desc:'Withdrawal ≤ balance',            id:'p3' },
+  { ltl:'[] (interest_rate >= 0)',                     desc:'Interest rate non-negative',      id:'p4' },
+  { ltl:'[] (collateral_value >= borrow_amount)',      desc:'Collateral covers borrow',        id:'p5' },
+  { ltl:'<> (transfer_executed -> balance_updated)',   desc:'Transfer eventually updates balance', id:'p6' },
+  { ltl:'[] (reserve_a * reserve_b >= k)',             desc:'AMM constant product holds',      id:'p7' },
+  { ltl:'[] (proposal_executed -> yes_votes > no_votes)', desc:'Majority rule for proposals', id:'p8' },
+];
+
+function buildPropList() {
+  document.getElementById('propList').innerHTML = PROPS.map(p => `
+    <div class="prop-item">
+      <input type="checkbox" id="${p.id}">
+      <label for="${p.id}" class="prop-label">
+        <span class="hl">${p.ltl}</span>
+        <span class="text-muted ms-2 small">${p.desc}</span>
+      </label>
+      <div class="prop-dot unknown"></div>
+    </div>`).join('');
+}
+
+function loadTpl(name, el) {
+  cm.setValue(TEMPLATES[name] || TEMPLATES.custom);
+  document.querySelectorAll('.tpl-card').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
+function insertChecked() {
+  const lines = PROPS
+    .filter(p => document.getElementById(p.id)?.checked)
+    .map(p => `ltl prop_${p.id}: ${p.ltl};`);
+  if (!lines.length) return;
+  const cur = cm.getValue();
+  cm.setValue(cur + (cur.endsWith('\n') ? '' : '\n') + lines.join('\n') + '\n');
+}
+
+// ── Validate ───────────────────────────────────────────────────────────────
+function validateSpec() {
+  const spec = cm.getValue();
+  document.getElementById('valResults').innerHTML =
+    '<div class="text-center py-3"><div class="spinner-border spinner-border-sm me-2"></div>Validating…</div>';
+  setTimeout(() => {
+    const results = doValidate(spec);
+    renderResults(results);
+  }, 600);
+}
+
+function doValidate(spec) {
+  const results = [];
+  const lines = spec.split('\n');
+  let propCount = 0;
+  lines.forEach((line, i) => {
+    const ln = i + 1;
+    const t = line.trim();
+    if (!t || t.startsWith('//')) return;
+    if (/^ltl\s+\w+\s*:/.test(t)) {
+      propCount++;
+      if (!t.endsWith(';')) {
+        results.push({type:'error', title:`Missing semicolon (line ${ln})`, msg:'LTL properties must end with ";"'});
+      } else if (/\[\]|\<\>|->|&&|\|\|/.test(t)) {
+        results.push({type:'success', title:`Valid property (line ${ln})`, msg:t.replace(/^ltl\s+/,'')});
+      } else {
+        results.push({type:'warning', title:`Simple property (line ${ln})`, msg:'No temporal operators found — is this intentional?'});
+      }
+    } else if (t && !t.startsWith('//') && !/^ltl\s/.test(t)) {
+      results.push({type:'warning', title:`Unrecognised syntax (line ${ln})`, msg:`"${t.slice(0,60)}" — expected "ltl name: formula;"`});
+    }
+  });
+  if (propCount === 0)
+    results.push({type:'warning', title:'No properties found', msg:'Add at least one ltl property to verify.'});
+  else
+    results.unshift({type:'success', title:`${propCount} propert${propCount===1?'y':'ies'} parsed`, msg:'Syntax check passed.'});
+  return results;
+}
+
+function renderResults(results) {
+  const icons = {success:'fa-check-circle', error:'fa-times-circle', warning:'fa-exclamation-triangle'};
+  document.getElementById('valResults').innerHTML = results.map(r => `
+    <div class="val-item ${r.type}">
+      <div class="val-icon ${r.type}"><i class="fas ${icons[r.type]}"></i></div>
+      <div><div class="val-title">${r.title}</div><div class="val-msg">${r.msg}</div></div>
+    </div>`).join('') || '<p class="text-muted text-center py-2">No issues found.</p>';
+}
+
+// ── File ops ───────────────────────────────────────────────────────────────
+function saveSpec() {
+  const blob = new Blob([cm.getValue()], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'specification.ltl';
+  a.click();
+}
+
+function loadSpec() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.ltl,.txt,.spec';
+  inp.onchange = e => {
+    const f = e.target.files[0];
+    const r = new FileReader();
+    r.onload = ev => cm.setValue(ev.target.result);
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
+function copySpec() {
+  navigator.clipboard.writeText(cm.getValue()).then(() => {
+    const btn = event.target.closest('button');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
+    setTimeout(() => btn.innerHTML = orig, 1800);
+  });
+}
+
+function clearEditor() {
+  cm.setValue('');
+  document.getElementById('valResults').innerHTML =
+    '<div class="text-center text-muted py-3"><i class="fas fa-info-circle me-1"></i>Click <strong>Validate</strong> to check your specifications</div>';
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  buildPropList();
+  loadTpl('custom');
+});
+</script>
+{% endblock %}

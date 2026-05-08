@@ -51,7 +51,7 @@ def main():
     
     # Check Python imports
     print("\nChecking Python dependencies...")
-    deps = ["customtkinter", "streamlit", "plotly", "pandas", "numpy", "PIL", "graphviz"]
+    deps = ["customtkinter", "streamlit", "plotly", "pandas", "numpy", "PIL", "graphviz", "networkx"]
     
     for dep in deps:
         try:

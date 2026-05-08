@@ -184,8 +184,13 @@ class VerificationTriangulator:
                     "tool": "SPIN (explicit-state)",
                 }
 
+            pan_path = "./pan"
+            if os.name == "nt":
+                pan_path = "pan.exe"
+            
+            # Ensure path is absolute if needed, or relative to project_dir
             r_pan = subprocess.run(
-                ["./pan", "-a"],
+                [pan_path, "-a"],
                 cwd=self.project_dir,
                 capture_output=True,
                 text=True,

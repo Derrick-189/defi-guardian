@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+{% block title %}Logs & Reports - DeFi Guardian{% endblock %}
+
+{% block extra_css %}
+<style>
+:root { --accent:#00ffcc; --bg:#0a0e17; --panel:#131a26; --border:#1e2a3a; --text:#e6edf3; --dim:#8b949e; }
+
+.logs-wrap { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:1.5rem; margin-bottom:1.5rem; }
+
+/* Tabs */
+.log-tabs { display:flex; gap:.5rem; border-bottom:2px solid var(--border); margin-bottom:1.25rem; }
+.log-tab  { padding:.65rem 1.25rem; background:transparent; border:none; color:var(--dim);
+            cursor:pointer; border-bottom:3px solid transparent; font-weight:600; transition:all .2s; }
+.log-tab:hover { color:var(--text); }
+.log-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+/* Controls */
+.log-controls { display:flex; gap:.75rem; flex-wrap:wrap; align-items:center; margin-bottom:1rem; }
+.search-box { position:relative; flex:1; min-width:180px; max-width:280px; }
+.search-box input { width:100%; padding:.45rem 2.2rem .45rem .85rem; border:1px solid var(--border);
+                    border-radius:7px; background:var(--bg); color:var(--text); font-size:.88rem; }
+.search-box i { position:absolute; right:.7rem; top:50%; transform:translateY(-50%); color:var(--dim); }
+.filter-sel { padding:.45rem .85rem; border:1px solid var(--border); border-radius:7px;
+              background:var(--bg); color:var(--text); font-size:.88rem; }
+.toggle-btn { padding:.42rem .9rem; border-radius:7px; font-size:.85rem; font-weight:600;
+              border:1px solid var(--border); background:var(--bg); color:var(--dim); cursor:pointer; transition:all .2s; }
+.toggle-btn.active { background:rgba(0,255,204,.12); border-color:var(--accent); color:var(--accent); }
+
+/* ── Grouped view ── */
+.contract-group { margin-bottom:1rem; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.group-header { display:flex; align-items:center; gap:.75rem; padding:.85rem 1rem;
+                background:rgba(0,255,204,.05); cursor:pointer; user-select:none;
+                border-bottom:1px solid var(--border); transition:background .2s; }
+.group-header:hover { background:rgba(0,255,204,.1); }
+.group-chevron { color:var(--accent); transition:transform .25s; font-size:.85rem; }
+.group-chevron.open { transform:rotate(90deg); }
+.group-title { font-weight:700; color:var(--text); font-size:.95rem; }
+.group-meta  { font-size:.8rem; color:var(--dim); margin-left:auto; display:flex; gap:.75rem; align-items:center; }
+.group-body  { display:none; }
+.group-body.open { display:block; }
+
+/* ── Flat list ── */
+.log-list { background:var(--bg); border:1px solid var(--border); border-radius:10px; max-height:480px; overflow-y:auto; }
+
+/* Shared log-item */
+.log-item { display:flex; align-items:center; padding:.8rem 1rem; border-bottom:1px solid var(--border);
+            transition:all .2s; }
+.log-item:hover { background:rgba(0,255,204,.05); border-left:3px solid var(--accent); padding-left:calc(1rem - 3px); }
+.log-item:last-child { border-bottom:none; }
+.log-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center;
+            justify-content:center; margin-right:.85rem; font-size:1rem; flex-shrink:0; }
+.log-icon.console { background:rgba(0,255,204,.15); color:var(--accent); }
+.log-icon.tool    { background:rgba(35,134,54,.15);  color:#22c55e; }
+.log-icon.report  { background:rgba(210,153,34,.15); color:#d29922; }
+.log-info { flex:1; min-width:0; }
+.log-name { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:.88rem; }
+.log-meta-row { display:flex; gap:.6rem; font-size:.78rem; color:var(--dim); margin-top:.2rem; flex-wrap:wrap; align-items:center; }
+.log-size { color:var(--accent); }
+.badge-tool   { padding:.15rem .5rem; border-radius:4px; font-size:.72rem; font-weight:700;
+                background:rgba(0,255,204,.12); color:var(--accent); border:1px solid rgba(0,255,204,.25); }
+.badge-pass   { background:rgba(34,197,94,.12);  color:#22c55e; border:1px solid rgba(34,197,94,.25); }
+.badge-fail   { background:rgba(239,68,68,.12);  color:#ef4444; border:1px solid rgba(239,68,68,.25); }
+.badge-file   { background:rgba(139,92,246,.12); color:#a78bfa; border:1px solid rgba(139,92,246,.25); }
+.log-actions  { display:flex; gap:.4rem; flex-shrink:0; }
+.log-actions button, .log-actions a { padding:.25rem .55rem; font-size:.78rem; border-radius:5px; }
+
+/* Viewer */
+.log-viewer { background:var(--bg); border:1px solid var(--border); border-radius:10px; margin-top:1rem; display:none; }
+.viewer-header { display:flex; justify-content:space-between; align-items:center;
+                 padding:.75rem 1rem; border-bottom:1px solid var(--border); }
+.viewer-header h6 { margin:0; color:var(--accent); font-family:monospace; font-size:.88rem;
+                    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60%; }
+.viewer-body { padding:1rem; max-height:540px; overflow-y:auto; }
+.log-content { font-family:'Monaco','Courier New',monospace; font-size:.82rem; line-height:1.55;
+               white-space:pre-wrap; word-break:break-all; color:var(--text); }
+.log-content .le { color:#f87171; }
+.log-content .lw { color:#fbbf24; }
+.log-content .lo { color:#34d399; }
+.log-content .li { color:#60a5fa; }
+
+/* Stats */
+.stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+.stat-card  { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:1rem; text-align:center; }
+.stat-value { font-size:1.6rem; font-weight:800; color:var(--accent); }
+.stat-label { font-size:.78rem; color:var(--dim); margin-top:.2rem; }
+.empty-state { text-align:center; padding:2.5rem 1rem; color:var(--dim); }
+.empty-state i { font-size:2.5rem; opacity:.4; display:block; margin-bottom:.75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div class="container">
+    <h1>Logs &amp; Reports</h1>
+    <p>Browse, expand, read and export logs — grouped by contract file or listed flat</p>
+  </div>
+</section>
+
+<section class="logs-content">
+  <div class="container">
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-value" id="consoleCount">-</div><div class="stat-label">Console Logs</div></div>
+      <div class="stat-card"><div class="stat-value" id="toolCount">-</div><div class="stat-label">Tool Logs</div></div>
+      <div class="stat-card"><div class="stat-value" id="reportCount">-</div><div class="stat-label">Reports</div></div>
+      <div class="stat-card"><div class="stat-value" id="contractCount">-</div><div class="stat-label">Contracts</div></div>
+      <div class="stat-card"><div class="stat-value" id="totalSize">-</div><div class="stat-label">Total Size</div></div>
+    </div>
+
+    <div class="logs-wrap">
+      <h4><i class="fas fa-file-alt text-accent me-2"></i>Log Files</h4>
+
+      <!-- Tabs -->
+      <div class="log-tabs">
+        <button class="log-tab active" onclick="switchTab(this,'console')"><i class="fas fa-terminal me-1"></i> Console Logs</button>
+        <button class="log-tab"        onclick="switchTab(this,'tool')">  <i class="fas fa-tools me-1"></i> Tool Logs</button>
+        <button class="log-tab"        onclick="switchTab(this,'report')"><i class="fas fa-chart-bar me-1"></i> Reports</button>
+      </div>
+
+      <!-- Controls -->
+      <div class="log-controls">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="Search…" oninput="filterAndRender()">
+          <i class="fas fa-search"></i>
+        </div>
+        <select class="filter-sel" id="sortFilter" onchange="filterAndRender()">
+          <option value="modified">Sort by Date</option>
+          <option value="name">Sort by Name</option>
+          <option value="size">Sort by Size</option>
+          <option value="contract">Sort by Contract</option>
+        </select>
+        <!-- Group toggle -->
+        <button class="toggle-btn active" id="groupBtn" onclick="toggleGroup()">
+          <i class="fas fa-layer-group me-1"></i> Group by File
+        </button>
+        <button class="btn btn-sm btn-primary" onclick="refreshLogs()">
+          <i class="fas fa-sync me-1"></i> Refresh
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="downloadAll()">
+          <i class="fas fa-download me-1"></i> Download All
+        </button>
+      </div>
+
+      <!-- Content area — switches between grouped and flat -->
+      <div id="groupedView"></div>
+      <div class="log-list" id="flatView" style="display:none"></div>
+
+      <!-- Viewer -->
+      <div class="log-viewer" id="logViewer">
+        <div class="viewer-header">
+          <h6 id="viewerTitle">—</h6>
+          <div class="d-flex gap-2 flex-shrink-0">
+            <button class="btn btn-sm btn-outline-info"    onclick="copyContent()"><i class="fas fa-copy me-1"></i>Copy</button>
+            <button class="btn btn-sm btn-outline-success" onclick="downloadCurrent()"><i class="fas fa-download me-1"></i>Export</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="closeViewer()"><i class="fas fa-times"></i></button>
+          </div>
+        </div>
+        <div class="viewer-body"><div class="log-content" id="logContent"></div></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentTab  = 'console';
+let allLogs     = [];
+let filtered    = [];
+let groupMode   = true;
+let currentFile = null;
+
+// ── Tab switch ─────────────────────────────────────────────────────────────
+async function switchTab(btn, tab) {
+  currentTab = tab;
+  document.querySelectorAll('.log-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  closeViewer();
+  await loadLogs(tab);
+}
+
+// ── Load ───────────────────────────────────────────────────────────────────
+async function loadLogs(type) {
+  setLoading(true);
+  try {
+    const r = await fetch(`/api/logs/${type}`);
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    allLogs  = d.logs || [];
+    filtered = [...allLogs];
+    filterAndRender();
+    updateStats();
+  } catch(e) {
+    document.getElementById('groupedView').innerHTML =
+      `<div class="alert alert-danger m-2">${e.message}</div>`;
+    document.getElementById('flatView').innerHTML = '';
+  } finally {
+    setLoading(false);
+  }
+}
+
+function setLoading(on) {
+  if (on) {
+    document.getElementById('groupedView').innerHTML =
+      '<div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div> Loading…</div>';
+    document.getElementById('flatView').innerHTML = '';
+  }
+}
+
+// ── Filter + sort + render ─────────────────────────────────────────────────
+function filterAndRender() {
+  const q  = document.getElementById('searchInput').value.toLowerCase();
+  const by = document.getElementById('sortFilter').value;
+
+  filtered = q
+    ? allLogs.filter(l =>
+        l.name.toLowerCase().includes(q) ||
+        (l.contract||'').toLowerCase().includes(q) ||
+        (l.tool||'').toLowerCase().includes(q) ||
+        (l.subdir||'').toLowerCase().includes(q))
+    : [...allLogs];
+
+  filtered.sort((a, b) =>
+    by === 'name'     ? a.name.localeCompare(b.name) :
+    by === 'size'     ? b.size - a.size :
+    by === 'contract' ? (a.contract||'').localeCompare(b.contract||'') :
+    new Date(b.modified) - new Date(a.modified));
+
+  groupMode ? renderGrouped() : renderFlat();
+}
+
+// ── Toggle group mode ──────────────────────────────────────────────────────
+function toggleGroup() {
+  groupMode = !groupMode;
+  const btn = document.getElementById('groupBtn');
+  btn.classList.toggle('active', groupMode);
+  document.getElementById('groupedView').style.display = groupMode  ? '' : 'none';
+  document.getElementById('flatView').style.display    = !groupMode ? '' : 'none';
+  filterAndRender();
+}
+
+// ── Grouped render ─────────────────────────────────────────────────────────
+function renderGrouped() {
+  document.getElementById('flatView').style.display    = 'none';
+  document.getElementById('groupedView').style.display = '';
+
+  // Build groups keyed by contract filename
+  const groups = {};
+  filtered.forEach(log => {
+    const key = log.contract || 'Unknown';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(log);
+  });
+
+  if (!Object.keys(groups).length) {
+    document.getElementById('groupedView').innerHTML =
+      `<div class="empty-state"><i class="fas fa-folder-open"></i><p>No ${currentTab} logs found</p></div>`;
+    return;
+  }
+
+  // Sort groups: most-recently-modified first
+  const sortedKeys = Object.keys(groups).sort((a, b) => {
+    const la = groups[a][0].modified, lb = groups[b][0].modified;
+    return new Date(lb) - new Date(la);
+  });
+
+  document.getElementById('groupedView').innerHTML = sortedKeys.map((contract, gi) => {
+    const logs = groups[contract];
+    const totalSize = logs.reduce((s, l) => s + l.size, 0);
+    const tools = [...new Set(logs.map(l => l.tool).filter(Boolean))];
+    const statuses = logs.map(l => l.status).filter(Boolean);
+    const hasFail = statuses.some(s => /fail/i.test(s));
+    const hasPass = statuses.some(s => /pass|success/i.test(s));
+    const statusBadge = hasFail
+      ? '<span class="badge-tool badge-fail ms-1">FAIL</span>'
+      : hasPass ? '<span class="badge-tool badge-pass ms-1">PASS</span>' : '';
+
+    return `
+    <div class="contract-group">
+      <div class="group-header" onclick="toggleGroupBody(${gi})">
+        <i class="fas fa-chevron-right group-chevron" id="chev-${gi}"></i>
+        <i class="fas fa-file-code" style="color:var(--accent);margin-right:.5rem"></i>
+        <span class="group-title">${escHtml(contract)}</span>
+        ${statusBadge}
+        <div class="group-meta">
+          ${tools.map(t => `<span class="badge-tool">${t}</span>`).join('')}
+          <span>${logs.length} log${logs.length===1?'':'s'}</span>
+          <span>${fmtSize(totalSize)}</span>
+        </div>
+      </div>
+      <div class="group-body" id="body-${gi}">
+        ${logs.map(log => logItemHtml(log)).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleGroupBody(gi) {
+  const body = document.getElementById(`body-${gi}`);
+  const chev = document.getElementById(`chev-${gi}`);
+  body.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+
+// ── Flat render ────────────────────────────────────────────────────────────
+function renderFlat() {
+  document.getElementById('groupedView').style.display = 'none';
+  document.getElementById('flatView').style.display    = '';
+  const el = document.getElementById('flatView');
+  if (!filtered.length) {
+    el.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open"></i><p>No ${currentTab} logs found</p></div>`;
+    return;
+  }
+  el.innerHTML = filtered.map(log => logItemHtml(log)).join('');
+}
+
+// ── Shared log item HTML ───────────────────────────────────────────────────
+function logItemHtml(log) {
+  const iconCls = currentTab === 'console' ? 'console fa-terminal'
+                : currentTab === 'tool'    ? 'tool fa-tools'
+                :                            'report fa-chart-bar';
+  const statusBadge = /fail/i.test(log.status)
+    ? '<span class="badge-tool badge-fail">FAIL</span>'
+    : /pass|success/i.test(log.status)
+    ? '<span class="badge-tool badge-pass">PASS</span>' : '';
+  const contractBadge = log.contract && log.contract !== 'Unknown'
+    ? `<span class="badge-tool badge-file"><i class="fas fa-file-code me-1"></i>${escHtml(log.contract)}</span>` : '';
+  const toolBadge = log.tool && log.tool !== log.subdir
+    ? `<span class="badge-tool">${escHtml(log.tool)}</span>` : '';
+
+  return `
+  <div class="log-item">
+    <div class="log-icon ${iconCls.split(' ')[0]}">
+      <i class="fas ${iconCls.split(' ')[1]}"></i>
+    </div>
+    <div class="log-info">
+      <div class="log-name" title="${escHtml(log.name)}">${escHtml(log.name)}</div>
+      <div class="log-meta-row">
+        <span class="log-size">${fmtSize(log.size)}</span>
+        <span>${fmtDate(log.modified)}</span>
+        ${contractBadge}${toolBadge}${statusBadge}
+      </div>
+    </div>
+    <div class="log-actions">
+      <button class="btn btn-outline-primary" onclick="viewLog(${JSON.stringify(log.rel_path)},${JSON.stringify(log.name)})">
+        <i class="fas fa-eye me-1"></i>View
+      </button>
+      <a class="btn btn-outline-success" href="/api/logs/download/${encodeURIComponent(log.rel_path)}">
+        <i class="fas fa-download me-1"></i>Export
+      </a>
+    </div>
+  </div>`;
+}
+
+// ── Viewer ─────────────────────────────────────────────────────────────────
+async function viewLog(relPath, name) {
+  currentFile = {relPath, name};
+  document.getElementById('viewerTitle').textContent = name;
+  document.getElementById('logContent').innerHTML =
+    '<div class="text-muted"><div class="spinner-border spinner-border-sm me-2"></div> Loading…</div>';
+  document.getElementById('logViewer').style.display = 'block';
+  document.getElementById('logViewer').scrollIntoView({behavior:'smooth', block:'start'});
+  try {
+    const r = await fetch(`/api/logs/view/${encodeURIComponent(relPath)}`);
+    if (!r.ok) throw new Error(await r.text());
+    const text = await r.text();
+    document.getElementById('logContent').innerHTML = colourize(escHtml(text));
+  } catch(e) {
+    document.getElementById('logContent').innerHTML = `<span class="le">${e.message}</span>`;
+  }
+}
+
+function colourize(html) {
+  return html.split('\n').map(line => {
+    if (/error|fail|exception|violation/i.test(line)) return `<span class="le">${line}</span>`;
+    if (/warn/i.test(line))                            return `<span class="lw">${line}</span>`;
+    if (/pass|success|ok|verified|✓/i.test(line))     return `<span class="lo">${line}</span>`;
+    if (/info|debug|note|timestamp|file:/i.test(line)) return `<span class="li">${line}</span>`;
+    return line;
+  }).join('\n');
+}
+
+function closeViewer() { document.getElementById('logViewer').style.display='none'; currentFile=null; }
+
+function copyContent() {
+  navigator.clipboard.writeText(document.getElementById('logContent').innerText).then(() => {
+    const btn = event.target.closest('button');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
+    btn.classList.replace('btn-outline-info','btn-success');
+    setTimeout(() => { btn.innerHTML=orig; btn.classList.replace('btn-success','btn-outline-info'); }, 2000);
+  });
+}
+
+function downloadCurrent() {
+  if (currentFile) window.location.href = `/api/logs/download/${encodeURIComponent(currentFile.relPath)}`;
+}
+
+// ── Download all visible ───────────────────────────────────────────────────
+function downloadAll() {
+  filtered.forEach(log => {
+    const a = document.createElement('a');
+    a.href = `/api/logs/download/${encodeURIComponent(log.rel_path)}`;
+    a.download = log.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+function updateStats() {
+  const contracts = new Set(allLogs.map(l => l.contract).filter(c => c && c !== 'Unknown'));
+  document.getElementById('contractCount').textContent = contracts.size;
+  document.getElementById('totalSize').textContent = fmtSize(allLogs.reduce((s,l)=>s+l.size,0));
+
+  Promise.all(['console','tool','report'].map(t =>
+    fetch(`/api/logs/${t}`).then(r=>r.json()).then(d=>(d.logs||[]).length).catch(()=>0)
+  )).then(([c,t,r]) => {
+    document.getElementById('consoleCount').textContent = c;
+    document.getElementById('toolCount').textContent    = t;
+    document.getElementById('reportCount').textContent  = r;
+  });
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function refreshLogs() { loadLogs(currentTab); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtSize(b) {
+  if (!b) return '0 B';
+  const k=1024, s=['B','KB','MB','GB'], i=Math.floor(Math.log(b)/Math.log(k));
+  return (b/Math.pow(k,i)).toFixed(1)+' '+s[i];
+}
+function fmtDate(d) { return new Date(d).toLocaleString(); }
+
+document.addEventListener('DOMContentLoaded', () => loadLogs('console'));
+</script>
+{% endblock %}

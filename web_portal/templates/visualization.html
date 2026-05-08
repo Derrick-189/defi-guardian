@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+{% block title %}3D Visualization - DeFi Guardian{% endblock %}
+
+{% block extra_css %}
+<style>
+:root { --accent:#00ffcc; --bg:#0a0e17; --panel:#131a26; --border:#1e2a3a; --text:#e6edf3; --dim:#8b949e; }
+.viz-wrap { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:1.5rem; margin-bottom:1.5rem; }
+.ctrl-row { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:.85rem; }
+.ctrl-row label { min-width:100px; font-weight:600; color:var(--dim); font-size:.88rem; }
+#vizCanvas { width:100%; height:620px;
+             background:radial-gradient(ellipse at center, #0d1b2a 0%, #060c14 100%);
+             border:1px solid var(--border); border-radius:12px; position:relative; overflow:hidden; }
+.viz-legend { display:flex; gap:1.5rem; margin-top:.85rem; padding:.75rem 1rem;
+              background:var(--bg); border-radius:8px; flex-wrap:wrap; }
+.legend-item { display:flex; align-items:center; gap:.5rem; font-size:.85rem; }
+.legend-dot { width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,255,255,.2); }
+.stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:1rem; margin-top:1rem; }
+.stat-card { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:.85rem; text-align:center; }
+.stat-value { font-size:1.5rem; font-weight:800; color:var(--accent); }
+.stat-label { font-size:.78rem; color:var(--dim); margin-top:.2rem; }
+.node-tooltip { position:absolute; background:rgba(13,27,42,.95); border:1px solid var(--accent);
+                border-radius:8px; padding:.5rem .85rem; font-size:.82rem; color:var(--text);
+                pointer-events:none; display:none; z-index:20; max-width:220px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <div class="container">
+    <h1>3D State Visualization</h1>
+    <p>Interactive state graph and transition analysis</p>
+  </div>
+</section>
+
+<section class="visualization-content">
+  <div class="container">
+
+    <!-- Controls -->
+    <div class="viz-wrap">
+      <h4><i class="fas fa-sliders-h text-accent me-2"></i>Visualization Controls</h4>
+
+      <div class="ctrl-row">
+        <label>View Mode:</label>
+        <div class="btn-group btn-group-sm">
+          <input type="radio" class="btn-check" name="vm" id="vm2d" checked>
+          <label class="btn btn-outline-primary" for="vm2d">2D</label>
+          <input type="radio" class="btn-check" name="vm" id="vm3d">
+          <label class="btn btn-outline-primary" for="vm3d">3D</label>
+        </div>
+      </div>
+
+      <div class="ctrl-row">
+        <label>Layout:</label>
+        <select id="layoutSel" class="form-select form-select-sm" style="width:180px">
+          <option value="force">Force-directed</option>
+          <option value="hierarchical">Hierarchical</option>
+          <option value="circular">Circular</option>
+          <option value="grid">Grid</option>
+        </select>
+      </div>
+
+      <div class="ctrl-row">
+        <label>Filter:</label>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" id="chkErrors" checked onchange="applyFilters()">
+          <label class="form-check-label" for="chkErrors">Show Errors</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" id="chkTrans" checked onchange="applyFilters()">
+          <label class="form-check-label" for="chkTrans">Show Transitions</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" id="chkLabels" checked onchange="applyFilters()">
+          <label class="form-check-label" for="chkLabels">Show Labels</label>
+        </div>
+      </div>
+
+      <div class="ctrl-row">
+        <label>Actions:</label>
+        <button class="btn btn-sm btn-primary" id="animBtn" onclick="toggleAnim()">
+          <i class="fas fa-play me-1"></i>Animate
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="resetView()">
+          <i class="fas fa-redo me-1"></i>Reset
+        </button>
+        <button class="btn btn-sm btn-info" onclick="exportSVG()">
+          <i class="fas fa-download me-1"></i>Export SVG
+        </button>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="viz-wrap">
+      <h4><i class="fas fa-project-diagram text-accent me-2"></i>State Graph</h4>
+      <div id="vizCanvas">
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim)">
+          <div class="text-center"><div class="spinner-border mb-3"></div><p>Loading state graph…</p></div>
+        </div>
+      </div>
+      <div class="node-tooltip" id="tooltip"></div>
+
+      <div class="viz-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Initial State</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#00ffcc"></div>Normal State</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Error State</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>LTL Property</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-value" id="sTotalStates">-</div><div class="stat-label">Total States</div></div>
+        <div class="stat-card"><div class="stat-value" id="sTotalTrans">-</div><div class="stat-label">Transitions</div></div>
+        <div class="stat-card"><div class="stat-value" id="sErrorStates">-</div><div class="stat-label">Error States</div></div>
+        <div class="stat-card"><div class="stat-value" id="sLtlProps">-</div><div class="stat-label">LTL Properties</div></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+let rawGraph = null;   // {nodes:[], edges:[]}
+let sim = null;
+let isAnimating = false;
+let threeCtx = null;   // {scene, camera, renderer, controls, animId}
+let currentMode = '2d';
+
+// ── Load data ──────────────────────────────────────────────────────────────
+async function loadGraph() {
+  try {
+    // Try the state-graph endpoint (uses audit_id=0 as a "latest" shortcut)
+    let r = await fetch('/api/state-graph/0');
+    if (!r.ok) r = await fetch('/api/state/current');
+    const d = await r.json();
+    rawGraph = normaliseGraph(d);
+  } catch(e) {
+    rawGraph = makeDemoGraph();
+  }
+  updateStats();
+  render();
+}
+
+function normaliseGraph(d) {
+  // Handle both state_graph.json format and verification_state.json format
+  if (d.nodes && Array.isArray(d.nodes)) {
+    const nodes = d.nodes.map((n, i) => {
+      const id = typeof n === 'string' ? n : (n.id || String(i));
+      const isErr  = id.toLowerCase().includes('error') || id.toLowerCase().includes('fail');
+      const isLtl  = id.toLowerCase().startsWith('ltl');
+      const isInit = i === 0;
+      return { id, label: id.length > 16 ? id.slice(0,14)+'…' : id,
+               type: isErr ? 'error' : isLtl ? 'ltl' : isInit ? 'initial' : 'normal' };
+    });
+    const edges = (d.edges || []).map(e => ({
+      source: e.from || e.source,
+      target: e.to   || e.target,
+      label:  e.label || e.lab || '',
+      type:   'normal'
+    }));
+    return { nodes, edges };
+  }
+  // Fallback: build from verification_state keys
+  return makeDemoGraph();
+}
+
+function makeDemoGraph() {
+  const nodes = [
+    {id:'INIT',   label:'INIT',   type:'initial'},
+    {id:'State1', label:'State1', type:'normal'},
+    {id:'State2', label:'State2', type:'normal'},
+    {id:'ERROR',  label:'ERROR',  type:'error'},
+  ];
+  const edges = [
+    {source:'INIT',   target:'State1', label:'init',     type:'normal'},
+    {source:'State1', target:'State2', label:'transfer', type:'normal'},
+    {source:'State2', target:'ERROR',  label:'overflow', type:'error'},
+  ];
+  return {nodes, edges};
+}
+
+// ── Render dispatcher ──────────────────────────────────────────────────────
+function render() {
+  if (currentMode === '3d') render3D();
+  else render2D();
+}
+
+function applyFilters() { render(); }
+function resetView()    { loadGraph(); }
+
+// ── 2D D3 ─────────────────────────────────────────────────────────────────
+function render2D() {
+  disposeThree();
+  const container = document.getElementById('vizCanvas');
+  container.innerHTML = '';
+  if (!rawGraph || !rawGraph.nodes.length) {
+    container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim)"><p>No graph data available</p></div>';
+    return;
+  }
+
+  const showErrors = document.getElementById('chkErrors').checked;
+  const showTrans  = document.getElementById('chkTrans').checked;
+  const showLabels = document.getElementById('chkLabels').checked;
+
+  const nodes = rawGraph.nodes.filter(n => showErrors || n.type !== 'error');
+  const nodeIds = new Set(nodes.map(n => n.id));
+  const edges = rawGraph.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
+
+  const W = container.clientWidth || 800;
+  const H = 620;
+
+  const svg = d3.select('#vizCanvas').append('svg')
+    .attr('width', W).attr('height', H)
+    .style('background', 'transparent');
+
+  // Zoom
+  const g = svg.append('g');
+  svg.call(d3.zoom().scaleExtent([.2, 4]).on('zoom', e => g.attr('transform', e.transform)));
+
+  // Arrow markers
+  const defs = svg.append('defs');
+  ['normal','error'].forEach(t => {
+    defs.append('marker').attr('id','arr-'+t)
+      .attr('viewBox','0 -5 10 10').attr('refX',22).attr('refY',0)
+      .attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
+      .append('path').attr('d','M0,-5L10,0L0,5')
+      .attr('fill', t==='error' ? '#ef4444' : '#8b949e');
+  });
+
+  sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(edges).id(d=>d.id).distance(110))
+    .force('charge', d3.forceManyBody().strength(-350))
+    .force('center', d3.forceCenter(W/2, H/2))
+    .force('collision', d3.forceCollide(28));
+
+  const link = g.append('g').selectAll('line').data(edges).join('line')
+    .attr('stroke', d => d.type==='error' ? '#ef4444' : '#4b5563')
+    .attr('stroke-width', d => d.type==='error' ? 2.5 : 1.5)
+    .attr('marker-end', d => `url(#arr-${d.type||'normal'})`)
+    .style('display', showTrans ? null : 'none');
+
+  const edgeLabel = g.append('g').selectAll('text').data(edges).join('text')
+    .text(d => d.label)
+    .attr('font-size', 9).attr('fill','#6b7280').attr('text-anchor','middle')
+    .style('display', showLabels && showTrans ? null : 'none');
+
+  const nodeColor = {initial:'#22c55e', normal:'#00ffcc', error:'#ef4444', ltl:'#a78bfa'};
+  const nodeEmit  = {initial:'#0f4a1e', normal:'#003f3d', error:'#4a0f0f', ltl:'#2e1a5e'};
+
+  const node = g.append('g').selectAll('circle').data(nodes).join('circle')
+    .attr('r', d => d.type==='ltl' ? 14 : 20)
+    .attr('fill', d => nodeColor[d.type]||'#00ffcc')
+    .attr('stroke', '#0a0e17').attr('stroke-width', 2.5)
+    .style('filter', d => `drop-shadow(0 0 6px ${nodeColor[d.type]||'#00ffcc'}88)`)
+    .style('cursor','pointer')
+    .call(d3.drag()
+      .on('start', (e,d) => { if(!e.active) sim.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
+      .on('drag',  (e,d) => { d.fx=e.x; d.fy=e.y; })
+      .on('end',   (e,d) => { if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }))
+    .on('mouseover', (e,d) => showTip(e, d))
+    .on('mouseout',  () => hideTip());
+
+  const label = g.append('g').selectAll('text').data(nodes).join('text')
+    .text(d => d.label)
+    .attr('font-size', 10).attr('fill','#e6edf3').attr('text-anchor','middle')
+    .attr('dy', 4).attr('pointer-events','none')
+    .style('display', showLabels ? null : 'none');
+
+  sim.on('tick', () => {
+    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+        .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    edgeLabel.attr('x',d=>(d.source.x+d.target.x)/2).attr('y',d=>(d.source.y+d.target.y)/2);
+    node.attr('cx',d=>d.x).attr('cy',d=>d.y);
+    label.attr('x',d=>d.x).attr('y',d=>d.y);
+  });
+
+  if (isAnimating) {
+    d3.timer(() => { if(sim) sim.alpha(.1).restart(); });
+  }
+}
+
+function showTip(event, d) {
+  const tip = document.getElementById('tooltip');
+  tip.innerHTML = `<strong>${d.id}</strong><br>Type: ${d.type}`;
+  tip.style.display = 'block';
+  tip.style.left = (event.offsetX + 12) + 'px';
+  tip.style.top  = (event.offsetY - 10) + 'px';
+}
+function hideTip() { document.getElementById('tooltip').style.display = 'none'; }
+
+// ── 3D Three.js ───────────────────────────────────────────────────────────
+function disposeThree() {
+  if (!threeCtx) return;
+  cancelAnimationFrame(threeCtx.animId);
+  threeCtx.renderer.dispose();
+  if (threeCtx.renderer.domElement.parentNode)
+    threeCtx.renderer.domElement.parentNode.removeChild(threeCtx.renderer.domElement);
+  threeCtx = null;
+}
+
+function render3D() {
+  disposeThree();
+  const container = document.getElementById('vizCanvas');
+  container.innerHTML = '';
+  if (!rawGraph || !rawGraph.nodes.length) {
+    container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim)"><p>No graph data</p></div>';
+    return;
+  }
+
+  const W = container.clientWidth || 800, H = 620;
+  const scene    = new THREE.Scene();
+  scene.background = new THREE.Color(0x060c14);
+  scene.fog = new THREE.FogExp2(0x060c14, 0.0018);
+
+  const camera   = new THREE.PerspectiveCamera(50, W/H, 1, 4000);
+  camera.position.set(0, 80, 420);
+
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(W, H);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  container.appendChild(renderer.domElement);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 80;
+  controls.maxDistance = 1200;
+
+  // Lighting — bright enough to see colours
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+  sun.position.set(200, 300, 200);
+  scene.add(sun);
+  const fill = new THREE.DirectionalLight(0x88ccff, 0.5);
+  fill.position.set(-200, -100, -200);
+  scene.add(fill);
+  // Accent point lights
+  const ptTeal = new THREE.PointLight(0x00ffcc, 1.5, 600);
+  ptTeal.position.set(0, 200, 0);
+  scene.add(ptTeal);
+
+  // Grid
+  const grid = new THREE.GridHelper(800, 20, 0x1e2a3a, 0x1e2a3a);
+  grid.position.y = -180;
+  scene.add(grid);
+
+  // Compute positions
+  const count = rawGraph.nodes.length;
+  const layout = document.getElementById('layoutSel').value;
+  const positions = computePositions(count, layout);
+
+  const nodeColor3 = {initial:0x22c55e, normal:0x00ffcc, error:0xef4444, ltl:0xa78bfa};
+  const nodeEmit3  = {initial:0x0a2e14, normal:0x003f3d, error:0x3a0a0a, ltl:0x1e0a3a};
+
+  const sphereGeo = new THREE.SphereGeometry(12, 32, 32);
+  const nodeMeshes = [];
+
+  rawGraph.nodes.forEach((n, i) => {
+    const mat = new THREE.MeshStandardMaterial({
+      color:   nodeColor3[n.type] || 0x00ffcc,
+      emissive: nodeEmit3[n.type] || 0x003f3d,
+      emissiveIntensity: 0.6,
+      roughness: 0.3,
+      metalness: 0.4,
+    });
+    const mesh = new THREE.Mesh(sphereGeo, mat);
+    mesh.position.set(positions[i].x, positions[i].y, positions[i].z);
+    mesh.userData = n;
+    scene.add(mesh);
+    nodeMeshes.push(mesh);
+
+    // Glow sprite
+    const spriteMat = new THREE.SpriteMaterial({
+      color: nodeColor3[n.type] || 0x00ffcc,
+      transparent: true, opacity: 0.18,
+    });
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.scale.set(40, 40, 1);
+    sprite.position.copy(mesh.position);
+    scene.add(sprite);
+  });
+
+  // Edges
+  rawGraph.edges.forEach(e => {
+    const si = rawGraph.nodes.findIndex(n => n.id === e.source);
+    const ti = rawGraph.nodes.findIndex(n => n.id === e.target);
+    if (si < 0 || ti < 0) return;
+    const sp = positions[si], tp = positions[ti];
+    const pts = [new THREE.Vector3(sp.x,sp.y,sp.z), new THREE.Vector3(tp.x,tp.y,tp.z)];
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineBasicMaterial({
+      color: e.type==='error' ? 0xef4444 : 0x4b5563,
+      linewidth: 2,
+    });
+    scene.add(new THREE.Line(geo, mat));
+  });
+
+  // Resize handler
+  const onResize = () => {
+    const w = container.clientWidth;
+    camera.aspect = w / H;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, H);
+  };
+  window.addEventListener('resize', onResize);
+
+  let animId;
+  function animate() {
+    animId = requestAnimationFrame(animate);
+    controls.update();
+    if (isAnimating) {
+      nodeMeshes.forEach((m, i) => {
+        m.rotation.y += 0.01;
+        m.position.y = positions[i].y + Math.sin(Date.now()*0.001 + i) * 4;
+      });
+    }
+    renderer.render(scene, camera);
+  }
+  animate();
+  threeCtx = {scene, camera, renderer, controls, animId};
+}
+
+function computePositions(count, layout) {
+  const R = 200, pos = [];
+  for (let i = 0; i < count; i++) {
+    if (layout === 'circular') {
+      const a = (i/count)*Math.PI*2;
+      pos.push({x:Math.cos(a)*R, y:Math.sin(a)*R*0.4, z:Math.sin(a)*R*0.4});
+    } else if (layout === 'hierarchical') {
+      const cols = Math.ceil(Math.sqrt(count));
+      pos.push({x:(i%cols - cols/2)*120, y:(Math.floor(i/cols) - cols/2)*-90, z:(i%2)*60});
+    } else if (layout === 'grid') {
+      const s = Math.ceil(Math.cbrt(count)), sp = 110;
+      pos.push({x:(i%s - s/2)*sp, y:(Math.floor(i/s)%s - s/2)*sp, z:(Math.floor(i/(s*s)) - s/2)*sp});
+    } else {
+      // force-like random spread
+      pos.push({x:(Math.random()-.5)*R*2.2, y:(Math.random()-.5)*R*1.4, z:(Math.random()-.5)*R*1.4});
+    }
+  }
+  return pos;
+}
+
+// ── Animation toggle ───────────────────────────────────────────────────────
+function toggleAnim() {
+  isAnimating = !isAnimating;
+  const btn = document.getElementById('animBtn');
+  btn.innerHTML = isAnimating
+    ? '<i class="fas fa-pause me-1"></i>Pause'
+    : '<i class="fas fa-play me-1"></i>Animate';
+}
+
+// ── Export SVG ─────────────────────────────────────────────────────────────
+function exportSVG() {
+  const svgEl = document.querySelector('#vizCanvas svg');
+  if (!svgEl) { alert('Switch to 2D mode to export SVG.'); return; }
+  const blob = new Blob([svgEl.outerHTML], {type:'image/svg+xml'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'state_graph.svg';
+  a.click();
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+function updateStats() {
+  if (!rawGraph) return;
+  document.getElementById('sTotalStates').textContent = rawGraph.nodes.length;
+  document.getElementById('sTotalTrans').textContent  = rawGraph.edges.length;
+  document.getElementById('sErrorStates').textContent = rawGraph.nodes.filter(n=>n.type==='error').length;
+  document.getElementById('sLtlProps').textContent    = rawGraph.nodes.filter(n=>n.type==='ltl').length;
+}
+
+// ── Event wiring ───────────────────────────────────────────────────────────
+document.getElementById('vm2d').addEventListener('change', () => { currentMode='2d'; render(); });
+document.getElementById('vm3d').addEventListener('change', () => { currentMode='3d'; render(); });
+document.getElementById('layoutSel').addEventListener('change', render);
+
+document.addEventListener('DOMContentLoaded', loadGraph);
+</script>
+{% endblock %}

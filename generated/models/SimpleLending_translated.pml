@@ -3,15 +3,19 @@
 
 /* === SYSTEM STATE VARIABLES === */
 bool lock = false;
+int totalSupply = 0;
+int totalBorrowed = 0;
+bool paused = 0;
+int owner = 0;
+int balances[2];
+int debts[2];
 int amount = 10;
 int user_collateral = 5000;
 int user_debt = 3000;
 int price_eth = 100;
 int health_factor = 0;
 bool liquidation_executed = false;
-byte state = 0; // 0=INIT, 1=RUNNING, 2=END
-int balances[2];
-int debts[2];
+byte state = 0;
 
 /* === HELPER MACROS === */
 #define calculate_health_factor (user_collateral * price_eth / user_debt)

@@ -1,0 +1,474 @@
+{% extends "base.html" %}
+
+{% block title %}Benchmarks - DeFi Guardian{% endblock %}
+
+{% block extra_css %}
+<style>
+    .benchmark-container {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .benchmark-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .benchmark-card {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    .benchmark-card:hover {
+        border-color: var(--accent);
+        box-shadow: 0 4px 12px rgba(0,255,204,0.1);
+    }
+    .benchmark-icon {
+        font-size: 2.5rem;
+        color: var(--accent);
+        margin-bottom: 1rem;
+    }
+    .benchmark-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--text);
+        margin-bottom: 0.5rem;
+    }
+    .benchmark-label {
+        color: var(--dim);
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    .benchmark-change {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .benchmark-change.positive {
+        background: rgba(35,134,54,0.2);
+        color: #238636;
+    }
+    .benchmark-change.negative {
+        background: rgba(218,54,51,0.2);
+        color: #da3633;
+    }
+    .performance-chart {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        height: 400px;
+        margin-bottom: 1.5rem;
+    }
+    .tool-comparison {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .tool-header {
+        background: var(--panel);
+        padding: 1rem;
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+    }
+    .tool-metrics {
+        padding: 1rem;
+    }
+    .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+    .metric-row:last-child {
+        border-bottom: none;
+    }
+    .metric-name {
+        font-weight: 500;
+    }
+    .metric-value {
+        font-weight: 600;
+        color: var(--accent);
+    }
+    .progress-bar {
+        width: 100px;
+        height: 8px;
+        background: var(--border);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .progress-fill {
+        height: 100%;
+        background: var(--accent);
+        transition: width 0.3s ease;
+    }
+    .benchmark-table {
+        width: 100%;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .benchmark-table th {
+        background: var(--panel);
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 1px solid var(--border);
+    }
+    .benchmark-table td {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .benchmark-table tr:last-child td {
+        border-bottom: none;
+    }
+    .status-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+    }
+    .status-indicator.excellent {
+        background: #238636;
+    }
+    .status-indicator.good {
+        background: #d29922;
+    }
+    .status-indicator.poor {
+        background: #da3633;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>Performance Benchmarks</h1>
+        <p>Verification tool performance metrics and comparisons</p>
+    </div>
+</section>
+
+<section class="benchmarks-content">
+    <div class="container">
+        <!-- Key Metrics -->
+        <div class="benchmark-grid">
+            <div class="benchmark-card">
+                <div class="benchmark-icon">
+                    <i class="fas fa-tachometer-alt"></i>
+                </div>
+                <div class="benchmark-value">2.3s</div>
+                <div class="benchmark-label">Average Verification Time</div>
+                <span class="benchmark-change positive">-15% vs last week</span>
+            </div>
+            
+            <div class="benchmark-card">
+                <div class="benchmark-icon">
+                    <i class="fas fa-memory"></i>
+                </div>
+                <div class="benchmark-value">512MB</div>
+                <div class="benchmark-label">Peak Memory Usage</div>
+                <span class="benchmark-change positive">-8% vs last week</span>
+            </div>
+            
+            <div class="benchmark-card">
+                <div class="benchmark-icon">
+                    <i class="fas fa-cubes"></i>
+                </div>
+                <div class="benchmark-value">1.2M</div>
+                <div class="benchmark-label">States Explored/sec</div>
+                <span class="benchmark-change positive">+22% vs last week</span>
+            </div>
+            
+            <div class="benchmark-card">
+                <div class="benchmark-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="benchmark-value">94.2%</div>
+                <div class="benchmark-label">Success Rate</div>
+                <span class="benchmark-change negative">-2% vs last week</span>
+            </div>
+        </div>
+
+        <!-- Performance Chart -->
+        <div class="benchmark-container">
+            <h4><i class="fas fa-chart-line text-accent me-2"></i>Performance Trends</h4>
+            <div class="performance-chart" id="performanceChart">
+                <canvas id="trendCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Tool Comparison -->
+        <div class="benchmark-container">
+            <h4><i class="fas fa-balance-scale text-accent me-2"></i>Tool Comparison</h4>
+            <div class="tool-comparison">
+                <div class="tool-header">
+                    <div class="row">
+                        <div class="col-md-3">Tool</div>
+                        <div class="col-md-3">Speed</div>
+                        <div class="col-md-3">Memory</div>
+                        <div class="col-md-3">Accuracy</div>
+                    </div>
+                </div>
+                <div class="tool-metrics">
+                    <div class="metric-row">
+                        <div class="col-md-3">
+                            <span class="status-indicator excellent"></span>
+                            SPIN
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-value">1.8s</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 90%"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-value">256MB</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 70%"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-value">98%</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 98%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-row">
+                        <div class="col-md-3">
+                            <span class="status-indicator good"></span>
+                            Coq
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-value">3.2s</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 75%"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-value">512MB</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 50%"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-value">95%</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 95%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-row">
+                        <div class="col-md-3">
+                            <span class="status-indicator good"></span>
+                            Lean
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-value">2.7s</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 82%"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-value">384MB</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 60%"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-value">92%</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 92%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-row">
+                        <div class="col-md-3">
+                            <span class="status-indicator poor"></span>
+                            Prusti
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-value">4.1s</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 60%"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-value">768MB</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 30%"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-value">88%</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 88%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Benchmarks Table -->
+        <div class="benchmark-container">
+            <h4><i class="fas fa-table text-accent me-2"></i>Detailed Benchmarks</h4>
+            <table class="benchmark-table">
+                <thead>
+                    <tr>
+                        <th>Contract</th>
+                        <th>Tool</th>
+                        <th>States</th>
+                        <th>Time (s)</th>
+                        <th>Memory (MB)</th>
+                        <th>Status</th>
+                        <th>Last Run</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>ERC20.sol</td>
+                        <td>SPIN</td>
+                        <td>15,234</td>
+                        <td>1.2</td>
+                        <td>128</td>
+                        <td><span class="badge bg-success">PASS</span></td>
+                        <td>2 hours ago</td>
+                    </tr>
+                    <tr>
+                        <td>LendingPool.sol</td>
+                        <td>Coq</td>
+                        <td>28,456</td>
+                        <td>3.8</td>
+                        <td>512</td>
+                        <td><span class="badge bg-success">PASS</span></td>
+                        <td>5 hours ago</td>
+                    </tr>
+                    <tr>
+                        <td>AMM.sol</td>
+                        <td>Lean</td>
+                        <td>42,789</td>
+                        <td>2.9</td>
+                        <td>384</td>
+                        <td><span class="badge bg-danger">FAIL</span></td>
+                        <td>1 day ago</td>
+                    </tr>
+                    <tr>
+                        <td>Vault.sol</td>
+                        <td>Prusti</td>
+                        <td>8,123</td>
+                        <td>4.5</td>
+                        <td>640</td>
+                        <td><span class="badge bg-success">PASS</span></td>
+                        <td>2 days ago</td>
+                    </tr>
+                    <tr>
+                        <td>Governance.sol</td>
+                        <td>Kani</td>
+                        <td>67,234</td>
+                        <td>5.2</td>
+                        <td>896</td>
+                        <td><span class="badge bg-warning">TIMEOUT</span></td>
+                        <td>3 days ago</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js for performance charts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Initialize performance chart
+const ctx = document.getElementById('trendCanvas');
+if (ctx) {
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'Verification Time (s)',
+                data: [2.8, 2.5, 2.3, 2.7, 2.2, 2.4, 2.3],
+                borderColor: '#00ffcc',
+                backgroundColor: 'rgba(0,255,204,0.1)',
+                tension: 0.4
+            }, {
+                label: 'Memory Usage (MB)',
+                data: [640, 580, 560, 590, 520, 540, 512],
+                borderColor: '#8b949e',
+                backgroundColor: 'rgba(139,148,158,0.1)',
+                tension: 0.4,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#e6edf3'
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: '#21262d'
+                    },
+                    ticks: {
+                        color: '#8b949e'
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    grid: {
+                        color: '#21262d'
+                    },
+                    ticks: {
+                        color: '#8b949e'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: {
+                        drawOnChartArea: false
+                    },
+                    ticks: {
+                        color: '#8b949e'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Auto-refresh benchmarks every 30 seconds
+setInterval(() => {
+    // In a real implementation, this would fetch fresh data
+    console.log('Refreshing benchmark data...');
+}, 30000);
+</script>
+{% endblock %}

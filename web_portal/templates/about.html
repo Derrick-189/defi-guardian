@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}About Us - DeFi Guardian{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>About DeFi Guardian</h1>
+        <p>Our mission to secure the future of decentralized finance</p>
+    </div>
+</section>
+
+<section class="about-content">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-6">
+                <h2>Our Mission</h2>
+                <p>
+                    DeFi Guardian was born from a simple observation: billions of dollars 
+                    in DeFi were being lost to preventable smart contract vulnerabilities. 
+                    Traditional testing simply cannot guarantee the absence of bugs in 
+                    immutable code.
+                </p>
+                <p>
+                    Our mission is to make formal verification accessible to every smart 
+                    contract developer. By combining multiple verification tools — SPIN 
+                    model checking, Coq and Lean theorem provers, and Rust verifiers — 
+                    we provide mathematical guarantees of correctness that go far beyond 
+                    conventional testing.
+                </p>
+                <h2 class="mt-5">Our Team</h2>
+                <p>
+                    Developed at Kabale University's Department of Computer Science, 
+                    DeFi Guardian represents cutting-edge research in applied formal 
+                    methods for blockchain security.
+                </p>
+            </div>
+            <div class="col-lg-6">
+                <div class="about-card">
+                    <h3>Key Achievements</h3>
+                    <ul>
+                        <li>Integration of 6 verification tools</li>
+                        <li>3D state space visualization</li>
+                        <li>Cross-language support (Solidity + Rust)</li>
+                        <li>Monte Carlo risk simulation</li>
+                        <li>Multi-tool triangulation</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

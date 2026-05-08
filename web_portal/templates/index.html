@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}DeFi Guardian - Formal Verification for Smart Contracts{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container">
+        <div class="row align-items-center min-vh-75">
+            <div class="col-lg-7">
+                <h1 class="hero-title">
+                    <span class="gradient-text">Mathematical Proof</span><br>
+                    for Smart Contract Security
+                </h1>
+                <p class="hero-description">
+                    DeFi Guardian provides rigorous formal verification for smart contracts 
+                    using SPIN model checking, Coq theorem proving, and multi-tool triangulation. 
+                    Go beyond testing — prove your contracts are correct.
+                </p>
+                <div class="hero-buttons">
+                    <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg me-3">
+                        <i class="fas fa-rocket"></i> Get Started Free
+                    </a>
+                    <a href="{{ url_for('services') }}" class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-arrow-right"></i> View Plans
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-5 d-none d-lg-block">
+                <div class="hero-visual">
+                    <div class="floating-card">
+                        <i class="fas fa-shield-check"></i>
+                        <span>100% Properties Verified</span>
+                    </div>
+                    <div class="floating-card delay-1">
+                        <i class="fas fa-bug-slash"></i>
+                        <span>Zero Vulnerabilities</span>
+                    </div>
+                    <div class="floating-card delay-2">
+                        <i class="fas fa-chart-line"></i>
+                        <span>1,847 States Explored</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="stats-section">
+    <div class="container">
+        <div class="row text-center">
+            <div class="col-md-3 col-6 mb-4">
+                <div class="stat-item">
+                    <h2 class="counter">10,000+</h2>
+                    <p>Contracts Verified</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-4">
+                <div class="stat-item">
+                    <h2 class="counter">6</h2>
+                    <p>Verification Tools</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-4">
+                <div class="stat-item">
+                    <h2 class="counter">99.9%</h2>
+                    <p>Detection Rate</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-4">
+                <div class="stat-item">
+                    <h2 class="counter">$0</h2>
+                    <p>Losses Post-Verification</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="features-section">
+    <div class="container">
+        <div class="section-header text-center">
+            <h2>Why Choose DeFi Guardian?</h2>
+            <p>Comprehensive formal verification powered by multiple theorem provers and model checkers</p>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-microscope"></i>
+                    </div>
+                    <h3>Multi-Tool Verification</h3>
+                    <p>SPIN, Coq, Lean, Prusti, Kani, and Creusot working together for defense-in-depth verification.</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-cube"></i>
+                    </div>
+                    <h3>3D State Visualization</h3>
+                    <p>Interactive Web3D rendering of state spaces and counterexample paths for intuitive debugging.</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-code-branch"></i>
+                    </div>
+                    <h3>Cross-Language Support</h3>
+                    <p>Verify Solidity and Rust contracts with automatic translation to formal models.</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <h3>Risk Analytics</h3>
+                    <p>Monte Carlo simulations and health factor monitoring for comprehensive risk assessment.</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-triangle-exclamation"></i>
+                    </div>
+                    <h3>Triangulation</h3>
+                    <p>Cross-tool consensus scoring with quantitative confidence metrics for deployment decisions.</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-clock-rotate-left"></i>
+                    </div>
+                    <h3>Audit History</h3>
+                    <p>Complete verification history with detailed reports and trend analysis over time.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Recent Audits Section -->
+{% if recent_audits %}
+<section class="audits-section">
+    <div class="container">
+        <div class="section-header text-center">
+            <h2>Recent Verifications</h2>
+            <p>Latest smart contract audits performed by the community</p>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-dark table-hover">
+                <thead>
+                    <tr>
+                        <th>Contract</th>
+                        <th>Type</th>
+                        <th>Tool</th>
+                        <th>Status</th>
+                        <th>States</th>
+                        <th>Depth</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for audit in recent_audits %}
+                    <tr>
+                        <td><code>{{ audit[0] }}</code></td>
+                        <td><span class="badge bg-info">{{ audit[1] }}</span></td>
+                        <td>{{ audit[2] }}</td>
+                        <td>
+                            {% if audit[3] == 'PASS' %}
+                                <span class="badge bg-success">✓ Pass</span>
+                            {% else %}
+                                <span class="badge bg-danger">✗ Fail</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ audit[4] }}</td>
+                        <td>{{ audit[5] }}</td>
+                        <td>{{ audit[6][:10] if audit[6] else 'N/A' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- CTA Section -->
+<section class="cta-section">
+    <div class="container text-center">
+        <h2>Ready to Secure Your Smart Contracts?</h2>
+        <p>Join thousands of developers using formal verification to protect their DeFi protocols.</p>
+        <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg">
+            <i class="fas fa-shield-halved"></i> Start Verifying Now
+        </a>
+    </div>
+</section>
+{% endblock %}

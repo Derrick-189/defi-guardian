@@ -723,6 +723,10 @@ edition = "2021"
 
 [dependencies]
 creusot-std = {{ path = "{CREUSOT_STD_PATH}" }}
+
+# Suppress unexpected cfg warnings for verification tool annotations
+[lints.rust]
+unexpected_cfgs = {{ level = "allow", check-cfg = ['cfg(creusot)', 'cfg(prusti)', 'cfg(kani)'] }}
 """
                 )
 

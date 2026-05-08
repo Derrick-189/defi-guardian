@@ -9,7 +9,7 @@ int user_debt = 3000;
 int price_eth = 100;
 int health_factor = 0;
 bool liquidation_executed = false;
-byte state = 0; // 0=INIT, 1=RUNNING, 2=END
+byte state = 0;
 
 /* === HELPER MACROS === */
 #define calculate_health_factor (user_collateral * price_eth / user_debt)
