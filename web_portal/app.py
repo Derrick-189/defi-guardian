@@ -831,7 +831,7 @@ def get_counterexample(audit_id):
         conn = sqlite3.connect(app.config['DATABASE'])
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT verification_output, report_path, tool_used, filename, status
+            SELECT verification_output, report_path, tool_used, filename, status, ltl_properties
             FROM audit_history
             WHERE id = ? AND (user_id = ? OR user_id IS NULL)
         ''', (audit_id, current_user.id))
@@ -841,7 +841,14 @@ def get_counterexample(audit_id):
         if not result:
             return jsonify({'error': 'Audit not found'}), 404
 
-        log_path, report_path, tool, filename, status = result
+        log_path, report_path, tool, filename, status, ltl_props_raw = result
+
+        ltl_properties = []
+        if ltl_props_raw:
+            try:
+                ltl_properties = json.loads(ltl_props_raw)
+            except Exception:
+                pass
         tool_upper = (tool or '').upper()
 
         # Read the actual log file content
@@ -900,6 +907,7 @@ def get_counterexample(audit_id):
                 'trail_path':      '',
                 'trail_content':   '',
                 'counterexample':  error_lines,
+                'ltl_properties':  ltl_properties,
                 'state_graph':     _load_state_graph(
                     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                 'tool':            tool,
@@ -944,6 +952,7 @@ def get_counterexample(audit_id):
             'trail_path':      trail_file,
             'trail_content':   trail_content,
             'counterexample':  counterexample,
+            'ltl_properties':  ltl_properties,
             'state_graph':     state_graph,
             'tool':            tool,
             'filename':        filename,
