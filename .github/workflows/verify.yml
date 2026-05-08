@@ -6,18 +6,15 @@ jobs:
   verify-examples: 
     runs-on: ubuntu-latest 
     steps: 
-      - uses: actions/checkout@v3 
+      - uses: actions/checkout@v4
       
       - name: Setup SPIN 
         run: | 
-          wget http://spinroot.com/spin/Src/spin651.tar.gz 
-          tar xzf spin651.tar.gz 
-          cd Spin/Src* 
-          make 
-          sudo cp spin /usr/local/bin/ 
+          sudo apt-get update
+          sudo apt-get install -y spin
       
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
@@ -36,7 +33,7 @@ jobs:
           python benchmarks/run_benchmarks.py
       
       - name: Upload results 
-        uses: actions/upload-artifact@v3 
+        uses: actions/upload-artifact@v4
         with: 
           name: verification-results 
           path: benchmarks/benchmark_results.json
