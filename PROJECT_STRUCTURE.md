@@ -6,7 +6,8 @@ This document describes the directory layout, core files, and the data pipeline 
 
 | Directory | Description |
 |-----------|-------------|
-| `web_portal/` | Flask-based web application and its templates. |
+| `web_portal/` | Main Flask web application directory. |
+| `web_portal/templates/` | Jinja2 HTML templates for the web portal UI. |
 | `generated/` | Root for all files generated during verification (models, reports, images). |
 | `models/` | Contains translated formal models (e.g., `.pml` for SPIN). |
 | `logs/` | Organized logs for different tools (`spin/`, `certora/`, `coq/`, `lean/`, `rust_tools/`). |
@@ -57,3 +58,38 @@ Dashboards consume the stored data in two ways:
     - `/api/desktop-runs`: Returns historical data from `audit_log.json`.
     - `/api/counterexample/<id>` & `/api/trace/<id>`: Serve detailed trace data for visual analysis.
 - The **Frontend** templates (`dashboard.html`, `counterexample.html`) perform `fetch()` calls to these endpoints to populate the UI.
+
+## Web Portal Templates Overview
+
+| Template | Description |
+|----------|-------------|
+| `base.html` | The master layout containing common CSS (Bootstrap), JS, and navigation. |
+| `index.html` | Landing page for unauthenticated users. |
+| `dashboard.html` | User's main cockpit showing personal audit history and desktop sync data. |
+| `counterexample.html` | The redesigned Certora-style analysis tool (three-panel layout). |
+| `trace.html` | Dedicated execution trace viewer. |
+| `visualization.html` | 3D state space graph explorer (Three.js). |
+| `desktop_app.html` | A specialized template for the Desktop App's embedded web components. |
+
+## System Rebuild & Startup Guide
+
+To rebuild or run the complete DeFi Guardian system, follow these steps:
+
+### 1. Environment Setup
+- Install Python dependencies: `pip install -r requirements.txt`.
+- Install verification tools: `spin`, `coqc`, `lean`, `slither`, etc. (See `install.sh`).
+
+### 2. Launching the Components
+The system consists of three main integrated services:
+
+- **Desktop IDE**: `python desktop_app.py`
+  - *Provides*: Main tool coordination, code editing, and background job execution.
+- **Web Portal (API/User DB)**: `python web_portal/app.py` (Default: port 5000)
+  - *Provides*: User auth, persistence for all results, and the primary high-end UI.
+- **Streamlit Dashboard**: `streamlit run app.py` (Default: port 5005)
+  - *Provides*: Real-time state-space visualization and risk monitoring.
+
+### 3. Data Flow Integrity
+To ensure the system works as a whole:
+- The **Desktop IDE** must be able to write to the root `verification_state.json`.
+- The **Web Portal** must have read access to `audit_log.json` and the shared SQLite database `web_portal/defi_guardian.db`.
