@@ -93,3 +93,32 @@ The system consists of three main integrated services:
 To ensure the system works as a whole:
 - The **Desktop IDE** must be able to write to the root `verification_state.json`.
 - The **Web Portal** must have read access to `audit_log.json` and the shared SQLite database `web_portal/defi_guardian.db`.
+
+## Expected Functional Behavior (Ideal State)
+
+If all features are functioning as intended, the following end-to-end lifecycle should be expected:
+
+### 1. Specification Engineering
+- **Action**: User loads a contract in the **Desktop IDE** and clicks **AI Generate Specs**.
+- **Result**: The system performs a static analysis of the source code (using Slither for Solidity or custom heuristics for Rust) and automatically populates the **Specifications & LTL** tab with safety properties (e.g., reentrancy guards, overflow checks) and liveness properties.
+
+### 2. Multi-Engine Verification
+- **Action**: User clicks **Run SPIN Verification** or **Verify with Certora**.
+- **Process**:
+    - The system translates high-level code into formal representations.
+    - It executes parallel verification engines.
+    - Results are unified into a standard JSON schema.
+- **Result**: Success/failure statuses are immediately visible in the terminal, and the **Audit History** is updated in real-time.
+
+### 3. Interactive Debugging (The "Certora" Experience)
+- **Action**: Upon a verification failure, the user opens the **Web Portal** and selects the failing audit.
+- **Result**: The **Counterexample Analysis** UI provides a surgical view of the bug:
+    - **Rule Navigator**: Shows which specific properties were violated.
+    - **Call Trace Workspace**: An interactive tree allowing the user to step through the execution.
+    - **Variable Inspector**: Highlights exactly which variables changed at each step and by how much, pinpointing the root cause of the violation.
+
+### 4. Risk & State-Space Visualization
+- **Action**: User launches the **Streamlit Dashboard**.
+- **Result**:
+    - The system renders a **3D Interactive State Graph** representing all reachable states of the contract.
+    - For lending protocols, it provides **Monte Carlo Simulations** and **Sensitivity Analysis** based on the verified parameters (price, collateral, debt), allowing users to stress-test the protocol's safety under volatile market conditions.
