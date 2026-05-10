@@ -1,6 +1,16 @@
-# DeFi Guardian Project Structure
+# DeFi Guardian: System Architecture & Workflow
 
-This document describes the directory layout, core files, and the data pipeline for formal verification results within the DeFi Guardian project.
+DeFi Guardian is an integrated formal verification suite designed to provide a professional-grade experience for smart contract auditing. It bridges the gap between low-level formal methods tools (like SPIN, Coq, and Lean) and high-level user interfaces.
+
+## How It Works (The "Big Picture")
+
+1.  **Orchestration Layer (`desktop_app.py`)**: This is the heart of the system. It acts as an IDE where you load your Solidity or Rust code. It manages the lifecycle of a verification job—from auto-generating LTL specifications using AI and Slither, to translating the code into formal models, and finally invoking the underlying verification engines.
+2.  **Formal Translation (`translator.py`)**: Since most formal verifiers don't speak Solidity or Rust natively, this module translates your source code into **Promela** (for SPIN model checking) or generates **Coq/Lean** proof scripts.
+3.  **Unified Data Lake (`verification_state.json`, `audit_log.json`, SQLite)**: Regardless of which tool you run (SPIN, Certora, Kani, etc.), the results are normalized into a common format. This allows different dashboards to display results consistently.
+4.  **Visualization & Monitoring (`app.py` - Streamlit)**: This service provides a real-time "cockpit" for your protocol. It visualizes the state-space graph (how many ways the contract can transition) and provides financial risk metrics (like liquidation sensitivity).
+5.  **Collaboration & Audit Management (`web_portal/`)**: This is the user-facing web interface. It allows you to log in, track your audit history over time, and use the professional **Counterexample Analysis** dashboard to surgically debug property violations.
+
+---
 
 ## Directory Structure
 

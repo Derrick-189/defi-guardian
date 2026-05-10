@@ -228,9 +228,9 @@
         <!-- Center: Trace/Tabs -->
         <section class="panel center-panel">
             <div class="nav-tabs-certora">
-                <div class="tab-item active" onclick="switchTab('callTrace')">Call Trace</div>
-                <div class="tab-item" onclick="switchTab('resolutions')">Rule Call Resolutions</div>
-                <div class="tab-item" onclick="switchTab('variablesFull')">Variables</div>
+                <div id="tab-callTrace" class="tab-item active" onclick="switchTab('callTrace')">Call Trace</div>
+                <div id="tab-resolutions" class="tab-item" onclick="switchTab('resolutions')">Rule Call Resolutions</div>
+                <div id="tab-variablesFull" class="tab-item" onclick="switchTab('variablesFull')">Variables</div>
             </div>
             <div class="panel-content tab-content" id="mainTabContent">
                 <div id="callTraceView" class="tab-pane active">
@@ -307,7 +307,7 @@
 
     function renderHeader() {
         document.getElementById('contractName').textContent = auditData.filename || 'Contract';
-        document.getElementById('toolName').textContent = auditData.tool_type || 'SPIN';
+        document.getElementById('toolName').textContent = auditData.tool || auditData.tool_type || 'SPIN';
 
         const failedRule = (auditData.ltl_properties || []).find(p => p.status === 'FAIL');
         document.getElementById('activeRuleName').textContent = `Rule: ${failedRule ? failedRule.name : 'Unknown'}`;
@@ -417,7 +417,8 @@
         document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
 
-        event.target.classList.add('active');
+        const activeTab = document.getElementById('tab-' + tabId);
+        if (activeTab) activeTab.classList.add('active');
 
         if (tabId === 'callTrace') document.getElementById('callTraceView').classList.add('active');
         if (tabId === 'resolutions') document.getElementById('resolutionsView').classList.add('active');
