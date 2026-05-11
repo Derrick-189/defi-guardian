@@ -236,25 +236,33 @@ let currentStepIndex = 0;
 let isPlaying = false;
 let playbackInterval = null;
 
+// ── Utility ────────────────────────────────────────────────────────────
+function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = String(s == null ? '' : s);
+    return d.innerHTML;
+}
+
 async function loadTrace() {
     try {
         const response = await fetch(`/api/trace/{{ audit_id }}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        
+
         if (data.error) {
-            document.getElementById('traceTimeline').innerHTML = 
-                `<div class="alert alert-danger">${data.error}</div>`;
+            document.getElementById('traceTimeline').innerHTML =
+                `<div class="alert alert-danger">${escHtml(data.error)}</div>`;
             return;
         }
-        
+
         traceData = data.trace || [];
         displayTrace();
         updateStats();
-        
+
     } catch (error) {
         console.error('Error loading trace:', error);
-        document.getElementById('traceTimeline').innerHTML = 
-            `<div class="alert alert-danger">Failed to load trace</div>`;
+        document.getElementById('traceTimeline').innerHTML =
+            `<div class="alert alert-danger">Failed to load trace: ${escHtml(error.message)}</div>`;
     }
 }
 

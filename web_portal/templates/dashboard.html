@@ -21,7 +21,7 @@
             </div>
             <div class="col-md-4">
                 <div class="stat-card">
-                    <h3>{{ audits|selectattr('4', 'equalto', 'PASS')|list|length }}</h3>
+                    <h3>{{ audits|selectattr('status', 'equalto', 'PASS')|list|length }}</h3>
                     <p>Passed</p>
                 </div>
             </div>
@@ -29,7 +29,7 @@
                 <div class="stat-card">
                     <h3>
                         {% if audits|length > 0 %}
-                            {{ (audits|selectattr('4', 'equalto', 'PASS')|list|length / audits|length * 100)|round(1) }}%
+                            {{ (audits|selectattr('status', 'equalto', 'PASS')|list|length / audits|length * 100)|round(1) }}%
                         {% else %}
                             0%
                         {% endif %}
@@ -57,12 +57,12 @@
                 <tbody>
                     {% for audit in audits %}
                     <tr>
-                        <td>{{ audit[0] }}</td>
-                        <td><code>{{ audit[2] }}</code></td>
-                        <td>{{ audit[3] }}</td>
-                        <td>{{ audit[4] }}</td>
+                        <td>{{ audit['id'] }}</td>
+                        <td><code>{{ audit['filename'] }}</code></td>
+                        <td>{{ audit['file_type'] }}</td>
+                        <td>{{ audit['tool_used'] }}</td>
                         <td>
-                            {% if audit[5] == 'PASS' %}
+                            {% if audit['status'] == 'PASS' %}
                                 <span class="badge bg-success">PASS</span>
                             {% else %}
                                 <span class="badge bg-danger">FAIL</span>
@@ -70,15 +70,15 @@
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm" role="group">
-                                <a href="{{ url_for('counterexample_analysis', audit_id=audit[0]) }}" class="btn btn-outline-primary btn-sm">
+                                <a href="{{ url_for('counterexample_analysis', audit_id=audit['id']) }}" class="btn btn-outline-primary btn-sm">
                                     <i class="fas fa-bug"></i> Counterexample
                                 </a>
-                                <a href="{{ url_for('trace_viewer', audit_id=audit[0]) }}" class="btn btn-outline-info btn-sm">
+                                <a href="{{ url_for('trace_viewer', audit_id=audit['id']) }}" class="btn btn-outline-info btn-sm">
                                     <i class="fas fa-stream"></i> Trace
                                 </a>
                             </div>
                         </td>
-                        <td>{{ audit[12][:10] if audit[12] else 'N/A' }}</td>
+                        <td>{{ audit['audit_date'][:10] if audit['audit_date'] else 'N/A' }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -109,32 +109,51 @@ fetch('/api/desktop-runs')
             el.innerHTML = '<div class="empty-state"><i class="fas fa-desktop"></i><h3>No desktop runs found</h3><p>Run a verification from the desktop app to see results here.</p></div>';
             return;
         }
-        const rows = runs.map(r => `
+
+        // Sort: SPIN first (has real states/depth), then by timestamp desc
+        const spinTools = new Set(['SPIN']);
+        runs.sort((a, b) => {
+            const aHasStates = spinTools.has(a.tool) && a.states > 0;
+            const bHasStates = spinTools.has(b.tool) && b.states > 0;
+            if (aHasStates !== bHasStates) return aHasStates ? -1 : 1;
+            return (b.timestamp || '').localeCompare(a.timestamp || '');
+        });
+
+        const rows = runs.map(r => {
+            const isPass = r.status === 'SUCCESS' || r.status === 'PASS';
+            const hasStates = r.states > 0;
+            const hasDepth  = r.depth  > 0;
+            // Find matching audit_history id for links (best effort via timestamp prefix)
+            return `
             <tr>
-                <td><code>${r.id.slice(0,8)}</code></td>
-                <td><code>${r.file}</code></td>
-                <td>${r.tool}</td>
-                <td>${r.status === 'SUCCESS' || r.status === 'PASS'
+                <td><code style="font-size:0.78rem;">${(r.id||'').slice(0,8)}</code></td>
+                <td><code style="font-size:0.85rem;">${r.file || '—'}</code></td>
+                <td><span style="font-size:0.85rem;">${r.tool || '—'}</span></td>
+                <td>${isPass
                     ? '<span class="badge bg-success">PASS</span>'
                     : '<span class="badge bg-danger">FAIL</span>'}</td>
-                <td>${r.states}</td>
-                <td>${r.depth}</td>
-                <td>${r.timestamp}</td>
-            </tr>`).join('');
+                <td style="text-align:center;">${hasStates ? r.states : '<span class="text-muted">—</span>'}</td>
+                <td style="text-align:center;">${hasDepth  ? r.depth  : '<span class="text-muted">—</span>'}</td>
+                <td style="font-size:0.8rem;color:#8b949e;">${(r.timestamp||'').slice(0,16)}</td>
+            </tr>`;
+        }).join('');
+
         el.innerHTML = `
             <div class="table-responsive">
-                <table class="table table-dark">
+                <table class="table table-dark table-hover" style="font-size:0.9rem;">
                     <thead><tr>
                         <th>ID</th><th>File</th><th>Tool</th><th>Status</th>
-                        <th>States</th><th>Depth</th><th>Timestamp</th>
+                        <th style="text-align:center;">States</th>
+                        <th style="text-align:center;">Depth</th>
+                        <th>Timestamp</th>
                     </tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
             </div>`;
     })
-    .catch(() => {
+    .catch(err => {
         document.getElementById('desktop-runs-container').innerHTML =
-            '<p class="text-danger">Failed to load desktop runs.</p>';
+            `<p class="text-danger">Failed to load desktop runs: ${err.message}</p>`;
     });
 </script>
 {% endblock %}

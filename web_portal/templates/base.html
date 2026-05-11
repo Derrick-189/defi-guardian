@@ -32,13 +32,28 @@
             </button>
             
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('index') }}">Home</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('about') }}">About</a>
                     </li>
+                    
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item me-2">
+                        <button class="btn btn-sm btn-outline-accent" id="syncBtn" title="Sync with Desktop App">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="nav-item me-3">
+                        <button class="btn btn-sm btn-outline-light" id="themeToggle" title="Toggle Light/Dark Mode">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                    </li>
+
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('services') }}">Services</a>
                     </li>
@@ -114,6 +129,21 @@
         </div>
         {% endif %}
     {% endwith %}
+    
+    <!-- Real-time Notifications Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
+        <div id="liveToast" class="toast hide" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="fas fa-shield-halved text-primary me-2"></i>
+                <strong class="me-auto" id="toastTitle">Verification Event</strong>
+                <small>just now</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                Verification completed.
+            </div>
+        </div>
+    </div>
     
     <!-- Main Content -->
     <main>
@@ -198,8 +228,30 @@
     
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SocketIO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/websocket-client.js') }}"></script>
+    
+    <script>
+        // Notification system
+        window.showNotification = function(title, message, type = 'info') {
+            const toastEl = document.getElementById('liveToast');
+            const toast = new bootstrap.Toast(toastEl);
+            
+            document.getElementById('toastTitle').textContent = title;
+            document.getElementById('toastMessage').textContent = message;
+            
+            const header = toastEl.querySelector('.toast-header');
+            header.className = 'toast-header'; // Reset
+            if (type === 'success') header.classList.add('bg-success', 'text-white');
+            else if (type === 'danger') header.classList.add('bg-danger', 'text-white');
+            else if (type === 'warning') header.classList.add('bg-warning');
+            
+            toast.show();
+        };
+    </script>
     
     {% block extra_js %}{% endblock %}
 </body>

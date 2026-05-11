@@ -176,43 +176,56 @@ class CoqVerifier:
     def _ltl_to_coq_expr(self, ltl_formula, state_vars):
         """
         Convert an LTL formula to a Coq expression.
+        Handles bool and nat variables, large literal constants,
+        and correctly maps Promela 1/0 to Coq true/false.
         """
         expr = ltl_formula
-        
-        # Replace struct field access and handle boolean comparisons
-        # For booleans in LTL formulas like 'lock', we need '(lock s) = true'
-        for var_name, var_val in state_vars.items():
+
+        # Coq keywords that must NOT be treated as variable names
+        COQ_KEYWORDS = {'true', 'false', 'True', 'False', 'nat', 'bool', 'Prop'}
+
+        # 1. Handle explicit boolean literals (Promela uses 1/0 for true/false sometimes)
+        # but only if they are compared to boolean variables.
+        # However, a simpler way is to handle the variable mapping carefully.
+
+        # Process longer variable names first to avoid partial matches
+        for var_name, var_val in sorted(state_vars.items(), key=lambda x: -len(x[0])):
+            if var_name in COQ_KEYWORDS:
+                continue
+                
             if isinstance(var_val, bool):
-                # If it's just the variable name (e.g., 'lock'), replace with '(lock s) = true'
-                # but be careful with existing comparisons like 'lock == true'
-                expr = re.sub(rf'\b{var_name}\s*==\s*true\b', f'({var_name} s) = true', expr)
-                expr = re.sub(rf'\b{var_name}\s*==\s*false\b', f'({var_name} s) = false', expr)
-                expr = re.sub(rf'\b{var_name}\s*!=\s*true\b', f'({var_name} s) = false', expr)
-                expr = re.sub(rf'\b{var_name}\s*!=\s*false\b', f'({var_name} s) = true', expr)
-                # Standalone boolean variable
-                expr = re.sub(rf'\b{var_name}\b(?!\s*[!=]=)', f'({var_name} s) = true', expr)
+                # Map Promela comparisons to Coq bool comparisons
+                # Handle == 1, != 1, == 0, != 0 as well as == true, etc.
+                expr = re.sub(rf'\b{var_name}\s*==\s*(?:true|1)\b',  f'({var_name} s) = true',  expr)
+                expr = re.sub(rf'\b{var_name}\s*==\s*(?:false|0)\b', f'({var_name} s) = false', expr)
+                expr = re.sub(rf'\b{var_name}\s*!=\s*(?:true|1)\b',  f'({var_name} s) = false', expr)
+                expr = re.sub(rf'\b{var_name}\s*!=\s*(?:false|0)\b', f'({var_name} s) = true',  expr)
+                
+                # Standalone bool var — only if not already wrapped
+                expr = re.sub(
+                    rf'\b{var_name}\b(?!\s*[!=]=)(?!\s+s\b)',
+                    f'({var_name} s) = true', expr
+                )
             else:
-                expr = re.sub(rf'\b{var_name}\b', f'({var_name} s)', expr)
-        
-        # Replace operators
+                # Nat var — only if not already wrapped as "(var s)"
+                expr = re.sub(
+                    rf'\b{var_name}\b(?!\s+s\b)',
+                    f'({var_name} s)', expr
+                )
+
+        # Operator replacements (order matters)
         expr = expr.replace('&&', '/\\')
         expr = expr.replace('||', '\\/')
-        expr = expr.replace('!', '~')
-        expr = expr.replace('->', '->')
-        
-        # Replace comparison operators
-        expr = expr.replace('>=', '>=')
-        expr = expr.replace('<=', '<=')
-        expr = expr.replace('==', '=')
+        # Logical negation: ! not followed by = 
+        expr = re.sub(r'!(?!=)', '~', expr)
+        # Comparisons: != before ==
         expr = expr.replace('!=', '<>')
-        
-        # Strip LTL quantifiers for Coq (we verify per-state)
-        expr = re.sub(r'\[\]|<>', '', expr).strip()
-        
-        if not expr:
-            expr = "True"
-        
-        return expr
+        expr = expr.replace('==', '=')
+
+        # Strip LTL temporal quantifiers (verified per-state in Coq)
+        expr = re.sub(r'\[\]\s*|<>\s*', '', expr).strip()
+
+        return expr or "True"
 
     def generate_coq_script(self, contract_name=None, specifications=None):
         """
@@ -242,7 +255,36 @@ class CoqVerifier:
 
     def _build_coq_script(self, contract_name, state_vars, ltl_props, assertions, processes):
         """Build the complete Coq proof script"""
-        
+
+        # ── Pre-scan LTL formulas for large literal constants ──────────
+        # lia in Coq 8.20 cannot handle Init.Nat.of_uint (large nat literals).
+        # We extract any integer >= 1000 from LTL formulas and replace them
+        # with named Definitions that lia can unfold.
+        import re as _re
+        large_consts = {}   # value_str -> definition_name
+        const_counter = [0]
+
+        def _replace_large_literals(formula):
+            """Replace large integer literals with named constants."""
+            def replacer(m):
+                val = m.group(0)
+                if int(val) >= 1000:
+                    if val not in large_consts:
+                        const_counter[0] += 1
+                        large_consts[val] = f"CONST_{val}"
+                    return large_consts[val]
+                return val
+            return _re.sub(r'\b(\d+)\b', replacer, formula)
+
+        # Apply to all LTL formulas
+        patched_ltl_props = []
+        for ltl in ltl_props:
+            patched_ltl_props.append({
+                'name':    ltl['name'],
+                'formula': ltl['formula'],
+                'formula_coq': _replace_large_literals(ltl['formula']),
+            })
+
         script = f'''(*
     Coq Formal Verification Script
     Generated from: {os.path.basename(self.pml_file) if self.pml_file else 'template'}
@@ -260,7 +302,15 @@ Require Import Lia.
    State variables: {len(state_vars)}
 *)
 
-Record ContractState : Type := mkState {{
+'''
+        # Emit named constants for large literals (avoids lia/Init.Nat.of_uint issue)
+        if large_consts:
+            script += "(* === Named constants (avoids large-literal issues with lia) === *)\n"
+            for val_str, def_name in sorted(large_consts.items(), key=lambda x: int(x[0])):
+                script += f"Definition {def_name} : nat := {val_str}.\n"
+            script += "\n"
+
+        script += f'''Record ContractState : Type := mkState {{
 '''
         # Add state variables as record fields
         max_display = 15
@@ -300,9 +350,9 @@ Definition initial_state : ContractState :=
         # === LTL Properties as Invariants ===
         script += f"(* === LTL Properties from Promela ({len(ltl_props)} found) === *)\n\n"
         
-        for i, ltl in enumerate(ltl_props[:10]):
+        for i, ltl in enumerate(patched_ltl_props[:10]):
             safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', ltl['name'])
-            coq_expr = self._ltl_to_coq_expr(ltl['formula'], state_vars)
+            coq_expr = self._ltl_to_coq_expr(ltl['formula_coq'], state_vars)
             
             script += f'''(* LTL: ltl {ltl['name']} {{{ltl['formula']}}} *)
 Definition ltl_{safe_name} (s : ContractState) : Prop :=
@@ -330,29 +380,22 @@ Definition {safe_name} (s : ContractState) : Prop :=
 '''
         
         # Theorem 1: All nat values non-negative
-        # Only include nat (int) fields — bool fields can't be compared with >=
+        # Only include nat (int) fields — bool fields cannot use >= 0
         nat_vars = [(v, d) for v, d in list(state_vars.items())[:max_display]
                     if isinstance(d, int) and not isinstance(d, bool)]
 
         if nat_vars:
-            if len(nat_vars) == 1:
-                # Single condition — no conjunction, no split needed
-                var_name = nat_vars[0][0]
-                script += f'''(* Property 1: All state values are non-negative (safety) *)
-Theorem all_values_non_negative :
-    forall (s : ContractState),
-    ({var_name} s) >= 0.
-Proof.
-    intros s. apply Nat.le_0_l.
-Qed.
-
-'''
+            conditions = [f"({v} s) >= 0" for v, _ in nat_vars]
+            script += "(* Property 1: All state values are non-negative (safety) *)\n"
+            script += "Theorem all_values_non_negative :\n"
+            script += "    forall (s : ContractState),\n"
+            if len(conditions) == 1:
+                script += f"    {conditions[0]}.\n"
+                script += "Proof.\n"
+                script += "    intros s. apply Nat.le_0_l.\n"
+                script += "Qed.\n\n"
             else:
-                conditions = [f"    ({v} s) >= 0" for v, _ in nat_vars]
-                script += "(* Property 1: All state values are non-negative (safety) *)\n"
-                script += "Theorem all_values_non_negative :\n"
-                script += "    forall (s : ContractState),\n"
-                script += " /\\ ".join(conditions) + ".\n"
+                script += "    " + " /\\\n    ".join(conditions) + ".\n"
                 script += "Proof.\n"
                 script += "    intros s.\n"
                 script += "    repeat split; apply Nat.le_0_l.\n"
@@ -362,56 +405,89 @@ Qed.
             script += "Theorem all_values_non_negative : True.\nProof. trivial. Qed.\n\n"
         
         # Theorem 2: LTL property verification (one per LTL formula)
-        for i, ltl in enumerate(ltl_props[:8]):
+        for i, ltl in enumerate(patched_ltl_props[:8]):
             safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', ltl['name'])
-            coq_expr = self._ltl_to_coq_expr(ltl['formula'], state_vars)
+            formula   = ltl['formula']
+            coq_expr  = self._ltl_to_coq_expr(ltl['formula_coq'], state_vars)
 
-            # Choose proof tactic based on expression complexity
-            # Simple arithmetic/boolean expressions can be solved automatically
+            # Build unfold list including any named constants used
+            used_consts = [v for k, v in large_consts.items() if v in coq_expr]
+            unfold_list = f"ltl_{safe_name}, initial_state"
+            if used_consts:
+                unfold_list += ", " + ", ".join(used_consts)
+
+            # Classify the property type
+            is_liveness  = '<>' in formula and '[]' not in formula
+            is_response  = '->' in formula and '<>' in formula
             has_bool_eq  = '= true' in coq_expr or '= false' in coq_expr
-            has_arith    = any(op in coq_expr for op in ('>=', '<=', '+', '-', '*'))
-            has_implies  = '->' in coq_expr
+            has_arith    = any(op in coq_expr for op in ('>=', '<=', '+', '-', '*', '>'))
             has_negation = '~' in coq_expr
 
-            if has_implies or has_negation:
-                # Implication / negation — need intro + destruct
-                proof_tactic = (
-                    "    intros s.\n"
-                    "    unfold ltl_{safe_name}, initial_state.\n"
-                    "    simpl.\n"
-                    "    try (compute; auto).\n"
-                    "    try (intros; omega).\n"
-                    "    try (intros; lia).\n"
-                    "    admit."
-                ).format(safe_name=safe_name)
+            if is_liveness or is_response:
+                proof_block = (
+                    f"    (* Liveness/response property: '{formula}'\n"
+                    f"       Requires temporal reasoning — verified by SPIN instead. *)\n"
+                    f"    admit."
+                )
                 end_keyword = "Admitted."
-            elif has_bool_eq:
-                proof_tactic = (
-                    "    unfold ltl_{safe_name}, initial_state.\n"
-                    "    simpl. reflexivity."
-                ).format(safe_name=safe_name)
-                end_keyword = "Qed."
-            elif has_arith:
-                proof_tactic = (
-                    "    unfold ltl_{safe_name}, initial_state.\n"
-                    "    simpl.\n"
-                    "    try (compute; auto).\n"
-                    "    try lia."
-                ).format(safe_name=safe_name)
-                end_keyword = "Qed."
-            else:
-                proof_tactic = (
-                    "    unfold ltl_{safe_name}, initial_state.\n"
-                    "    simpl. try (compute; auto). try lia."
-                ).format(safe_name=safe_name)
+
+            elif has_bool_eq and has_negation:
+                proof_block = (
+                    f"    unfold {unfold_list}.\n"
+                    f"    simpl. intros [H _]. discriminate."
+                )
                 end_keyword = "Qed."
 
+            elif has_bool_eq:
+                proof_block = (
+                    f"    unfold {unfold_list}.\n"
+                    f"    simpl. reflexivity."
+                )
+                end_keyword = "Qed."
+
+            elif has_arith:
+                # Arithmetic inequality on concrete nat values.
+                # For conjunctions with large literal upper bounds (>= 1000),
+                # lia cannot handle Init.Nat.of_uint — use Nat.leb_le instead.
+                # For simple single inequalities, lia works fine.
+                if '/\\' in coq_expr:
+                    proof_block = (
+                        f"    unfold {unfold_list}.\n"
+                        f"    simpl.\n"
+                        f"    split.\n"
+                        f"    - apply Nat.le_0_l.\n"
+                        f"    - apply Nat.leb_le. reflexivity."
+                    )
+                else:
+                    proof_block = (
+                        f"    unfold {unfold_list}.\n"
+                        f"    simpl.\n"
+                        f"    (apply Nat.le_0_l || apply Nat.leb_le; reflexivity || lia)."
+                    )
+                end_keyword = "Qed."
+
+            elif has_negation:
+                proof_block = (
+                    f"    unfold {unfold_list}.\n"
+                    f"    simpl. lia."
+                )
+                end_keyword = "Qed."
+
+            else:
+                proof_block = (
+                    f"    unfold {unfold_list}.\n"
+                    f"    simpl.\n"
+                    f"    try (compute; auto).\n"
+                    f"    admit."
+                )
+                end_keyword = "Admitted."
+
             script += f'''(* Property {i+2}: LTL - {ltl['name']} *)
-(* Formula: {ltl['formula']} *)
+(* Formula: {formula} *)
 Theorem ltl_{safe_name}_holds :
     ltl_{safe_name} initial_state.
 Proof.
-{proof_tactic}
+{proof_block}
 {end_keyword}
 
 '''

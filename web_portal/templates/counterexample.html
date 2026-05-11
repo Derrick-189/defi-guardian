@@ -24,7 +24,6 @@
     body {
         background-color: var(--ce-bg);
         color: var(--ce-text);
-        overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     }
 
@@ -34,6 +33,7 @@
         flex-direction: column;
         height: calc(100vh - 100px);
         margin-top: 100px;
+        overflow: hidden;   /* wrapper clips, not body — allows page scroll outside */
     }
 
     /* ── Header ── */
@@ -160,7 +160,7 @@
         padding: 0 10px;
         flex-shrink: 0;
     }
-    .tab-btn {
+    .tab-btn, .tab-item {
         background: transparent;
         border: none;
         color: var(--ce-muted);
@@ -170,9 +170,10 @@
         cursor: pointer;
         border-bottom: 2px solid transparent;
         transition: all 0.2s;
+        user-select: none;
     }
-    .tab-btn:hover { color: var(--ce-text-bright); }
-    .tab-btn.active {
+    .tab-btn:hover, .tab-item:hover { color: var(--ce-text-bright); }
+    .tab-btn.active, .tab-item.active {
         color: var(--ce-text-bright);
         border-bottom-color: var(--ce-active-tab);
     }
@@ -194,43 +195,39 @@
         font-family: 'Fira Code', 'Consolas', monospace;
         font-size: 0.85rem;
     }
-    .trace-node {
-        position: relative;
-        padding-left: 20px;
-        margin-bottom: 3px;
-    }
+    /* node-content style (3-panel layout) */
+    .trace-node { position: relative; padding-left: 20px; margin-bottom: 3px; }
     .node-content {
-        display: flex;
-        align-items: center;
-        padding: 4px 8px;
-        border-radius: 4px;
-        cursor: pointer;
-        gap: 8px;
-        border-left: 2px solid transparent;
-        transition: background 0.15s;
+        display: flex; align-items: center; padding: 4px 8px;
+        border-radius: 4px; cursor: pointer; gap: 8px;
+        border-left: 2px solid transparent; transition: background 0.15s;
     }
     .node-content:hover { background: var(--ce-hover); }
     .node-content.selected {
-        background: var(--ce-selection);
-        border-left-color: var(--ce-accent);
-        color: var(--ce-accent);
+        background: var(--ce-selection); border-left-color: var(--ce-accent); color: var(--ce-accent);
     }
     .node-icon { width: 16px; text-align: center; font-size: 0.8rem; }
     .node-action { color: var(--ce-text-bright); white-space: pre-wrap; word-break: break-all; }
     .node-file-info { color: var(--ce-muted); font-size: 0.75rem; margin-left: auto; padding-left: 10px; }
-    .node-children {
-        border-left: 1px solid var(--ce-border);
-        margin-left: 7px;
-    }
+    .node-children { border-left: 1px solid var(--ce-border); margin-left: 7px; }
     .trace-node::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 12px;
-        width: 15px;
-        height: 1px;
-        background: var(--ce-border);
+        content: ""; position: absolute; left: 0; top: 12px;
+        width: 15px; height: 1px; background: var(--ce-border);
     }
+    /* flat trace-step style (used by renderTrace for SPIN + non-SPIN) */
+    .trace-step {
+        display: flex; align-items: flex-start; gap: 8px;
+        padding: 5px 10px; border-radius: 4px; cursor: pointer;
+        border-left: 2px solid transparent; transition: background 0.15s;
+        font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.85rem;
+    }
+    .trace-step:hover { background: var(--ce-hover); }
+    .trace-step.selected {
+        background: var(--ce-selection); border-left-color: var(--ce-accent);
+    }
+    .step-icon { width: 16px; text-align: center; flex-shrink: 0; margin-top: 2px; }
+    .step-text { color: var(--ce-text-bright); white-space: pre-wrap; word-break: break-all; flex: 1; }
+    .step-loc  { color: var(--ce-muted); font-size: 0.75rem; margin-left: auto; padding-left: 10px; flex-shrink: 0; }
 
     /* ── Variables panel (right) ── */
     .var-section { margin-bottom: 20px; }
@@ -349,12 +346,12 @@
         <!-- ── Center: Trace + Tabs ── -->
         <main class="panel" style="display:flex;flex-direction:column;">
             <div class="panel-tabs">
-                <button class="tab-btn active" data-tab="callTraceTab">Call Trace</button>
-                <button class="tab-btn" data-tab="resolutionsTab">Rule Call Resolutions</button>
-                <button class="tab-btn" data-tab="variablesTab">Variables</button>
+                <div class="tab-item active" onclick="switchTab('callTrace')">Call Trace</div>
+                <div class="tab-item" onclick="switchTab('resolutions')">Rule Call Resolutions</div>
+                <div class="tab-item" onclick="switchTab('variablesFull')">Variables</div>
             </div>
             <div class="tab-container">
-                <div id="callTraceTab" class="tab-pane active">
+                <div id="callTraceView" class="tab-pane active">
                     <div class="trace-tree" id="traceTree">
                         <div class="loading-state p-4">
                             <div class="spinner-border text-accent" role="status"></div>
@@ -362,14 +359,11 @@
                         </div>
                     </div>
                 </div>
-                <div id="resolutionsTab" class="tab-pane">
-                    <div class="empty-state">
-                        <i class="fas fa-info-circle mb-2"></i>
-                        <p>No rule call resolutions available for this audit.</p>
-                    </div>
+                <div id="resolutionsView" class="tab-pane">
+                    <p class="text-muted p-3">No rule call resolutions available.</p>
                 </div>
-                <div id="variablesTab" class="tab-pane">
-                    <div id="variablesFullView" class="empty-state">
+                <div id="variablesFullView" class="tab-pane">
+                    <div class="empty-state">
                         <i class="fas fa-mouse-pointer mb-2"></i>
                         <p>Select a step in the Call Trace to view all state variables.</p>
                     </div>
@@ -415,15 +409,24 @@
     // ── Bootstrap ──────────────────────────────────────────────────────
     async function init() {
         try {
-            const [ceRes, traceRes] = await Promise.all([
-                fetch(`/api/counterexample/{{ audit_id }}`),
-                fetch(`/api/trace/{{ audit_id }}`)
-            ]);
+            document.getElementById('loadingOverlay').style.display = 'flex';
 
-            auditData = await ceRes.json();
-            if (auditData.error) { showError(auditData.error); return; }
+            console.log('Loading audit data for ID:', {{ audit_id }});
+            const auditRes = await fetch(`/api/counterexample/{{ audit_id }}`);
+            console.log('Audit response status:', auditRes.status);
+            if (!auditRes.ok) {
+                throw new Error(`HTTP error! status: ${auditRes.status}`);
+            }
+            auditData = await auditRes.json();
+            console.log('Audit data:', auditData);
 
+            const traceRes = await fetch(`/api/trace/{{ audit_id }}`);
+            console.log('Trace response status:', traceRes.status);
+            if (!traceRes.ok) {
+                throw new Error(`HTTP error! status: ${traceRes.status}`);
+            }
             const traceJson = await traceRes.json();
+            console.log('Trace data:', traceJson);
             traceData = traceJson.trace || [];
 
             renderHeader();
@@ -432,13 +435,23 @@
 
             document.getElementById('loadingOverlay').style.display = 'none';
 
-            // Auto-select the error step, or the last step
+            // Auto-select last step if error
             if (traceData.length > 0) {
-                const errIdx = traceData.findIndex(s => s.is_error);
-                selectStep(errIdx >= 0 ? errIdx : traceData.length - 1);
+                const errorIdx = traceData.findIndex(s => s.is_error);
+                selectStep(errorIdx >= 0 ? errorIdx : traceData.length - 1);
+            } else {
+                // Show message when no trace data
+                document.getElementById('traceTree').innerHTML =
+                    '<p class="text-muted p-3">No execution trace found for this audit.</p>';
             }
         } catch (e) {
-            showError(`Failed to load audit data: ${e.message}`);
+            console.error("Full error:", e);
+            document.getElementById('loadingOverlay').innerHTML =
+                `<div class="alert alert-danger m-3">
+                    <h5>Error Loading Data</h5>
+                    <p>${e.message}</p>
+                    <p>Check the console for more details.</p>
+                </div>`;
         }
     }
 
@@ -482,34 +495,77 @@
     // ── Call trace ─────────────────────────────────────────────────────
     function renderTrace() {
         const container = document.getElementById('traceTree');
-        if (traceData.length === 0) {
-            container.innerHTML = '<div class="empty-state"><p>No execution trace found.</p></div>';
+
+        if (!traceData || traceData.length === 0) {
+            // Non-SPIN tools: show output + recommendations instead of empty trace
+            if (auditData.is_non_spin || auditData.tool_type !== 'SPIN') {
+                container.innerHTML = `
+                    <div class="p-4">
+                        <h5>${esc(auditData.tool_type || auditData.tool)} Verification Output</h5>
+                        <div class="alert alert-info">
+                            This tool doesn't generate execution traces.
+                            View the verification output and recommendations below.
+                        </div>
+                        ${auditData.recommendations ? `
+                            <h6>Recommendations:</h6>
+                            <ul class="list-unstyled">
+                                ${auditData.recommendations.map(r =>
+                                    `<li class="mb-2">
+                                        <i class="fas fa-lightbulb text-warning me-2"></i>${esc(r)}
+                                    </li>`
+                                ).join('')}
+                            </ul>` : ''}
+                        ${auditData.counterexample && auditData.counterexample.length > 0 ? `
+                            <h6 class="mt-3">Issues Found:</h6>
+                            <div class="trace-tree">
+                                ${auditData.counterexample.map((ce, i) => `
+                                    <div class="trace-step" onclick="selectStep(${i})" id="step-${i}">
+                                        <span class="step-icon">
+                                            <i class="fas fa-exclamation-triangle text-danger"></i>
+                                        </span>
+                                        <span class="step-text">${esc(ce)}</span>
+                                    </div>`).join('')}
+                            </div>` : ''}
+                    </div>`;
+
+                // Populate traceData from counterexample items so variable panel works
+                if (auditData.counterexample && auditData.counterexample.length > 0) {
+                    traceData = auditData.counterexample.map((ce, i) => ({
+                        step:      i + 1,
+                        action:    ce,
+                        proc:      auditData.tool || 'verifier',
+                        line:      '0',
+                        state:     'error',
+                        is_error:  true,
+                        variables: {},
+                        file:      '',
+                        updates:   {}
+                    }));
+                }
+                return;
+            }
+            container.innerHTML = '<p class="text-muted p-3">No execution trace available.</p>';
             return;
         }
 
-        let depth = 0;
+        let currentDepth = 0;
         container.innerHTML = traceData.map((step, idx) => {
             const action = (step.action || '').toLowerCase();
-            let icon = 'fa-code';
-            if (action.includes('storage'))                         icon = 'fa-database';
-            if (action.includes('call') || action.includes('trans')) icon = 'fa-arrow-right-to-bracket';
-            if (step.is_error)                                       icon = 'fa-circle-xmark';
-
-            if (action.includes('call'))   depth++;
-            const indent = Math.max(0, depth - 1) * 15;
-            if (action.includes('return')) depth = Math.max(0, depth - 1);
-
-            const errorClass = step.is_error ? 'style="color:var(--ce-danger)"' : '';
+            if (action.includes('call'))   currentDepth++;
+            const indent = Math.max(0, currentDepth - 1) * 20;
+            const icon   = step.is_error                                       ? 'fa-circle-xmark text-danger'
+                         : (action.includes('call') || action.includes('trans')) ? 'fa-arrow-right-to-bracket'
+                         : action.includes('storage')                            ? 'fa-database'
+                         : 'fa-code';
+            if (action.includes('return')) currentDepth = Math.max(0, currentDepth - 1);
 
             return `
-                <div class="trace-node" style="margin-left:${indent}px">
-                    <div class="node-content" id="step-${idx}" onclick="selectStep(${idx})">
-                        <span class="node-icon" ${errorClass}><i class="fas ${icon}"></i></span>
-                        <span class="node-action">${esc(step.action || step.transition || 'Step ' + step.step)}</span>
-                        ${step.file
-                            ? `<span class="node-file-info">${esc(step.file)}:${step.line}</span>`
-                            : ''}
-                    </div>
+                <div class="trace-step" id="step-${idx}"
+                     onclick="selectStep(${idx})"
+                     style="padding-left:${indent}px">
+                    <span class="step-icon"><i class="fas ${icon}"></i></span>
+                    <span class="step-text">${esc(step.action || step.transition || 'Step ' + step.step)}</span>
+                    <span class="step-loc">${step.file ? esc(step.file) + ':' + step.line : ''}</span>
                 </div>`;
         }).join('');
     }
@@ -519,7 +575,8 @@
         if (idx < 0 || idx >= traceData.length) return;
         selectedIdx = idx;
 
-        document.querySelectorAll('.node-content').forEach(el => el.classList.remove('selected'));
+        // Deselect all — works for both .node-content and .trace-step
+        document.querySelectorAll('.node-content, .trace-step').forEach(el => el.classList.remove('selected'));
         const el = document.getElementById(`step-${idx}`);
         if (el) {
             el.classList.add('selected');
@@ -563,9 +620,52 @@
             }).join('');
         }
 
-        // Full variables tab — table style
-        const fullView = document.getElementById('variablesFullView');
-        fullView.innerHTML = keys.length === 0
+        // Full variables tab is rendered on demand by renderFullVariables() when tab is clicked
+        if (selectedIdx >= 0) renderFullVariables();
+    }
+
+    // ── Tab switching ──────────────────────────────────────────────────
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+        event.target.classList.add('active');
+        if (tabId === 'callTrace') {
+            document.getElementById('callTraceView').classList.add('active');
+        } else if (tabId === 'resolutions') {
+            document.getElementById('resolutionsView').classList.add('active');
+            renderResolutions();
+        } else if (tabId === 'variablesFull') {
+            document.getElementById('variablesFullView').classList.add('active');
+            renderFullVariables();
+        }
+    }
+
+    function renderResolutions() {
+        const container = document.getElementById('resolutionsView');
+        if (auditData && auditData.is_non_spin) {
+            container.innerHTML = `
+                <div class="p-4">
+                    <h5>Verification Output</h5>
+                    <pre class="bg-dark text-light p-3 rounded"
+                         style="max-height:500px;overflow-y:auto;">${esc((auditData.output || 'No output available').substring(0, 5000))}</pre>
+                </div>`;
+        } else {
+            container.innerHTML = '<p class="text-muted p-3">No rule call resolutions available.</p>';
+        }
+    }
+
+    function renderFullVariables() {
+        const container = document.getElementById('variablesFullView');
+        if (selectedIdx === -1 || !traceData.length) {
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-mouse-pointer mb-2"></i><p>Select a step in the Call Trace to view all state variables.</p></div>';
+            return;
+        }
+        const step     = traceData[selectedIdx];
+        const prevStep = selectedIdx > 0 ? traceData[selectedIdx - 1] : { variables: {} };
+        const vars     = step.variables     || {};
+        const prevVars = prevStep.variables || {};
+        const keys     = Object.keys(vars).sort();
+        container.innerHTML = keys.length === 0
             ? '<div class="empty-state"><p>No variables in this state.</p></div>'
             : `<div class="p-3">
                 <table class="table table-dark table-sm table-hover">
@@ -583,17 +683,6 @@
                 </table>
                </div>`;
     }
-
-    // ── Tab switching ──────────────────────────────────────────────────
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const target = btn.getAttribute('data-tab');
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById(target).classList.add('active');
-        });
-    });
 
     // ── Utilities ──────────────────────────────────────────────────────
     function showError(msg) {

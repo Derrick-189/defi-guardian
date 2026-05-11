@@ -1,20 +1,25 @@
 {
   "nodes": [
-    "Program",
-    "Program.State_1",
-    "Program.INIT",
+    "Contract",
+    "Contract.State_1",
+    "Contract.INIT",
     "LTL_safety_no_overflow",
+    "LTL_safety_reentrancy",
     "LTL_liveness_progress",
-    "LTL_invariant_balance"
+    "LTL_invariant_collateral",
+    "LTL_response_price_drop",
+    "LTL_stability",
+    "LTL_fairness",
+    "LTL_reachability_liquidation"
   ],
   "edges": [
     {
-      "from": "Program.INIT",
-      "to": "Program.State_1",
+      "from": "Contract.INIT",
+      "to": "Contract.State_1",
       "label": "assignment"
     }
   ],
   "counterexample_path": [],
-  "model_name": "test_contract.rs",
-  "timestamp": "2026-05-08T19:11:23.188258"
+  "model_name": "SimpleLending.sol",
+  "timestamp": "2026-05-11T17:14:40.496842"
 }

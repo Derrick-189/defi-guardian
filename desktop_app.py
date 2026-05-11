@@ -3357,6 +3357,55 @@ Ready for verification!
         # Save to file
         with open(state_file, 'w') as f:
             json.dump(state, f, indent=2)
+
+        # Emit event to portal for real-time updates
+        try:
+            import requests
+            import uuid
+            import sys
+            # Ensure parent directory is in path for events and trace_parsers
+            _root = os.path.dirname(os.path.abspath(__file__))
+            if _root not in sys.path:
+                sys.path.insert(0, _root)
+                
+            from events import VerificationCompleteEvent, LTLProperty
+            from trace_parsers import get_parser
+            
+            # Use appropriate parser to get high-fidelity data
+            parser = get_parser(tool)
+            ltl_props = []
+            trace_data = None
+            
+            log_path = result.get('log_path', '')
+            trace_path = result.get('trace_path', '')
+            
+            if parser and log_path:
+                ltl_props_raw = parser.parse_rules(log_path)
+                ltl_props = [LTLProperty(**p) for p in ltl_props_raw]
+                trace_data = parser.parse_trace(log_path, trace_path)
+
+            event = VerificationCompleteEvent(
+                audit_id=result.get('id', str(uuid.uuid4())[:8]),
+                tool=tool.upper(),
+                filename=os.path.basename(self.current_file) if hasattr(self, 'current_file') and self.current_file else "unknown",
+                timestamp=datetime.now(),
+                status=status,
+                ltl_properties=ltl_props,
+                trace_data=trace_data,
+                log_path=log_path,
+                trace_path=trace_path,
+                states_explored=result.get('states_stored', 0),
+                transitions=result.get('transitions', 0),
+                depth=result.get('depth', 0)
+            )
+            
+            # Send to web portal
+            requests.post('http://localhost:5000/api/events/emit', 
+                         json=json.loads(event.to_json()), 
+                         timeout=2)
+        except Exception:
+            # Silent fail for event emission - don't want to crash the main app
+            pass
         
         # Log to job history
         self.log_job_history(tool, result, specs)
@@ -5848,12 +5897,24 @@ def api_current_state():
 
 @flask_app.route('/api/activity/recent')
 def api_recent_activity():
-    """Get recent jobs from audit log"""
+    """Get recent jobs from audit log, normalised for the dashboard"""
     if os.path.exists(AUDIT_LOG_FILE):
         try:
             with open(AUDIT_LOG_FILE, 'r') as f:
-                return jsonify(json.load(f)[:10])
-        except:
+                raw = json.load(f)
+            # Normalise field names so the dashboard JS can use them consistently
+            result = []
+            for r in raw[:20]:
+                result.append({
+                    'datetime':   r.get('timestamp', r.get('datetime', '')),
+                    'model_name': os.path.basename(r.get('file', r.get('model_name', 'Unknown'))),
+                    'tool':       r.get('tool', ''),
+                    'status':     r.get('status', ''),
+                    'states':     r.get('details', {}).get('states', 0),
+                    'depth':      r.get('details', {}).get('depth', 0),
+                })
+            return jsonify(result)
+        except Exception:
             pass
     return jsonify([])
 
@@ -5941,15 +6002,42 @@ def desktop_dashboard():
 
                     const stateResp = await fetch('/api/state/current');
                     const state = await stateResp.json();
+                    const ltlResults = state.ltl_results || [];
+                    const passed = ltlResults.filter(r => r.success).length;
+                    const failed = ltlResults.filter(r => !r.success).length;
                     document.getElementById('verifStats').innerHTML =
-                        `<p>States Explored: ${state.states_stored || 0}</p>` +
-                        `<p>Depth: ${state.depth || 0}</p>` +
-                        `<p>Last Verification: ${state.datetime || 'Never'}</p>`;
+                        `<p>States Explored: <strong>${state.states_stored || state.states || 0}</strong></p>` +
+                        `<p>Depth Reached: <strong>${state.depth || 0}</strong></p>` +
+                        `<p>Transitions: <strong>${state.transitions || 0}</strong></p>` +
+                        `<p>LTL Passed: <strong style="color:#3fb950">${passed}</strong> / Failed: <strong style="color:#f85149">${failed}</strong></p>` +
+                        `<p>Last Run: <strong>${state.datetime || 'Never'}</strong></p>` +
+                        `<p>File: <strong>${state.model_name || '—'}</strong></p>`;
 
                     const actResp = await fetch('/api/activity/recent');
                     const activity = await actResp.json();
                     document.getElementById('recentActivity').innerHTML = activity.length
-                        ? activity.map(a => `<div class="mb-1">${a.datetime || ''} — ${a.model_name || 'Unknown'}</div>`).join('')
+                        ? `<table style="width:100%;font-size:0.85rem;border-collapse:collapse;">
+                            <thead><tr style="color:#8b949e;text-align:left;">
+                              <th style="padding:4px 8px;">Time</th>
+                              <th style="padding:4px 8px;">File</th>
+                              <th style="padding:4px 8px;">Tool</th>
+                              <th style="padding:4px 8px;">Status</th>
+                              <th style="padding:4px 8px;">States</th>
+                            </tr></thead>
+                            <tbody>${activity.map(a => `<tr style="border-top:1px solid #30363d;">
+                              <td style="padding:4px 8px;color:#8b949e;font-size:0.78rem;">${(a.datetime||'').slice(0,16)}</td>
+                              <td style="padding:4px 8px;font-family:monospace;">${a.model_name||'—'}</td>
+                              <td style="padding:4px 8px;">${a.tool||'—'}</td>
+                              <td style="padding:4px 8px;">
+                                <span style="padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:700;
+                                  background:${(a.status==='SUCCESS'||a.status==='PASS')?'rgba(63,185,80,0.15)':'rgba(248,81,73,0.15)'};
+                                  color:${(a.status==='SUCCESS'||a.status==='PASS')?'#3fb950':'#f85149'};">
+                                  ${(a.status==='SUCCESS'||a.status==='PASS')?'PASS':'FAIL'}
+                                </span>
+                              </td>
+                              <td style="padding:4px 8px;">${a.states||0}</td>
+                            </tr>`).join('')}</tbody>
+                           </table>`
                         : '<p class="text-muted">No recent activity</p>';
                 } catch(e) {
                     document.getElementById('toolStatus').textContent = 'Error loading data';
